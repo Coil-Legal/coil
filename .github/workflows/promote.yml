@@ -87,4 +87,7 @@ jobs:
           # existed keep working and do not silently jump onto edge.
           docker buildx imagetools create -t "$img:stable" -t "$img:latest" "$img:edge"
           echo "promoted:"
-          docker buildx imagetools inspect "$img:stable" | head -5
+          # No `| head`: under `set -o pipefail` the closed pipe makes a successful
+          # promotion exit 255 and report as a failed job, which is how the first green
+          # promotion looked like a red one.
+          docker buildx imagetools inspect "$img:stable"
