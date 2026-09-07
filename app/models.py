@@ -77,7 +77,7 @@ class Firm(db.Model):
     ledes_firm_id = db.Column(db.String(40), default="")  # LAW_FIRM_ID in LEDES 1998B, usually the firm's tax id
     # Client-facing language default: en | es
     default_language = db.Column(db.String(5), default="en")
-    install_key = db.Column(db.String(40), default="")  # free key from lawfirmautomate.com, recorded at first-run setup
+    install_key = db.Column(db.String(40), default="")  # free key from coil.legal, recorded at first-run setup
     # Invoice template (Clio complaint: "tried to modify your invoice template? LOL")
     invoice_logo_path = db.Column(db.String(400), default="")  # relative to UPLOAD_DIR
     invoice_accent = db.Column(db.String(7), default="#1f5f8b")

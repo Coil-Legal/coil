@@ -15,7 +15,7 @@ run it on.
 Open Terminal and paste:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Law-Firm-Automate/coil/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/Coil-Legal/coil/main/install.sh | sh
 ```
 
 Then open http://localhost:8080 and create the owner account. That is the whole install.
@@ -45,7 +45,7 @@ MAIL_FROM=
 ```yaml
 services:
   coil:
-    image: ghcr.io/law-firm-automate/coil:latest
+    image: ghcr.io/coil-legal/coil:latest
     restart: unless-stopped
     env_file: .env
     ports:
@@ -58,7 +58,7 @@ If `docker compose pull` comes back with `denied` or `unauthorized`, the prebuil
 public yet. Build it from source instead, which takes a few minutes and produces the same thing:
 
 ```
-git clone --depth 1 https://github.com/Law-Firm-Automate/coil.git src
+git clone --depth 1 https://github.com/Coil-Legal/coil.git src
 ```
 
 Then replace the `image:` line above with `build: ./src` and run `docker compose up -d --build`.
@@ -152,7 +152,7 @@ from a small command. Run these from cron or Task Scheduler on the Coil machine:
 
 ## Getting help
 
-Open an issue at https://github.com/Law-Firm-Automate/coil/issues, or email the address on the Coil page
+Open an issue at https://github.com/Coil-Legal/coil/issues, or email the address on the Coil page
 at coil.legal.
 
 ## Updates

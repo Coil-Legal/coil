@@ -139,3 +139,60 @@ def test_health_reports_the_build_without_touching_the_database(auth_app):
     assert body["status"] == "healthy"
     for key in ("version", "commit", "channel"):
         assert key in body, f"/health must report {key}"
+
+
+def test_every_listed_blueprint_actually_exists():
+    """A name in the registration list with no module logs a warning on every startup and
+    every cron run. Six dead names were doing that and burying real warnings."""
+    import re
+    src = open(os.path.join(ROOT, "app", "__init__.py")).read()
+    listed = re.search(r"for modname in \((.*?)\):", src, re.S).group(1)
+    names = [n.strip().strip('"') for n in listed.replace("\n", "").split(",") if n.strip()]
+    assert names, "could not parse the blueprint list"
+    missing = [n for n in names
+               if not os.path.exists(os.path.join(ROOT, "app", "blueprints", f"{n}.py"))]
+    assert not missing, f"listed but not present: {missing}"
+
+
+def test_backup_keeps_only_the_newest_archives(tmp_path):
+    """Unbounded backups fill the disk, which takes Coil down for the same reason having
+    no backup would."""
+    db = tmp_path / "practice.db"
+    env = {"DATABASE_URL": f"sqlite:///{db}"}
+    subprocess.run([sys.executable, os.path.join(ROOT, "seed.py")],
+                   check=True, cwd=ROOT, env={**os.environ, **env})
+    from app import create_app
+    import app.cli as cli
+    app = create_app({"TESTING": True, "SQLALCHEMY_DATABASE_URI": env["DATABASE_URL"]})
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    cli.DATA_DIR = str(data_dir)
+    os.environ["COIL_BACKUP_KEEP"] = "3"
+    try:
+        with app.app_context():
+            for _ in range(5):
+                cli.backup()
+    finally:
+        os.environ.pop("COIL_BACKUP_KEEP", None)
+    kept = sorted((data_dir / "backups").glob("coil-backup-*.tar.gz"))
+    assert len(kept) == 3, [p.name for p in kept]
+
+
+def test_two_backups_in_the_same_second_do_not_overwrite_each_other(tmp_path):
+    """The filename is second-resolution, and the nightly cron and an update can land
+    together. Without a suffix the second one silently replaces the first."""
+    db = tmp_path / "practice.db"
+    env = {"DATABASE_URL": f"sqlite:///{db}"}
+    subprocess.run([sys.executable, os.path.join(ROOT, "seed.py")],
+                   check=True, cwd=ROOT, env={**os.environ, **env})
+    from app import create_app
+    import app.cli as cli
+    app = create_app({"TESTING": True, "SQLALCHEMY_DATABASE_URI": env["DATABASE_URL"]})
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    cli.DATA_DIR = str(data_dir)
+    with app.app_context():
+        a = cli.backup()
+        b = cli.backup()
+    assert a != b, "the second backup overwrote the first"
+    assert a.exists() and b.exists()

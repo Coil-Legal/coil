@@ -33,14 +33,19 @@ def create_app(config=None):
     from .blueprints import auth, dashboard
     app.register_blueprint(auth.bp)
     app.register_blueprint(dashboard.bp)
-    # Feature blueprints are registered here as they land. Each module exposes `bp`.
+    # Feature blueprints, registered as they land. Each module exposes `bp`.
+    #
+    # Only list modules that exist. A name here that has no file logs a warning on every
+    # startup AND every CLI run, and six such names were burying the warnings that matter.
+    # The try/except below stays because it makes a partial checkout survivable, not
+    # because this list is a wishlist.
     for modname in ("contacts", "matters", "conflicts", "tasks", "calendar", "documents",
                     "time", "invoices", "reports",
                     "trust", "payments", "portal",
                     "intake", "engagements", "messages", "settings", "exports", "signatures",
                     "rules", "doctemplates", "emailin", "accounting", "api", "webhooks_out", "ai",
                     "statements", "research", "pi", "features", "records", "discovery", "caseaudit",
-                    "booking", "questionnaires", "stages", "money", "litigation", "dockets", "pdftools", "criminal", "capture",
+                    "money", "criminal", "capture",
                     "importer", "voice", "feedback"):
         try:
             mod = __import__(f"app.blueprints.{modname}", fromlist=["bp"])

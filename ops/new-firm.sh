@@ -19,7 +19,7 @@ BASE_DOMAIN="${COIL_BASE_DOMAIN:-coil.legal}"
 ZONE_ID="${COIL_ZONE_ID:-6ba7ed6eec107adbde335ed1c299d8e6}"   # coil.legal
 VPS_IP="${COIL_VPS_IP:-204.168.134.211}"
 APPS_DIR="${COIL_APPS_DIR:-/home/deploy/apps}"
-SOURCE_APP="${COIL_SOURCE_APP:-$APPS_DIR/coil.lawfirmautomate.com}"   # code and SMTP settings come from here
+SOURCE_APP="${COIL_SOURCE_APP:-$APPS_DIR/demo.coil.legal}"   # code and SMTP settings come from here
 CF_TOKEN_FILE="${COIL_CF_TOKEN_FILE:-/root/.cloudflare-token}"
 
 DRY_RUN=0

@@ -79,7 +79,10 @@ jobs:
         if: steps.check.outputs.go == 'true'
         run: |
           set -euo pipefail
-          img="ghcr.io/${{ github.repository }}"
+          # github.repository keeps the org's capitalisation (Coil-Legal/coil) and Docker
+          # refuses anything but lowercase. The build workflow gets away with the raw value
+          # because metadata-action lowercases it; this one has to do it itself.
+          img="ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')"
           # `latest` is kept as an alias for stable so installs made before channels
           # existed keep working and do not silently jump onto edge.
           docker buildx imagetools create -t "$img:stable" -t "$img:latest" "$img:edge"

@@ -7,6 +7,7 @@ Available commands:
 - backup (new: creates dated backup of data/)
 - voice_reminders, payment_plans, case_audit
 """
+import os
 import sqlite3
 import sys
 import tarfile
@@ -422,6 +423,12 @@ def backup():
 
     stamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
     backup_file = backup_dir / f"coil-backup-{stamp}.tar.gz"
+    # Two backups in the same second would otherwise silently overwrite each other, and
+    # the nightly cron and an update can land together.
+    n = 1
+    while backup_file.exists():
+        backup_file = backup_dir / f"coil-backup-{stamp}-{n}.tar.gz"
+        n += 1
     snapshot = data_dir / ".backup-snapshot.db"
 
     print(f"Creating backup: {backup_file.name}")
@@ -452,8 +459,19 @@ def backup():
         if snapshot and snapshot.exists():
             snapshot.unlink()
 
+    # Prune oldest first. Without this a nightly cron grows without bound and the
+    # disk fills, which takes Coil down for the same reason no backup would have.
+    keep = int(os.environ.get("COIL_BACKUP_KEEP", "14"))
+    # By mtime, not by name: the collision suffix makes "...-231629-1.tar.gz" sort before
+    # "...-231629.tar.gz", so a lexical sort would delete the newest file, not the oldest.
+    archives = sorted(backup_dir.glob("coil-backup-*.tar.gz"), key=lambda f: f.stat().st_mtime)
+    for old_file in archives[:-keep] if keep > 0 else []:
+        old_file.unlink()
+        print(f"  removed old backup {old_file.name}")
+
     size_mb = backup_file.stat().st_size / (1024 * 1024)
     print(f"Backup complete: {backup_file.name} ({size_mb:.1f} MB)")
+    print(f"Keeping the newest {keep} (set COIL_BACKUP_KEEP to change).")
     print(f"Backups are stored in: {backup_dir}")
     print("This folder is inside your mounted data directory, so copy it somewhere off this")
     print("machine as well. A backup on the same disk does not survive losing the disk.")

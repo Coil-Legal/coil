@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 # Coil installer for Mac and Linux. Needs Docker (Docker Desktop on a Mac).
-#   curl -fsSL https://raw.githubusercontent.com/Law-Firm-Automate/coil/main/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/Coil-Legal/coil/main/install.sh | sh
 set -e
 DIR="${COIL_DIR:-$HOME/coil}"
 PORT="${COIL_PORT:-8080}"
@@ -8,7 +8,7 @@ PORT="${COIL_PORT:-8080}"
 # COIL_CHANNEL=edge to follow every push instead, which is useful for testing and a
 # bad idea on a machine holding real matters.
 CHANNEL="${COIL_CHANNEL:-stable}"
-IMAGE="${COIL_IMAGE:-ghcr.io/law-firm-automate/coil:$CHANNEL}"
+IMAGE="${COIL_IMAGE:-ghcr.io/coil-legal/coil:$CHANNEL}"
 AUTO_UPDATE="${COIL_AUTO_UPDATE:-1}"
 
 if ! command -v docker >/dev/null 2>&1; then
@@ -76,7 +76,7 @@ YML
 if ! docker compose pull 2>/dev/null; then
   echo "Could not pull the prebuilt image; building from source instead (takes a few minutes)."
   if ! command -v git >/dev/null 2>&1; then echo "git is needed to build from source."; exit 1; fi
-  [ -d src ] || git clone --depth 1 https://github.com/Law-Firm-Automate/coil.git src
+  [ -d src ] || git clone --depth 1 https://github.com/Coil-Legal/coil.git src
   (cd src && git pull -q || true)
   sed -i.bak "s#image: .*#build: ./src#" docker-compose.yml && rm -f docker-compose.yml.bak
   docker compose build
@@ -91,19 +91,27 @@ if [ "$AUTO_UPDATE" = "1" ]; then
   if [ -f src/ops/self-update.sh ]; then
     cp src/ops/self-update.sh ops/self-update.sh
   else
-    curl -fsSL https://raw.githubusercontent.com/Law-Firm-Automate/coil/main/ops/self-update.sh \
+    curl -fsSL https://raw.githubusercontent.com/Coil-Legal/coil/main/ops/self-update.sh \
       -o ops/self-update.sh 2>/dev/null || true
   fi
   if [ -s ops/self-update.sh ]; then
     chmod +x ops/self-update.sh
-    LINE="17 3 * * * cd $DIR && COIL_PORT=$PORT ./ops/self-update.sh >> $DIR/data/update.log 2>&1"
+    UPD_LINE="17 3 * * * cd $DIR && COIL_PORT=$PORT ./ops/self-update.sh >> $DIR/data/update.log 2>&1"
+    # A separate nightly backup, because the updater only takes one when there is
+    # something to update. Without this a firm goes unbacked-up on every day we do
+    # not ship, which is most days once Coil settles down.
+    BAK_LINE="40 2 * * * cd $DIR && docker compose exec -T coil python -m app.cli backup >> $DIR/data/backup.log 2>&1"
     if command -v crontab >/dev/null 2>&1; then
-      # Replace our own line only, so the firm's other cron jobs are untouched.
-      (crontab -l 2>/dev/null | grep -v 'coil.*self-update.sh' ; echo "$LINE") | crontab - 2>/dev/null \
-        && echo "Nightly updates are on (3:17am). Turn them off with: crontab -e" \
-        || echo "Could not install the update cron. Run ./ops/self-update.sh yourself, or add: $LINE"
+      # Replace our own lines only, so the firm's other cron jobs are untouched.
+      (crontab -l 2>/dev/null | grep -v 'coil.*self-update.sh' | grep -v 'app.cli backup' ; \
+       echo "$BAK_LINE" ; echo "$UPD_LINE") | crontab - 2>/dev/null \
+        && echo "Nightly backup (2:40am) and updates (3:17am) are on. Change them with: crontab -e" \
+        || echo "Could not install the cron jobs. Add these yourself:" \
+        && true
     else
-      echo "No crontab on this machine. Run ./ops/self-update.sh on a schedule to stay current."
+      echo "No crontab on this machine. Schedule these two yourself to stay backed up and current:"
+      echo "  $BAK_LINE"
+      echo "  $UPD_LINE"
     fi
   fi
 fi
@@ -120,7 +128,8 @@ else
   echo "  Undo:    cd $DIR && ./ops/self-update.sh --rollback"
 fi
 echo "  Channel: $CHANNEL   (stable is promoted weekly; COIL_CHANNEL=edge follows every build)"
-echo "  Backup:  cd $DIR && docker compose exec coil python -m app.cli backup"
+echo "  Backup:  nightly to $DIR/data/backups (newest 14 kept). Force one: cd $DIR && docker compose exec coil python -m app.cli backup"
+echo "  OFFSITE: those backups sit on this machine. Copy $DIR/data somewhere else too."
 echo
 echo "First visit will create the owner account and ask for your install key from https://coil.legal/download."
 echo
