@@ -1,0 +1,103 @@
+{% extends "public.html" %}{% set lang = lang_for(inv.client) %}{% set cc = inv.currency or 'USD' %}{% block title %}{{ t('inv.title', lang_for(inv.client), number=inv.number, firm=firm_settings.name) }}{% endblock %}
+{% block head %}<style>
+.paidstamp{display:inline-block;border:3px solid var(--ok);color:var(--ok);font-weight:800;letter-spacing:.12em;padding:4px 14px;border-radius:6px;transform:rotate(-6deg);font-size:1.3rem}
+.paybtn{display:block;text-align:center;padding:14px 18px;font-size:1.05rem}
+.invtitle{color:{{ tpl.accent }}}
+table th.acc{background:{{ tpl.accent }};color:#fff}
+.firmlogo{max-height:56px;max-width:200px;display:block;margin-bottom:8px}
+</style>{% endblock %}
+{% block content %}
+<div class="card">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
+    <div>
+      {% if tpl.logo_abs %}<img class="firmlogo" src="/p/firm-logo" alt="{{ firm_settings.name }}">{% endif %}
+      <h1 class="invtitle">{% if tpl.title and tpl.title != 'INVOICE' %}{{ tpl.title }} {{ inv.number }}{% else %}{{ t('inv.heading', lang, number=inv.number) }}{% endif %}</h1>
+      <div class="muted">{{ inv.matter.name }}</div>
+    </div>
+    <div class="right">
+      {% if inv.status == 'void' %}<span class="badge void">{{ t('inv.void', lang) }}</span>
+      {% elif inv.balance_cents == 0 and inv.total_cents > 0 %}<span class="paidstamp">{{ t('inv.paid_stamp', lang) }}</span>
+      {% else %}<div class="small muted">{{ tpl.label('balance_due', t('inv.balance_due', lang)) }}</div><div style="font-size:1.6rem;font-weight:700">{{ inv.balance_cents|cur(cc) }}</div>{% endif %}
+      {# The currency code, stated once. app/i18n.py belongs to another module, so the two words are inline. #}
+      <div class="small muted">{% if lang == 'es' %}Importes en {{ cc }}{% else %}Amounts in {{ cc }}{% endif %}</div>
+    </div>
+  </div>
+  <div class="grid c2" style="margin-top:14px">
+    <dl class="kv">
+      <dt>{{ tpl.label('bill_to', t('inv.bill_to', lang)) }}</dt><dd>{{ inv.client.display_name }}{% if inv.client.address %}<br><span class="small muted">{{ inv.client.address|replace('\n', ', ') }}</span>{% endif %}</dd>
+      <dt>{{ tpl.label('matter', t('inv.matter', lang)) }}</dt><dd>{{ inv.matter.number }} {{ inv.matter.name }}</dd>
+    </dl>
+    <dl class="kv">
+      <dt>{{ tpl.label('invoice_number', t('inv.heading', lang, number='')|trim) }}</dt><dd>{{ inv.number }}</dd>
+      <dt>{{ t('inv.issued', lang) }}</dt><dd>{{ inv.issued_on|d }}</dd>
+      <dt>{{ tpl.label('due', t('inv.due', lang)) }}</dt><dd>{{ inv.due_on|d if inv.due_on else t('inv.on_receipt', lang) }}</dd>
+      <dt>{{ t('inv.from', lang) }}</dt><dd>{{ firm_settings.name }}{% if firm_settings.address %}<br><span class="small muted">{{ firm_settings.address|replace('\n', ', ') }}</span>{% endif %}</dd>
+    </dl>
+  </div>
+</div>
+
+<div class="card">
+{# Columns and their order come from Settings > Invoice template. Translated where a string exists; the
+   timekeeper and code headings are short and left as is. #}
+{% set col_label = {'date': t('inv.date', lang), 'description': t('inv.description', lang), 'qty': t('inv.qty', lang),
+                    'rate': t('inv.rate', lang), 'amount': t('inv.amount', lang), 'timekeeper': column_titles['timekeeper'],
+                    'code': column_titles['code']} %}
+{% set span = columns|length - 1 %}
+<table>
+<tr>{% for c in columns %}<th class="acc{% if c in ('qty', 'rate', 'amount') %} num{% endif %}">{{ col_label[c] }}</th>{% endfor %}</tr>
+{% for l in inv.lines %}
+{% set meta = line_meta(l) if ('timekeeper' in columns or 'code' in columns) else ('', '') %}
+<tr>{% for c in columns %}{% if c == 'date' %}<td class="nowrap">{{ l.date|d }}</td>
+{% elif c == 'description' %}<td>{{ line_description(l, tpl) }}</td>
+{% elif c == 'timekeeper' %}<td>{{ meta[0] }}</td>
+{% elif c == 'code' %}<td>{{ meta[1] }}</td>
+{% elif c == 'qty' %}<td class="num">{{ format_quantity(l) }}</td>
+{% elif c == 'rate' %}<td class="num">{% if l.kind == 'time' %}{{ l.unit_cents|cur(cc) }}{% endif %}</td>
+{% elif c == 'amount' %}<td class="num">{{ l.amount_cents|cur(cc) }}</td>{% endif %}{% endfor %}</tr>
+{% endfor %}
+<tr><th colspan="{{ span }}" class="right">{{ t('inv.subtotal', lang) }}</th><th class="num">{{ inv.subtotal_cents|cur(cc) }}</th></tr>
+{% if inv.tax_cents %}<tr><th colspan="{{ span }}" class="right">{{ t('inv.tax', lang) }}</th><th class="num">{{ inv.tax_cents|cur(cc) }}</th></tr>{% endif %}
+{% if inv.paid_cents %}<tr><th colspan="{{ span }}" class="right">{{ t('inv.paid', lang) }}</th><th class="num">{{ inv.paid_cents|cur(cc) }}</th></tr>{% endif %}
+<tr><th colspan="{{ span }}" class="right">{{ tpl.label('balance_due', t('inv.balance_due', lang)) }}</th><th class="num">{{ inv.balance_cents|cur(cc) }}</th></tr>
+</table>
+{% if inv.notes %}<p class="small" style="margin-top:10px">{{ inv.notes }}</p>{% endif %}
+</div>
+
+{% if inv.status != 'void' and inv.balance_cents > 0 %}
+<div class="card">
+  <h2>{{ t('inv.pay_this', lang) }}</h2>
+  {% if online_payment %}
+  <div class="grid c2">
+    <div>
+      <a class="btn ok paybtn" href="/pay/{{ inv.public_token }}?method=ach">{{ t('inv.pay_ach', lang) }}</a>
+    </div>
+    <div>
+      <a class="btn paybtn" href="/pay/{{ inv.public_token }}?method=card">{{ t('inv.pay_card', lang) }}</a>
+      {% if surcharge_pct %}<div class="small muted" style="text-align:center;margin-top:6px">{{ t('inv.surcharge', lang, pct='%g' % surcharge_pct) }}</div>{% endif %}
+    </div>
+  </div>
+  {% else %}
+  {# Card and bank checkout are set up in US dollars only. Charging this invoice through them would take the
+     wrong currency from the client, so we say so instead of offering the buttons. #}
+  <p>{% if lang == 'es' %}Esta factura está expresada en {{ cc }}. Nuestro pago en línea con tarjeta o
+     transferencia solo funciona en dólares estadounidenses, así que le rogamos que pague por transferencia
+     bancaria o que se ponga en contacto con {{ firm_settings.phone or 'nuestra oficina' }} y le enviaremos
+     las instrucciones de pago.{% else %}This invoice is in {{ cc }}. Our online card and bank transfer
+     payments only work in US dollars, so please pay by bank transfer, or contact
+     {{ firm_settings.phone or 'our office' }} and we will send you payment instructions.{% endif %}</p>
+  {% endif %}
+  {% if trust_balance > 0 %}<p class="small muted" style="margin-top:12px">{{ t('inv.trust_note', lang, amount=trust_balance|cur(firm_settings.currency or 'USD'), phone=(firm_settings.phone or t('inv.our_office', lang))) }}</p>{% endif %}
+  {% if tpl.payment_instructions %}<p class="small muted" style="white-space:pre-line">{{ tpl.payment_instructions|replace('{link}', url_for('invoices.public_view', token=inv.public_token, _external=True)) }}</p>
+  {% else %}<p class="small muted">{{ t('inv.check', lang, firm=firm_settings.name, send_to=(t('inv.send_to', lang, address=firm_settings.address|replace('\n', ', ')) if firm_settings.address else '')) }}</p>{% endif %}
+</div>
+{% endif %}
+
+{% if payments %}
+<div class="card"><h2>{{ t('inv.payments_received', lang) }}</h2>
+<table><tr><th>{{ t('inv.date', lang) }}</th><th>{{ t('inv.method', lang) }}</th><th class="num">{{ t('inv.amount', lang) }}</th></tr>
+{% for p in payments %}<tr><td>{{ p.received_on|d }}</td><td>{{ p.method }}</td><td class="num">{{ p.amount_cents|cur(cc) }}</td></tr>{% endfor %}
+</table></div>
+{% endif %}
+
+<p class="small"><a href="{{ url_for('invoices.public_pdf', token=inv.public_token) }}">{{ t('inv.download_pdf', lang) }}</a>{% if firm_settings.invoice_footer %} <span class="muted">· {{ firm_settings.invoice_footer }}</span>{% endif %}</p>
+{% endblock %}

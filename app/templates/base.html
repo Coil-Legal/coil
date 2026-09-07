@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="{{ lang|default('en', true) }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}{{ firm().name }}{% endblock %} | Coil</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+<link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#1f5f8b"><link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+<script>if ('serviceWorker' in navigator) { window.addEventListener('load', function () { navigator.serviceWorker.register('/sw.js').catch(function () {}); }); }</script>
+{% block head %}{% endblock %}
+</head>
+<body>
+{% set u = current_user() %}
+<div class="layout">
+  <nav class="sidebar">
+    <a class="brand" href="{{ url_for('dashboard.index') }}">{{ firm().name }}</a>
+    {% set _path = request.path %}
+    <a class="nav {{ 'active' if _path == '/' }}" href="{{ url_for('dashboard.index') }}">Dashboard</a>
+    <div class="sec">Clients</div>
+    <a class="nav {{ 'active' if _path.startswith('/intake') and not _path.startswith('/intake/pipeline') }}" href="/intake">Intake</a>
+    <a class="nav {{ 'active' if _path.startswith('/intake/pipeline') }}" href="/intake/pipeline">Pipeline</a>
+    <a class="nav {{ 'active' if _path.startswith('/contacts') }}" href="/contacts">Contacts</a>
+    <a class="nav {{ 'active' if _path.startswith('/matters') }}" href="/matters">Matters</a>
+    <a class="nav {{ 'active' if _path.startswith('/conflicts') }}" href="/conflicts">Conflict check</a>
+    <a class="nav {{ 'active' if _path.startswith('/engagements') }}" href="/engagements">Engagement letters</a>
+    <a class="nav {{ 'active' if _path.startswith('/messages') }}" href="/messages">Messages</a>
+    <a class="nav {{ 'active' if _path.startswith('/signatures') }}" href="/signatures">Signatures</a>
+    <a class="nav {{ 'active' if _path.startswith('/voice') }}" href="/voice">Voice line</a>
+    <div class="sec">Work</div>
+    <a class="nav {{ 'active' if _path.startswith('/time') and not _path.startswith('/time/suggestions') }}" href="/time">Time &amp; expenses</a>
+    <a class="nav {{ 'active' if _path.startswith('/time/suggestions') }}" href="/time/suggestions">Time suggestions</a>
+    <a class="nav {{ 'active' if _path.startswith('/tasks') }}" href="/tasks">Tasks &amp; deadlines</a>
+    <a class="nav {{ 'active' if _path.startswith('/calendar') }}" href="/calendar">Calendar</a>
+    <a class="nav {{ 'active' if _path.startswith('/documents') }}" href="/documents">Documents</a>
+    <a class="nav {{ 'active' if _path.startswith('/doctemplates') }}" href="/doctemplates">Document templates</a>
+    <a class="nav {{ 'active' if _path.startswith('/ai') }}" href="/ai/search">Ask Coil</a>
+    <a class="nav {{ 'active' if _path.startswith('/research') }}" href="/research">Research</a>
+    <a class="nav {{ 'active' if _path.startswith('/pi') }}" href="/pi">Personal injury</a>
+    <a class="nav {{ 'active' if _path.startswith('/criminal') }}" href="/criminal">Criminal defense</a>
+    <div class="sec">Money</div>
+    <a class="nav {{ 'active' if _path.startswith('/invoices') }}" href="/invoices">Invoices</a>
+    <a class="nav {{ 'active' if _path.startswith('/statements') }}" href="/statements">Client statements</a>
+    <a class="nav {{ 'active' if _path.startswith('/payments') }}" href="/payments">Payments</a>
+    <a class="nav {{ 'active' if _path.startswith('/money') }}" href="/money/plans">Plans &amp; splits</a>
+    <a class="nav {{ 'active' if _path.startswith('/trust') }}" href="/trust">Trust accounting</a>
+    <a class="nav {{ 'active' if _path.startswith('/accounting') }}" href="/accounting">Accounting</a>
+    <a class="nav {{ 'active' if _path.startswith('/reports') }}" href="/reports">Reports</a>
+    <div class="sec">Firm</div>
+    <a class="nav {{ 'active' if _path.startswith('/settings') and not _path.startswith('/settings/templates') and not _path.startswith('/settings/audit') and not _path.startswith('/settings/rules') and not _path.startswith('/settings/holidays') }}" href="/settings">Settings</a>
+    <a class="nav {{ 'active' if _path.startswith('/settings/templates') }}" href="/settings/templates">Matter templates</a>
+    <a class="nav {{ 'active' if _path.startswith('/settings/audit') }}" href="/settings/audit">Audit log</a>
+    <a class="nav {{ 'active' if _path.startswith('/settings/rules') or _path.startswith('/settings/holidays') }}" href="/settings/rules">Court rules</a>
+    <a class="nav {{ 'active' if _path.startswith('/import') }}" href="/import">Import from another system</a>
+    <a class="nav {{ 'active' if _path.startswith('/exports') }}" href="/exports">Exports</a>
+    <a class="nav {{ 'active' if _path.startswith('/features') }}" href="/features">Feature map</a>
+    {% if u and config.FEEDBACK_ENABLED not in ('0', 'false', 'no') %}
+    <a class="nav feedback-link {{ 'active' if _path.startswith('/feedback') }}"
+       href="{{ url_for('feedback.index') }}?from={{ _path|urlencode }}">Send feedback</a>
+    {% endif %}
+    {% if u %}
+    <div class="user">{{ u.name }}<br>
+      <form method="post" action="{{ url_for('auth.logout') }}" class="inline">{{ csrf() }}<button class="btn small secondary" style="margin-top:6px">Log out</button></form>
+    </div>
+    {% endif %}
+  </nav>
+  <main class="main">
+    {% with msgs = get_flashed_messages(with_categories=true) %}
+      {% for cat, m in msgs %}<div class="flash {{ cat }}">{{ m }}</div>{% endfor %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+</div>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,34 @@
+{% extends "base.html" %}{% block title %}Exports{% endblock %}{% block content %}
+<div class="topbar"><h1>Exports</h1></div>
+<div class="grid c2">
+<div class="card"><h2>QuickBooks Online</h2>
+  <table>
+    <tr><td><a href="/exports/quickbooks/invoices.csv">Invoices</a></td><td class="small muted">One row per invoice line. Drafts and voided invoices are left out.</td></tr>
+    <tr><td><a href="/exports/quickbooks/payments.csv">Payments</a></td><td class="small muted">Every payment with its invoice number, method, and reference.</td></tr>
+    <tr><td><a href="/exports/quickbooks/customers.csv">Customers</a></td><td class="small muted">Clients only, with billing address on one line.</td></tr>
+  </table>
+  <h3 style="margin-top:14px">Importing invoices</h3>
+  <p class="small">In QuickBooks Online go to Settings (the gear) > Import data > Invoices and upload the invoices CSV. Each row is one invoice line, and rows sharing an InvoiceNo are combined into one invoice. On the mapping step match InvoiceNo, Customer, InvoiceDate, DueDate, Item(Product/Service), ItemDescription, ItemQuantity, ItemRate, and ItemAmount to the QuickBooks fields of the same name, and pick MM/DD/YYYY as the date format.</p>
+  <p class="small">Import customers first so the Customer names match, then invoices, then payments through Settings > Import data > Bank data or by entering them as Receive payment. Items are named Legal Services (time and flat fees), Reimbursable Expenses, and Adjustment; tick "add new products/services" the first time or create those three items in QuickBooks before importing.</p>
+</div>
+<div class="card"><h2>Full data dumps</h2>
+  <table>
+    <tr><td><a href="/exports/time.csv">Time entries</a></td><td class="small muted">Every time entry with matter, client, user, hours, rate, amount, and invoice.</td></tr>
+    <tr><td><a href="/exports/trust.csv">Trust ledger</a></td><td class="small muted">Every trust transaction. Use it for your bar's record-keeping requirements or an accountant review.</td></tr>
+    <tr><td><a href="/exports/contacts.csv">Contacts</a></td><td class="small muted">Everyone in the address book, with aliases and client flag.</td></tr>
+  </table>
+  <p class="small muted" style="margin-top:12px">Amounts are in dollars with two decimals. Dates in the dumps are YYYY-MM-DD; the QuickBooks files use MM/DD/YYYY. Generated {{ today|d }}.</p>
+</div>
+</div>
+<div class="card"><h2>LEDES 1998B e-billing</h2>
+  <p class="small">Insurance carriers and corporate legal departments often require invoices as a LEDES 1998B file instead of a PDF. The file is pipe-delimited with one record per time entry and per expense, carrying the UTBMS task, activity and expense codes from your entries, hours to two decimals, the timekeeper, and the ids the client assigned: your firm id (Settings), the client id (contact), and the matter id (matter). Only sent invoices in the date range are included, and the export refuses and tells you what is missing when any of those ids is blank. Each invoice is stamped with the export time so you can see what has already gone out.</p>
+  {% if ledes_problems %}<ul class="small" style="color:var(--bad);margin:6px 0 10px 18px">{% for p in ledes_problems %}<li>{{ p }}</li>{% endfor %}</ul>{% endif %}
+  <form method="get" action="/exports/ledes" class="row">
+    <div><label>From (issue date)</label><input type="date" name="from" value="{{ ledes_from|iso }}" required></div>
+    <div><label>To</label><input type="date" name="to" value="{{ ledes_to|iso }}" required></div>
+    <div><label>Client</label><select name="client_id"><option value="">All clients</option>{% for c in clients %}<option value="{{ c.id }}" {{ 'selected' if ledes_client_id == c.id }}>{{ c.display_name }}{% if not c.ledes_client_id %} (no LEDES id){% endif %}</option>{% endfor %}</select></div>
+    <div><label>&nbsp;</label><button class="btn secondary">Download LEDES file</button></div>
+  </form>
+  <p class="small muted" style="margin-top:8px">Firm LEDES id: {% if firm_settings.ledes_firm_id %}<strong>{{ firm_settings.ledes_firm_id }}</strong>{% else %}<span style="color:var(--bad)">not set</span>, add it under <a href="/settings">Settings</a>{% endif %}. Rates and totals are written in each invoice's currency without a currency column, as the 1998B layout has none.</p>
+</div>
+{% endblock %}

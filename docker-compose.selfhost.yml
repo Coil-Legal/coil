@@ -1,0 +1,16 @@
+# Coil on your own machine or server, no reverse proxy. Opens http://localhost:8080.
+# Put a reverse proxy with HTTPS in front of it before exposing it to the internet.
+#
+# If pulling the image is denied, it is not public yet. Clone the source next to this file
+#   git clone --depth 1 https://github.com/Law-Firm-Automate/coil.git src
+# then swap the image line below for `build: ./src` and run `docker compose up -d --build`.
+services:
+  coil:
+    image: ghcr.io/law-firm-automate/coil:latest
+    container_name: coil
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "8080:8000"
+    volumes:
+      - ./data:/app/data

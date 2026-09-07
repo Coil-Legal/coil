@@ -1,0 +1,87 @@
+# Move the `stable` tag onto whatever `edge` has been holding, once it has soaked.
+#
+# Coil ships to main most days. Self-hosted firms follow `stable` and auto-update
+# overnight, so promoting every push would put an untested build on a firm's live
+# matters the morning it lands. This waits until the edge build is a few days old,
+# by which time it has been running on our own hosted instances, and only then moves
+# `stable` and `latest`.
+#
+# Retagging copies the existing multi-arch manifest. It does not rebuild, so the
+# digest a firm pulls is byte-identical to the one that soaked.
+#
+# Security fixes do not wait: run this by hand with force=true.
+name: Promote edge to stable
+
+on:
+  schedule:
+    - cron: "0 15 * * 0" # Sundays, mid-afternoon UTC, so a bad promotion is noticed
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Promote now, skipping the soak check (use for security fixes)"
+        type: boolean
+        default: false
+      soak_days:
+        description: "Days the edge build must have existed"
+        default: "3"
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: check
+        name: Has the edge build soaked long enough?
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FORCE: ${{ inputs.force }}
+          SOAK_DAYS: ${{ inputs.soak_days || '3' }}
+          OWNER: ${{ github.repository_owner }}
+          PKG: coil
+        run: |
+          set -euo pipefail
+          if [ "${FORCE:-false}" = "true" ]; then
+            echo "forced promotion, skipping the soak check"
+            echo "go=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # created_at of the package version currently tagged `edge`.
+          created=$(gh api "/orgs/$OWNER/packages/container/$PKG/versions?per_page=100" \
+            --jq '[.[] | select(.metadata.container.tags | index("edge"))][0].created_at' 2>/dev/null || true)
+          if [ -z "$created" ] || [ "$created" = "null" ]; then
+            # Fail closed. Promoting a build whose age we cannot establish is exactly the
+            # thing this job exists to prevent.
+            echo "could not determine the age of the edge build; not promoting."
+            echo "Run this workflow manually with force=true if that is what you want."
+            echo "go=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          age=$(( ( $(date -u +%s) - $(date -u -d "$created" +%s) ) / 86400 ))
+          echo "edge was published $created, $age day(s) ago; soak is $SOAK_DAYS day(s)"
+          if [ "$age" -ge "$SOAK_DAYS" ]; then
+            echo "go=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "not soaked yet, leaving stable where it is"
+            echo "go=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Move stable and latest onto the edge digest
+        if: steps.check.outputs.go == 'true'
+        run: |
+          set -euo pipefail
+          img="ghcr.io/${{ github.repository }}"
+          # `latest` is kept as an alias for stable so installs made before channels
+          # existed keep working and do not silently jump onto edge.
+          docker buildx imagetools create -t "$img:stable" -t "$img:latest" "$img:edge"
+          echo "promoted:"
+          docker buildx imagetools inspect "$img:stable" | head -5

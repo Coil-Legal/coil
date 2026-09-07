@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="{{ lang|default('en', true) }}">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}{{ firm().name }}{% endblock %}</title>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+<link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#1f5f8b"><link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+<script>if ('serviceWorker' in navigator) { window.addEventListener('load', function () { navigator.serviceWorker.register('/sw.js').catch(function () {}); }); }</script>
+{% block head %}{% endblock %}
+</head>
+<body>
+<div class="public">
+  <div style="margin-bottom:16px"><strong>{{ firm().name }}</strong>{% if firm().phone %} <span class="muted">· {{ firm().phone }}</span>{% endif %}</div>
+  {% with msgs = get_flashed_messages(with_categories=true) %}
+    {% for cat, m in msgs %}<div class="flash {{ cat }}">{{ m }}</div>{% endfor %}
+  {% endwith %}
+  {% block content %}{% endblock %}
+</div>
+<p class="small muted" style="margin-top:28px">Powered by Coil</p>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

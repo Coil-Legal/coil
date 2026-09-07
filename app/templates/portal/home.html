@@ -1,0 +1,83 @@
+{% extends "public.html" %}{% block title %}{{ t('portal.home.title', lang) }}{% endblock %}{% block content %}
+{% include "portal/_nav.html" %}
+<h1>{{ t('portal.home.welcome', lang, name=(c.first_name or c.display_name)) }}</h1>
+<p class="muted">{{ t('portal.home.intro', lang, firm=firm().name) }}</p>
+
+{% if letters %}
+<div class="card">
+  <h2>{{ t('portal.home.letters', lang) }}</h2>
+  <table>{% for e in letters %}<tr><td>{{ e.subject or e.matter.name }}<br><span class="small muted">{{ t('portal.home.sent_on', lang, date=e.sent_at|d) }}</span></td><td class="right nowrap"><a class="btn small" href="/sign/{{ e.token }}">{{ t('portal.home.review_sign', lang) }}</a></td></tr>{% endfor %}</table>
+</div>
+{% endif %}
+
+{% if to_sign %}
+<div class="card">
+  <h2>{{ t('portal.home.docs_to_sign', lang) }}</h2>
+  <table>{% for s in to_sign %}<tr><td>{{ s.title or s.document.name }}<br><span class="small muted">{{ s.document.matter.name if s.document and s.document.matter else '' }} · {{ t('portal.home.sent_on', lang, date=s.sent_at|d) }}</span></td><td class="right nowrap"><a class="btn small" href="/sign/doc/{{ s.token }}">{{ t('portal.home.review_sign', lang) }}</a></td></tr>{% endfor %}</table>
+</div>
+{% endif %}
+
+<div class="card">
+  <h2>{{ t('portal.home.messages', lang) }}</h2>
+  <p>{% if unread %}<span class="badge new">{{ t('portal.home.unread', lang, n=unread) }}</span>{% else %}<span class="muted">{{ t('portal.home.no_unread', lang) }}</span>{% endif %}
+  <a class="btn small secondary" href="{{ url_for('portal.messages') }}" style="margin-left:10px">{{ t('portal.home.open_messages', lang) }}</a></p>
+</div>
+
+<div class="card">
+  <h2>{{ t('portal.home.invoices', lang) }}</h2>
+  {% if invoices %}<table><tr><th>{{ t('portal.home.invoice', lang) }}</th><th>{{ t('portal.home.matter', lang) }}</th><th>{{ t('portal.home.due', lang) }}</th><th class="num">{{ t('portal.home.balance', lang) }}</th><th></th></tr>
+  {% for i in invoices %}<tr><td>{{ i.number }}</td><td>{{ i.matter.name if i.matter else '' }}</td><td class="nowrap">{{ i.due_on|d }}{% if i.is_overdue %} <span class="badge overdue">{{ t('portal.home.past_due', lang) }}</span>{% endif %}</td><td class="num">{{ i.balance_cents|money }}</td><td class="right nowrap"><a href="/p/{{ i.public_token }}">{{ t('portal.home.view_pay', lang) }}</a></td></tr>{% endfor %}</table>
+  {% else %}<p class="muted">{{ t('portal.home.nothing_due', lang) }}</p>{% endif %}
+</div>
+
+{# ---- Agent P: card on file + payment plans (strings inline; app/i18n.py belongs to Agent D) ---- #}
+{% set es = (lang == 'es') %}
+{% set plans = money_plans_for_contact(c) %}
+<div class="card">
+  <h2>{{ 'Pagos automáticos' if es else 'Automatic payments' }}</h2>
+  {% if plans %}
+  <table><tr><th>{{ 'Factura' if es else 'Invoice' }}</th><th>{{ 'Cuotas' if es else 'Installments' }}</th><th>{{ 'Próximo pago' if es else 'Next payment' }}</th><th class="num">{{ 'Importe' if es else 'Amount' }}</th><th></th></tr>
+  {% for p in plans %}<tr><td>{{ p.invoice.number if p.invoice else '' }}</td><td>{{ p.paid_installments }} / {{ p.installments }}</td><td class="nowrap">{{ p.next_charge_on|d }}</td><td class="num">{{ money_next_cents(p)|money }}</td><td class="right nowrap">{% if p.auto_charge %}<span class="small muted">{{ 'se cobra a la tarjeta guardada' if es else 'charged to your saved card' }}</span>{% elif p.invoice %}<a href="/pay/plan/{{ p.id }}/{{ p.invoice.public_token }}">{{ 'Pagar ahora' if es else 'Pay now' }}</a>{% endif %}</td></tr>{% endfor %}</table>
+  {% endif %}
+  {% if money_has_card(c) %}
+  <p>{{ 'Tarjeta guardada: ' if es else 'Card on file: ' }}{{ money_card_label(c) }}{% if c.card_authorised_on %} <span class="small muted">({{ 'autorizada el ' if es else 'authorised ' }}{{ c.card_authorised_on|d }})</span>{% endif %}. <span class="small muted">{{ 'Para retirarla, póngase en contacto con nosotros.' if es else 'Contact us to remove it.' }}</span></p>
+  {% else %}
+  <p class="muted">{{ 'Guarde una tarjeta para que las facturas y los planes de pago se cobren automáticamente. Recibirá una factura por cada cargo.' if es else 'Save a card so invoices and payment plans can be charged automatically. You get an invoice for every charge.' }}</p>
+  <form method="post" action="/money/portal/card">{{ csrf() }}<button class="btn small">{{ 'Guardar una tarjeta para pagos automáticos' if es else 'Save a card for automatic payments' }}</button></form>
+  {% endif %}
+</div>
+{# ---- end Agent P ---- #}
+
+<div class="card">
+  <h2>{{ t('portal.home.matters', lang) }}</h2>
+  {% if matters %}<table><tr><th>{{ t('portal.home.number', lang) }}</th><th>{{ t('portal.home.matter', lang) }}</th><th>{{ t('portal.home.status', lang) }}</th><th>{{ t('portal.home.attorney', lang) }}</th></tr>
+  {% for m in matters %}<tr><td class="nowrap">{{ m.number }}</td><td>{{ m.name }}</td><td><span class="badge {{ m.status }}">{{ t('portal.status.' ~ m.status, lang) }}</span></td><td>{{ m.responsible.name if m.responsible else '' }}</td></tr>{% endfor %}</table>
+  {% else %}<p class="muted">{{ t('portal.home.no_matters', lang) }}</p>{% endif %}
+</div>
+
+<div class="card">
+  <h2>{{ t('portal.home.docs', lang) }}</h2>
+  {% if docs %}<table>{% for d in docs %}<tr><td>{{ d.name }}<br><span class="small muted">{{ d.matter.name }} · {{ d.created_at|d }}{% if d.uploaded_by_client %} · {{ t('portal.home.uploaded_by_you', lang) }}{% endif %}</span></td><td class="right nowrap"><a href="{{ url_for('portal.download', doc_id=d.id) }}">{{ t('portal.home.download', lang) }}</a></td></tr>{% endfor %}</table>
+  {% else %}<p class="muted">{{ t('portal.home.no_docs', lang) }}</p>{% endif %}
+</div>
+
+<div class="card">
+  <h2>{{ t('portal.home.send_doc', lang) }}</h2>
+  {% if all_matters %}
+  <form method="post" action="{{ url_for('portal.upload') }}" enctype="multipart/form-data">{{ csrf() }}
+    <div class="row">
+      <div><label>{{ t('portal.home.matter', lang) }}</label><select name="matter_id" required>{% for m in all_matters %}<option value="{{ m.id }}">{{ m.number }} {{ m.name }}</option>{% endfor %}</select></div>
+      <div><label>{{ t('portal.home.file', lang) }}</label><input type="file" name="file" required></div>
+    </div>
+    <div class="actions"><button class="btn">{{ t('portal.home.upload', lang) }}</button></div>
+  </form>
+  {% else %}<p class="muted">{{ t('portal.home.no_matters_upload', lang) }}</p>{% endif %}
+</div>
+
+{% if trust > 0 %}
+<div class="card">
+  <h2>{{ t('portal.home.trust', lang) }}</h2>
+  <p>{{ t('portal.home.trust_body', lang, amount=trust|money) }}</p>
+</div>
+{% endif %}
+{% endblock %}

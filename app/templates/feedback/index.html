@@ -1,0 +1,46 @@
+{% extends "base.html" %}{% block title %}Send feedback{% endblock %}
+{% block content %}
+<h1>Send feedback</h1>
+<p class="muted" style="max-width:62ch">
+  Coil gets built around what firms actually report. If we agree something is worth doing,
+  it is usually built within a day or two, not queued for a release next quarter.
+</p>
+
+<form method="post" class="card" style="max-width:62ch">{{ csrf() }}
+  <input type="hidden" name="from" value="{{ page }}">
+
+  <label>What kind of thing is it?</label>
+  <select name="kind">
+    {% for key, label in kinds %}<option value="{{ key }}">{{ label }}</option>{% endfor %}
+  </select>
+
+  <label style="margin-top:12px">What happened?</label>
+  <textarea name="message" rows="6" required autofocus
+            placeholder="What you were doing, what you expected, and what happened instead.">{{ message }}</textarea>
+  <p class="small muted" style="margin-top:4px">
+    Please do not paste client names or matter details. We do not need them to fix it.
+  </p>
+
+  <details style="margin-top:14px">
+    <summary class="small">Exactly what gets sent</summary>
+    <table style="margin-top:8px">
+      <tr><th>Firm</th><td>{{ payload.firm or '(not set)' }}</td></tr>
+      <tr><th>From</th><td>{{ payload.name }} &lt;{{ payload.email }}&gt;</td></tr>
+      <tr><th>Page</th><td>{{ payload.page or '(none)' }}</td></tr>
+      <tr><th>Build</th><td>{{ payload.version }} ({{ payload.commit[:8] }}) on {{ payload.channel }}</td></tr>
+      <tr><th>This install</th><td>{{ payload.base_url or '(not set)' }}</td></tr>
+      <tr><th>Your message</th><td>what you type above</td></tr>
+    </table>
+    <p class="small muted" style="margin-top:8px">
+      That is the whole list. Nothing from your matters, contacts, documents or ledgers is
+      included, and this instance sends it, not your browser. To turn this feature off for
+      good, set <code>FEEDBACK_ENABLED=0</code> in your <code>.env</code>.
+    </p>
+  </details>
+
+  <div class="actions" style="margin-top:16px">
+    <button class="btn">Send it</button>
+    <a class="btn secondary" href="{{ page if page.startswith('/') else url_for('dashboard.index') }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

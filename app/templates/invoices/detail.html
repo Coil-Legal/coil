@@ -1,0 +1,172 @@
+{% extends "base.html" %}{% block title %}Invoice {{ inv.number }}{% endblock %}{% block content %}
+{% set cc = inv.currency or 'USD' %}
+<div class="topbar">
+  <h1>Invoice {{ inv.number }} <span class="badge {{ inv.status }}">{{ inv.status }}</span>{% if inv.is_overdue %} <span class="badge overdue">overdue</span>{% endif %}{% if inv.status == 'draft' and inv.approval_status == 'pending' %} <span class="badge pending">pending approval</span>{% elif inv.status == 'draft' and inv.approval_status == 'rejected' %} <span class="badge declined">rejected</span>{% elif inv.approval_status == 'approved' %} <span class="badge paid">approved</span>{% endif %}{% if cc != 'USD' %} <span class="badge">{{ cc }}</span>{% endif %}</h1>
+  <div class="actions" style="margin:0">
+    {% if inv.status == 'draft' and not inv.split_group %}<a class="btn secondary small" href="{{ url_for('invoices.edit', id=inv.id) }}">Edit lines</a>{% endif %}
+    {# Agent H: AI narrative cleanup #}{% if inv.status != 'void' %}<form method="post" action="/ai/invoice/{{ inv.id }}/polish" class="inline">{{ csrf() }}<button class="btn secondary small" title="Rewrite time line descriptions for the client; you review before anything changes">AI: polish narratives</button></form>{% endif %}
+    <a class="btn secondary small" href="{{ url_for('invoices.pdf', id=inv.id) }}" target="_blank">Download PDF</a>
+    {% if inv.status not in ('void','paid') %}
+      <form method="post" action="{{ url_for('invoices.send', id=inv.id) }}" class="inline">{{ csrf() }}<button class="btn small" {% if not inv.client.email %}disabled title="Client has no email"{% elif send_block %}disabled title="{{ send_block }}"{% endif %}>{{ 'Send' if inv.status == 'draft' else 'Resend' }}</button></form>
+      {% if inv.status != 'draft' %}<form method="post" action="{{ url_for('invoices.remind', id=inv.id) }}" class="inline">{{ csrf() }}<button class="btn secondary small">Send reminder</button></form>{% endif %}
+      {% if inv.status != 'draft' and firm_settings.interest_apr_bps %}<form method="post" action="{{ url_for('invoices.interest', id=inv.id) }}" class="inline">{{ csrf() }}<button class="btn secondary small" {% if not interest_ready %}disabled title="Not past the grace period, or already charged this month"{% endif %}>Add interest</button></form>{% endif %}
+    {% endif %}
+    {% if inv.status != 'void' and (inv.paid_cents or 0) == 0 %}
+      <form method="post" action="{{ url_for('invoices.void', id=inv.id) }}" class="inline">{{ csrf() }}<button class="btn danger small" data-confirm="Void invoice {{ inv.number }}?{% if siblings %} This voids the whole split group ({{ siblings|length + 1 }} invoices).{% endif %} Its time, expenses and milestones become billable again.">Void{% if siblings %} group{% endif %}</button></form>
+    {% endif %}
+  </div>
+</div>
+
+{% if send_block %}<div class="flash">{{ send_block }}</div>{% endif %}
+
+{% if inv.status == 'draft' and (firm_settings.require_invoice_approval or inv.approval_status != 'none') %}
+<div class="card"><h2>Approval</h2>
+  <dl class="kv">
+    <dt>Status</dt><dd>{% if inv.approval_status == 'pending' %}Waiting for approval{% elif inv.approval_status == 'approved' %}Approved{% elif inv.approval_status == 'rejected' %}Rejected, back to draft{% else %}Not submitted{% endif %}</dd>
+    {% if inv.created_by %}<dt>Built by</dt><dd>{{ inv.created_by.name }}</dd>{% endif %}
+    {% if inv.approved_by %}<dt>{{ 'Rejected' if inv.approval_status == 'rejected' else 'Approved' }} by</dt><dd>{{ inv.approved_by.name }}, {{ inv.approved_at|dt }}</dd>{% endif %}
+    {% if inv.approval_note %}<dt>Note</dt><dd>{{ inv.approval_note }}</dd>{% endif %}
+  </dl>
+  <div class="actions" style="margin-top:8px">
+    {% if inv.approval_status in ('none', 'rejected') %}<form method="post" action="{{ url_for('invoices.submit', id=inv.id) }}" class="inline">{{ csrf() }}<button class="btn small secondary">Submit for approval</button></form>{% endif %}
+    {% if can_approve and inv.approval_status != 'approved' %}
+      <form method="post" action="{{ url_for('invoices.approve', id=inv.id) }}" class="inline">{{ csrf() }}<button class="btn small">Approve</button></form>
+      <form method="post" action="{{ url_for('invoices.reject', id=inv.id) }}" class="inline" style="display:inline-flex;gap:6px;align-items:center">{{ csrf() }}<input type="text" name="note" placeholder="Reason (shown to the drafter)" style="width:260px;margin:0"><button class="btn small danger">Reject</button></form>
+    {% elif not can_approve and inv.approval_status == 'pending' %}<span class="small muted">Only the owner or a billing user can approve.</span>{% endif %}
+  </div>
+</div>
+{% endif %}
+
+<div class="grid c3">
+  <div class="card">
+    <dl class="kv">
+      <dt>{{ 'Payer' if inv.split_group else 'Client' }}</dt><dd><a href="/contacts/{{ inv.client_id }}">{{ inv.client.display_name }}</a>{% if inv.client.email %}<br><span class="small muted">{{ inv.client.email }}</span>{% endif %}</dd>
+      <dt>Matter</dt><dd><a href="/matters/{{ inv.matter_id }}">{{ inv.matter.label }}</a>{% if inv.split_group and inv.matter.client_id != inv.client_id %}<br><span class="small muted">client {{ inv.matter.client.display_name }}</span>{% endif %}</dd>
+      <dt>Kind</dt><dd>{{ inv.kind }}</dd>
+      <dt>Currency</dt><dd>{{ cc }}</dd>
+      <dt>Issued</dt><dd>{{ inv.issued_on|d }}</dd>
+      <dt>Due</dt><dd>{{ inv.due_on|d }}</dd>
+    </dl>
+  </div>
+  <div class="card">
+    <dl class="kv">
+      <dt>Subtotal</dt><dd>{{ inv.subtotal_cents|cur(cc) }}</dd>
+      {% if inv.tax_cents %}<dt>Tax</dt><dd>{{ inv.tax_cents|cur(cc) }}</dd>{% endif %}
+      {% if inv.interest_cents %}<dt>Interest so far</dt><dd>{{ inv.interest_cents|cur(cc) }}{% if inv.last_interest_on %} <span class="small muted">last {{ inv.last_interest_on|d }}</span>{% endif %}</dd>{% endif %}
+      <dt>Total</dt><dd><strong>{{ inv.total_cents|cur(cc) }}</strong></dd>
+      <dt>Paid</dt><dd>{{ inv.paid_cents|cur(cc) }}</dd>
+      <dt>Balance</dt><dd><strong style="font-size:1.2rem">{{ inv.balance_cents|cur(cc) }}</strong></dd>
+    </dl>
+  </div>
+  <div class="card">
+    <dl class="kv">
+      <dt>Sent</dt><dd>{% if inv.sent_at %}{{ inv.sent_at|dt }} to {{ inv.sent_to }}{% else %}<span class="muted">not yet</span>{% endif %}</dd>
+      <dt>Viewed</dt><dd>{% if inv.view_count %}{{ inv.view_count }}x, first {{ inv.first_viewed_at|dt }}{% else %}<span class="muted">not yet</span>{% endif %}</dd>
+      <dt>Public link</dt><dd><span class="small" style="word-break:break-all">{{ public_url }}</span><br><button type="button" class="btn secondary small" data-copy="{{ public_url }}">Copy link</button> <a class="btn secondary small" href="{{ url_for('invoices.public_view', token=inv.public_token) }}" target="_blank">Open</a></dd>
+    </dl>
+  </div>
+</div>
+
+{% if inv.split_group %}
+<div class="card"><h2>Split billing group</h2>
+<p class="small muted">This invoice is {{ inv.split_pct|round(2) }}% of the charges on {{ inv.matter.number }}. Voiding any invoice in the group voids all of them. Line amounts below are this payer's share; hours and rates show the full entry.</p>
+<table>
+<tr><th>Invoice</th><th>Payer</th><th class="num">Share</th><th>Status</th><th class="num">Total</th><th class="num">Balance</th></tr>
+<tr><td><strong>{{ inv.number }}</strong> <span class="small muted">this invoice</span></td><td>{{ inv.client.display_name }}</td><td class="num">{{ inv.split_pct|round(2) }}%</td><td><span class="badge {{ inv.status }}">{{ inv.status }}</span></td><td class="num">{{ inv.total_cents|cur(cc) }}</td><td class="num">{{ inv.balance_cents|cur(cc) }}</td></tr>
+{% for s in siblings %}<tr><td><a href="{{ url_for('invoices.detail', id=s.id) }}">{{ s.number }}</a></td><td>{{ s.client.display_name }}</td><td class="num">{{ s.split_pct|round(2) }}%</td><td><span class="badge {{ s.status }}">{{ s.status }}</span></td><td class="num">{{ s.total_cents|cur(cc) }}</td><td class="num">{{ s.balance_cents|cur(cc) }}</td></tr>{% endfor %}
+{% set group_total = inv.total_cents + (siblings|sum(attribute='total_cents')) %}
+<tr><th colspan="4">Group total</th><th class="num">{{ group_total|cur(cc) }}</th><th></th></tr>
+</table>
+</div>
+{% endif %}
+
+<div class="card"><h2>Lines</h2>
+<table>
+<tr><th>Date</th><th>Kind</th><th>Description</th><th class="num">Qty</th><th class="num">Rate</th><th class="num">Amount</th></tr>
+{% for l in inv.lines %}
+<tr><td class="nowrap">{{ l.date|d }}</td><td>{{ l.kind }}</td><td>{{ l.description }}{% if l.time_entry_id %} <a class="small muted" href="{{ url_for('time.edit', id=l.time_entry_id) }}">entry</a>{% elif l.expense_id %} <a class="small muted" href="{{ url_for('time.expense_edit', id=l.expense_id) }}">expense</a>{% endif %}</td>
+    <td class="num">{{ format_quantity(l) }}</td><td class="num">{% if l.kind == 'time' %}{{ l.unit_cents|cur(cc) }}{% endif %}</td><td class="num">{{ l.amount_cents|cur(cc) }}</td></tr>
+{% else %}<tr><td colspan="6" class="empty">No lines.</td></tr>{% endfor %}
+<tr><th colspan="5" class="right">Subtotal</th><th class="num">{{ inv.subtotal_cents|cur(cc) }}</th></tr>
+<tr><th colspan="5" class="right">Paid</th><th class="num">{{ inv.paid_cents|cur(cc) }}</th></tr>
+<tr><th colspan="5" class="right">Balance due</th><th class="num">{{ inv.balance_cents|cur(cc) }}</th></tr>
+</table>
+{% if inv.notes %}<p class="small" style="margin-top:10px"><strong>Notes:</strong> {{ inv.notes }}</p>{% endif %}
+{% if cc != 'USD' %}<p class="small muted" style="margin-top:8px">Amounts are in {{ cc }}. Online card and bank payments still run through Stripe in USD; record foreign-currency receipts as manual payments.</p>{% endif %}
+</div>
+
+<div class="grid c2">
+<div class="card"><h2>Payments</h2>
+{% if inv.payments %}
+<table><tr><th>Received</th><th>Method</th><th>Account</th><th>Reference</th><th class="num">Amount</th></tr>
+{% for p in inv.payments %}<tr><td class="nowrap"><a href="/payments/{{ p.id }}">{{ p.received_on|d }}</a></td><td>{{ p.method }}</td><td>{{ p.account }}</td><td>{{ p.reference or p.stripe_payment_intent or '' }}{% if p.surcharge_cents %} <span class="small muted">+{{ p.surcharge_cents|cur(cc) }} surcharge</span>{% endif %}</td><td class="num">{{ p.amount_cents|cur(cc) }}</td></tr>{% endfor %}
+</table>
+{% else %}<div class="empty">No payments yet.</div>{% endif %}
+{% if inv.status not in ('void','draft','paid') and inv.balance_cents > 0 %}
+<h3 style="margin-top:14px">Record a manual payment</h3>
+<form method="post" action="/payments/record">{{ csrf() }}
+  <input type="hidden" name="invoice_id" value="{{ inv.id }}">
+  <div class="row">
+    <div><label>Amount</label><input type="text" name="amount" value="{{ dollars(inv.balance_cents) }}" inputmode="decimal" required></div>
+    <div><label>Method</label><select name="method"><option value="check">Check</option><option value="cash">Cash</option><option value="wire">Wire</option><option value="other">Other</option></select></div>
+    <div><label>Received on</label><input type="date" name="received_on" value="{{ today|iso }}" required></div>
+    <div><label>Reference</label><input type="text" name="reference" placeholder="Check number"></div>
+  </div>
+  <div class="actions"><button class="btn small">Record payment</button></div>
+</form>
+{% if trust_balance > 0 %}
+<h3 style="margin-top:14px">Apply from trust</h3>
+<p class="small muted">{{ trust_balance|money }} of {{ inv.client.display_name }}'s trust money can be applied to this invoice. Funds earmarked to another matter are not included.</p>
+<form method="post" action="/trust/apply">{{ csrf() }}
+  <input type="hidden" name="invoice_id" value="{{ inv.id }}">
+  <div class="row">
+    <div><label>Amount to apply</label><input type="text" name="amount" value="{{ dollars(apply_default) }}" inputmode="decimal" required></div>
+    <div><label>&nbsp;</label><button class="btn small">Apply from trust</button></div>
+  </div>
+</form>
+{% endif %}
+{# ---- Agent P: charge card on file + payment plan ---- #}
+{% set plan = money_active_plan(inv) %}
+{% if money_has_card(inv.client) %}
+{% set sc = money_surcharge(inv.balance_cents) %}
+<h3 style="margin-top:14px">Charge card on file</h3>
+<p class="small muted">{{ money_card_label(inv.client) }}{% if inv.client.card_authorised_on %}, authorised {{ inv.client.card_authorised_on|d }}{% endif %}.{% if sc %} A {{ '%g' % (firm_settings.surcharge_bps / 100) }}% card surcharge is added.{% endif %}{% if not money_stripe_ok() %} Online payments are not configured, so nothing can be charged until STRIPE_SECRET_KEY is set.{% endif %}</p>
+<form method="post" action="/money/charge/{{ inv.id }}">{{ csrf() }}
+  <div class="row">
+    <div><label>Amount</label><input type="text" name="amount" value="{{ dollars(inv.balance_cents) }}" inputmode="decimal" required></div>
+    <div><label>&nbsp;</label><button class="btn small" data-confirm="Charge {{ inv.balance_cents|money }}{% if sc %} plus a {{ sc|money }} card surcharge ({{ (inv.balance_cents + sc)|money }} in total){% endif %} to {{ money_card_label(inv.client) }}? The client is not asked first.">Charge card on file</button></div>
+  </div>
+</form>
+{% else %}
+<p class="small muted" style="margin-top:14px">No card on file for {{ inv.client.display_name }}. <a href="/contacts/{{ inv.client_id }}">Request one</a> from the contact page to charge invoices and run automatic payment plans.</p>
+{% endif %}
+<h3 style="margin-top:14px">Payment plan</h3>
+{% if plan %}
+<p class="small">{{ plan.installments }} x {{ plan.installment_cents|money }} {{ money_freq_labels[plan.frequency] }}, {{ plan.paid_installments }} paid, <span class="badge {{ {'active':'open','paused':'draft','failed':'overdue'}[plan.status] }}">{{ plan.status }}</span>{% if plan.status == 'active' %}, next {{ money_next_cents(plan)|money }} on {{ plan.next_charge_on|d }}{% endif %}. <a href="/money/plans/{{ plan.id }}">Open plan</a></p>
+{% else %}
+<form method="post" action="/money/plans/new">{{ csrf() }}<input type="hidden" name="invoice_id" value="{{ inv.id }}">
+  <div class="row">
+    <div><label>Installments</label><input type="number" name="installments" value="3" min="2" max="60" required></div>
+    <div><label>Frequency</label><select name="frequency"><option value="monthly">Monthly</option><option value="biweekly">Every two weeks</option><option value="weekly">Weekly</option></select></div>
+    <div><label>First charge</label><input type="date" name="first_charge_on" value="{{ today|iso }}" required></div>
+  </div>
+  <label style="display:flex;gap:8px;align-items:center;margin-top:8px"><input type="checkbox" name="auto_charge" value="1" {% if not money_has_card(inv.client) %}disabled{% endif %}> Charge the card on file automatically{% if not money_has_card(inv.client) %} <span class="small muted">(needs a card on file; otherwise the client gets an email with a pay link for each installment)</span>{% endif %}</label>
+  <div class="actions"><button class="btn small secondary">Set up payment plan</button></div>
+</form>
+{% endif %}
+{# ---- end Agent P ---- #}
+{% elif inv.status == 'draft' %}<p class="small muted" style="margin-top:10px">Send the invoice before recording payments against it.</p>{% endif %}
+</div>
+
+<div class="card"><h2>Activity</h2>
+{% if inv.events %}
+<ul class="timeline">
+{% for e in inv.events|reverse %}
+<li><span class="muted small nowrap">{{ e.created_at|dt }}</span> &nbsp; <strong>{{ e.event }}</strong>{% if e.detail %} <span class="small">{{ e.detail }}</span>{% endif %}{% if e.ip %} <span class="small muted">from {{ e.ip }}</span>{% endif %}</li>
+{% endfor %}
+</ul>
+{% if viewed_events %}<p class="small muted" style="margin-top:8px">Viewed {{ viewed_events|length }} time{{ '' if viewed_events|length == 1 else 's' }}, first on {{ inv.first_viewed_at|dt }}.</p>{% endif %}
+{% else %}<div class="empty">Nothing yet. Send the invoice to start tracking.</div>{% endif %}
+</div>
+</div>
+{% endblock %}

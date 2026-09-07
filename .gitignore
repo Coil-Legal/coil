@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+data/*.db
+data/uploads/
+data/pdf/
+.claude/
+data/uploads-test*/
+data/pdf-test*/
+data/*.db-journal
+data/test_*_uploads/
+data/test_*_pdf/

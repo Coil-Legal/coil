@@ -1,0 +1,158 @@
+{% extends "base.html" %}{% block title %}{{ m.label }}{% endblock %}{% block content %}
+<div class="topbar">
+  <div><h1>{{ m.number }} <span style="font-weight:500">{{ m.name }}</span> <span class="badge {{ m.status }}">{{ m.status }}</span></h1>
+    <div class="small muted">Client <a href="/contacts/{{ m.client_id }}">{{ m.client.display_name }}</a>{% if m.practice_area %} &middot; {{ m.practice_area }}{% endif %}{% if m.responsible %} &middot; {{ m.responsible.name }}{% endif %} &middot; opened {{ m.opened_on|d }}{% if m.closed_on %} &middot; closed {{ m.closed_on|d }}{% endif %}</div></div>
+  <div class="actions" style="margin:0">
+    <a class="btn small" href="/time/new?matter_id={{ m.id }}">Log time</a>
+    <a class="btn small secondary" href="/invoices/new?matter_id={{ m.id }}">New invoice</a>
+    {# Agent K #}<a class="btn small secondary" href="/pi/{{ m.id }}" title="Providers, records, liens, demand and the settlement worksheet. Starts a PI case on this matter if there is none.">Personal injury</a>
+    {# Agent R #}<a class="btn small secondary" href="/criminal/{{ m.id }}" title="Case facts, charges, court date chain, speedy-trial check and disposition summary. Starts a criminal case on this matter if there is none.">Criminal defense</a>
+    {# Agent M #}<a class="btn small secondary" href="/discovery?matter_id={{ m.id }}" title="Propound interrogatories, requests for production and admissions from starter sets, or respond to a served set with AI-drafted responses and objections">Discovery</a><a class="btn small secondary" href="/discovery/depositions?matter_id={{ m.id }}" title="Summarise a transcript: key testimony with page:line cites and contradictions against the chronology">Depositions</a>
+    {# Voice line #}<a class="btn small secondary" href="/voice?matter_id={{ m.id }}" title="Phone calls the voice line linked to this matter">Voice calls</a>
+    <a class="btn small secondary" href="/matters/{{ m.id }}/edit">Edit</a>
+    {% if m.status == 'closed' %}<form method="post" action="/matters/{{ m.id }}/reopen" class="inline">{{ csrf() }}<button class="btn small secondary">Reopen</button></form>
+    {% else %}<form method="post" action="/matters/{{ m.id }}/close" class="inline">{{ csrf() }}<button class="btn small secondary" data-confirm="Close this matter?">Close matter</button></form>{% endif %}
+  </div>
+</div>
+<div class="grid c4">
+  <div class="card stat"><div class="label">Billing</div>
+    <div class="value" style="font-size:1.15rem">{% if m.billing_type == 'flat' %}Flat {{ m.flat_fee_cents|money }}{% elif m.billing_type == 'hourly' %}{{ m.effective_rate_cents(m.responsible)|money }}/hr{% elif m.billing_type == 'contingency' %}{{ m.contingency_pct }}% contingency{% else %}Hybrid{% endif %}</div>
+    <div class="small muted">{% if m.billing_type == 'hybrid' %}{{ m.flat_fee_cents|money }} + {{ m.effective_rate_cents(m.responsible)|money }}/hr{% if m.contingency_pct %} + {{ m.contingency_pct }}%{% endif %}{% elif m.billing_type in ('flat',) and m.milestones %}{{ milestones_invoiced|money }} of {{ milestones_total|money }} invoiced{% else %}&nbsp;{% endif %}</div></div>
+  <div class="card stat"><div class="label">Unbilled</div><div class="value">{{ (unbilled_time + unbilled_exp)|money }}</div><div class="small muted">{{ unbilled_time|money }} time, {{ unbilled_exp|money }} expenses</div></div>
+  <div class="card stat"><div class="label">Outstanding invoices</div><div class="value">{{ outstanding|money }}</div></div>
+  <div class="card stat"><div class="label">Trust balance</div><div class="value">{{ trust|money }}</div>{% if m.sol_date %}<div class="small muted">SOL {{ m.sol_date|d }}</div>{% endif %}</div>
+</div>
+
+<div class="tabs">{% for key, label in tabs %}<a href="/matters/{{ m.id }}?tab={{ key }}" class="{{ 'active' if tab == key }}">{{ label }}</a>{% endfor %}</div>
+
+{% if tab == 'overview' %}
+<div class="grid c2">
+  <div class="card"><div class="topbar" style="margin-bottom:6px"><h2 style="margin:0">Details</h2>{# Agent H #}<form method="post" action="/ai/matter/{{ m.id }}/summary" class="inline">{{ csrf() }}<button class="btn small secondary" title="About 150 words plus open items, from notes, time, tasks and messages; you can save it as a note">AI summary</button></form>{# Agent I #}<form method="post" action="/ai/matter/{{ m.id }}/update-email" class="inline">{{ csrf() }}<button class="btn small secondary" title="Drafts a status update email to the client from recent notes, work, completed tasks and upcoming dates. You edit it before anything is sent.">AI: client update</button></form>{# Agent J #}<a class="btn small secondary" href="/research/saved?matter_id={{ m.id }}" title="Case law saved to this matter, memo export, citation check">Research</a></div>
+    <dl class="kv">
+      <dt>Client</dt><dd><a href="/contacts/{{ m.client_id }}">{{ m.client.display_name }}</a></dd>
+      <dt>Practice area</dt><dd>{{ m.practice_area or '' }}</dd>
+      <dt>Responsible</dt><dd>{{ m.responsible.name if m.responsible else 'Unassigned' }}</dd>
+      <dt>Court</dt><dd>{{ m.court or '' }}</dd>
+      <dt>Case number</dt><dd>{{ m.case_number or '' }}</dd>
+      <dt>Limitations</dt><dd>{% if m.sol_date %}<strong>{{ m.sol_date|d }}</strong>{% if m.sol_basis %} <span class="muted">{{ m.sol_basis }}</span>{% endif %}{% else %}<span class="muted">not set</span>{% endif %}</dd>
+      {# ---- Agent B: office, template, custom fields ---- #}
+      {% if m.office %}<dt>Office</dt><dd>{{ m.office.name }}</dd>{% endif %}
+      <dt>Template</dt><dd>{% if m.template %}{{ m.template.name }}{% else %}<span class="muted">none</span>{% endif %}</dd>
+      {% for k, v in m.custom_fields.items() %}<dt>{{ k }}</dt><dd>{{ v }}</dd>{% endfor %}
+      {# ---- end Agent B block ---- #}
+    </dl>
+    {% if m.description %}<h3 style="margin-top:12px">Description</h3><p style="white-space:pre-line">{{ m.description }}</p>{% endif %}
+    {# ---- Agent B: apply a template to an existing matter ---- #}
+    {% if templates %}<form method="post" action="/matters/{{ m.id }}/apply-template" class="searchbar" style="margin-top:12px">{{ csrf() }}
+      <select name="template_id" style="width:auto"><option value="">Apply a template</option>{% for t in templates %}<option value="{{ t.id }}">{{ t.name }}</option>{% endfor %}</select>
+      <button class="btn small secondary" data-confirm="Add this template's milestones, tasks and fields to the matter? Nothing already on the matter is overwritten.">Apply</button>
+    </form>{% endif %}
+    {# ---- end Agent B block ---- #}
+  </div>
+  <div class="card"><h2>Parties</h2>
+    {% if m.parties %}<table><tr><th>Name</th><th>Role</th><th></th></tr>{% for p in m.parties %}<tr><td>{% if p.contact_id %}<a href="/contacts/{{ p.contact_id }}">{{ p.name }}</a>{% else %}{{ p.name }}{% endif %}{% if p.notes %}<br><span class="small muted">{{ p.notes }}</span>{% endif %}</td><td>{{ p.role.replace('_', ' ') }}</td><td class="right"><form method="post" action="/matters/{{ m.id }}/parties/{{ p.id }}/delete" class="inline">{{ csrf() }}<button class="btn small secondary" data-confirm="Remove {{ p.name }}?">Remove</button></form></td></tr>{% endfor %}</table>
+    {% else %}<div class="empty">No parties yet. Add adverse parties so conflict checks catch them.</div>{% endif %}
+    <form method="post" action="/matters/{{ m.id }}/parties" style="margin-top:10px">{{ csrf() }}
+      <div class="row">
+        <div><label>Name</label><input type="text" name="name" placeholder="Adverse party name"></div>
+        <div><label>Role</label><select name="role">{% for r in party_roles %}<option value="{{ r }}">{{ r.replace('_', ' ') }}</option>{% endfor %}</select></div>
+        <div><label>Link to contact (optional)</label><select name="contact_id"><option value="">None</option>{% for c in contacts %}<option value="{{ c.id }}">{{ c.display_name }}</option>{% endfor %}</select></div>
+      </div>
+      <div class="actions" style="margin-top:8px"><button class="btn small">Add party</button></div>
+    </form>
+  </div>
+</div>
+{# ---- Agent A: split billing payers + billing settings ---- #}
+{% set payer_total = m.payers|sum(attribute='percent') %}
+<div class="card"><h2>Split billing</h2>
+  <p class="small muted">Currency <strong>{{ m.currency_code }}</strong>{% if m.originator %} &middot; originated by {{ m.originator.name }}{% endif %}{% if m.ledes_matter_id %} &middot; LEDES matter id {{ m.ledes_matter_id }}{% endif %}{% if m.trust_minimum_cents %} &middot; evergreen retainer: top up to {{ (m.trust_replenish_to_cents or m.trust_minimum_cents)|money }} when trust falls below {{ m.trust_minimum_cents|money }}{% if trust < m.trust_minimum_cents %} <span class="badge overdue">below minimum</span>{% endif %}{% endif %}</p>
+  {% if m.payers %}
+  <table><tr><th>Payer</th><th>Label</th><th class="num">Share</th><th></th></tr>
+  {% for p in m.payers %}<tr><td><a href="/contacts/{{ p.contact_id }}">{{ p.contact.display_name }}</a></td><td>{{ p.label }}</td><td class="num">{{ p.percent|round(2) }}%</td><td class="right"><form method="post" action="/matters/{{ m.id }}/payers/{{ p.id }}/delete" class="inline">{{ csrf() }}<button class="btn small secondary" data-confirm="Remove {{ p.contact.display_name }} as a payer?">Remove</button></form></td></tr>{% endfor %}
+  <tr><td colspan="2"><strong>Total</strong></td><td class="num"><strong>{{ payer_total|round(2) }}%</strong> {% if (payer_total - 100)|abs > 0.005 %}<span class="badge overdue">must be 100%</span>{% else %}<span class="badge paid">ok</span>{% endif %}</td><td></td></tr></table>
+  <p class="small muted">Each invoice build creates one invoice per payer with the lines shared by percentage. Voiding one voids the group.</p>
+  {% else %}<div class="empty">No split. {{ m.client.display_name }} is billed for 100%. Add payers below to split invoices between, say, a client and an insurer.</div>{% endif %}
+  <form method="post" action="/matters/{{ m.id }}/payers" style="margin-top:10px">{{ csrf() }}
+    <div class="row">
+      <div><label>Contact</label><select name="contact_id" required><option value="">Choose a contact</option>{% for c in contacts %}<option value="{{ c.id }}" {{ 'selected' if c.id == m.client_id and not m.payers }}>{{ c.display_name }}</option>{% endfor %}</select></div>
+      <div><label>Percent</label><input type="text" name="percent" placeholder="60" inputmode="decimal" required></div>
+      <div><label>Label (optional)</label><input type="text" name="label" placeholder="Insurer, co-defendant"></div>
+    </div>
+    <div class="actions" style="margin-top:8px"><button class="btn small">Add payer</button></div>
+  </form>
+</div>
+{# ---- end Agent A block ---- #}
+{# ---- Agent P: fee splits (CosmoLex lane) ---- #}
+<div class="card"><div class="topbar" style="margin-bottom:6px"><h2 style="margin:0">Fee splits</h2><div class="actions" style="margin:0"><a class="btn small secondary" href="/money/splits/{{ m.id }}">Edit splits</a><a class="btn small secondary" href="/reports/compensation">Compensation report</a></div></div>
+  {% if m.fee_splits %}
+  <table><tr><th>Person</th><th>Role</th><th class="num">Percent</th></tr>{% for s in m.fee_splits %}<tr><td>{{ s.user.name if s.user else '' }}</td><td>{{ s.role }}</td><td class="num">{{ '%g' % (s.percent or 0) }}%</td></tr>{% endfor %}</table>
+  {% if not (m.fee_splits|selectattr('role', 'equalto', 'working')|list) %}<p class="small muted">No working split: collected fees are credited to {{ m.responsible.name if m.responsible else 'the responsible attorney' }} in the compensation report and flagged.</p>{% endif %}
+  {% elif m.originator %}
+  <table><tr><th>Person</th><th>Role</th><th class="num">Percent</th></tr><tr><td>{{ m.originator.name }}</td><td>originating <span class="small muted">(default, not saved)</span></td><td class="num">100%</td></tr></table>
+  <p class="small muted">No working split: collected fees are credited to {{ m.responsible.name if m.responsible else 'the responsible attorney' }} in the compensation report and flagged.</p>
+  {% else %}<div class="empty">No fee splits. Set an originating attorney on the matter form, or <a href="/money/splits/{{ m.id }}">add splits</a>.</div>{% endif %}
+</div>
+{# ---- end Agent P ---- #}
+<div class="grid c2">
+  <div class="card"><h2>Flat fee milestones</h2>
+    {% if m.milestones %}<table><tr><th>Milestone</th><th>Due</th><th class="num">Amount</th><th></th></tr>{% for ms in m.milestones %}<tr><td>{{ ms.description }}</td><td class="nowrap">{{ ms.due_on|d }}</td><td class="num">{{ ms.amount_cents|money }}</td><td class="right nowrap">{% if ms.invoiced %}<span class="badge paid">invoiced</span> <a class="small" href="/invoices/{{ ms.invoice_id }}">{{ ms.invoice.number if ms.invoice else '' }}</a>{% else %}<form method="post" action="/matters/{{ m.id }}/milestones/{{ ms.id }}/delete" class="inline">{{ csrf() }}<button class="btn small secondary">Remove</button></form>{% endif %}</td></tr>{% endfor %}
+    <tr><td colspan="2"><strong>Total</strong></td><td class="num"><strong>{{ milestones_total|money }}</strong></td><td></td></tr></table>
+    {% else %}<div class="empty">{% if m.billing_type in ('flat', 'hybrid') %}No milestones. Add one below.{% else %}Not a flat fee matter.{% endif %}</div>{% endif %}
+    <form method="post" action="/matters/{{ m.id }}/milestones" style="margin-top:10px">{{ csrf() }}
+      <div class="row"><div><label>Description</label><input type="text" name="description"></div><div><label>Amount</label><input type="text" name="amount" placeholder="0.00"></div><div><label>Due</label><input type="date" name="due_on"></div></div>
+      <div class="actions" style="margin-top:8px"><button class="btn small">Add milestone</button></div>
+    </form>
+  </div>
+  <div class="card"><h2>Notes</h2>
+    <form method="post" action="/matters/{{ m.id }}/notes">{{ csrf() }}<textarea name="body" placeholder="Add a note" style="min-height:60px"></textarea><div class="actions" style="margin-top:8px"><button class="btn small">Add note</button></div></form>
+    {% if m.notes %}<ul class="timeline" style="margin-top:10px">{% for n in m.notes %}<li><span class="muted">{{ n.created_at|dt }}{% if n.user %} &middot; {{ n.user.name }}{% endif %}</span><br><span style="white-space:pre-line">{{ n.body }}</span></li>{% endfor %}</ul>{% endif %}
+  </div>
+</div>
+
+{% elif tab == 'time' %}
+<div class="card"><div class="topbar" style="margin-bottom:10px"><h2>Time and expenses</h2><div class="actions" style="margin:0"><a class="btn small" href="/time/new?matter_id={{ m.id }}">Log time</a><a class="btn small secondary" href="/time/expenses/new?matter_id={{ m.id }}">Add expense</a><a class="btn small secondary" href="/time?matter_id={{ m.id }}">All entries</a></div></div>
+{% if entries %}<table><tr><th>Date</th><th>Type</th><th>Description</th><th>Who</th><th class="num">Hours</th><th class="num">Amount</th><th>Billed</th></tr>
+{% for kind, d, e in entries %}<tr><td class="nowrap">{{ d|d }}</td><td>{{ kind }}</td><td>{{ e.description }}{% if kind == 'expense' and e.category %} <span class="muted small">{{ e.category }}</span>{% endif %}</td><td>{{ e.user.name if e.user else '' }}</td><td class="num">{% if kind == 'time' %}{{ e.minutes|hours }}{% endif %}</td><td class="num">{{ e.amount_cents|money }}</td><td>{% if e.invoice_id %}<a href="/invoices/{{ e.invoice_id }}">invoiced</a>{% elif not e.billable %}<span class="muted">no charge</span>{% else %}<span class="badge draft">unbilled</span>{% endif %}</td></tr>{% endfor %}</table>
+<p class="small muted">Showing the last {{ entries|length }} entries.</p>{% else %}<div class="empty">Nothing logged yet.</div>{% endif %}</div>
+
+{% elif tab == 'invoices' %}
+<div class="card"><div class="topbar" style="margin-bottom:10px"><h2>Invoices</h2><div class="actions" style="margin:0"><a class="btn small" href="/invoices/new?matter_id={{ m.id }}">New invoice</a></div></div>
+{% if invoices %}<table><tr><th>Number</th><th>Issued</th><th>Due</th><th>Status</th><th class="num">Total</th><th class="num">Paid</th><th class="num">Balance</th></tr>
+{% for i in invoices %}<tr><td><a href="/invoices/{{ i.id }}">{{ i.number }}</a></td><td class="nowrap">{{ i.issued_on|d }}</td><td class="nowrap">{{ i.due_on|d }}</td><td><span class="badge {{ 'overdue' if i.is_overdue else i.status }}">{{ 'overdue' if i.is_overdue else i.status }}</span></td><td class="num">{{ i.total_cents|money }}</td><td class="num">{{ i.paid_cents|money }}</td><td class="num">{{ i.balance_cents|money }}</td></tr>{% endfor %}</table>
+{% else %}<div class="empty">No invoices yet.</div>{% endif %}</div>
+
+{% elif tab == 'trust' %}
+<div class="card"><div class="topbar" style="margin-bottom:10px"><h2>Trust ledger for this matter <span class="muted small">balance {{ trust|money }}</span></h2><div class="actions" style="margin:0"><a class="btn small" href="/trust/new?matter_id={{ m.id }}">Deposit or disburse</a><a class="btn small secondary" href="/trust/ledger/{{ m.client_id }}">Client ledger</a></div></div>
+{% if trust_rows %}<table><tr><th>Date</th><th>Type</th><th>Description</th><th>Reference</th><th class="num">Amount</th><th>Cleared</th></tr>
+{% for t in trust_rows %}<tr><td class="nowrap">{{ t.date|d }}</td><td>{{ t.type.replace('_', ' ') }}</td><td>{{ t.description }}{% if t.payee %} <span class="muted small">{{ t.payee }}</span>{% endif %}</td><td>{{ t.reference }}</td><td class="num">{{ t.amount_cents|money }}</td><td>{{ 'yes' if t.cleared else 'no' }}</td></tr>{% endfor %}</table>
+{% else %}<div class="empty">No trust activity for this matter.</div>{% endif %}</div>
+
+{% elif tab == 'tasks' %}
+<div class="card"><div class="topbar" style="margin-bottom:10px"><h2>Open tasks and deadlines</h2><div class="actions" style="margin:0"><a class="btn small" href="/tasks/new?matter_id={{ m.id }}">New task</a><a class="btn small secondary" href="/calendar/new?matter_id={{ m.id }}">New event</a>{# Agent E #}<a class="btn small secondary" href="/rules/matters/{{ m.id }}/apply">Court deadlines</a></div></div>
+{% if tasks %}<table><tr><th>Task</th><th>Kind</th><th>Due</th><th>Assignee</th><th>Priority</th><th></th></tr>
+{% for t in tasks %}<tr><td><a href="/tasks/{{ t.id }}">{{ t.title }}</a></td><td>{{ t.kind.replace('_', ' ') }}</td><td class="nowrap">{% if t.is_overdue %}<span class="badge overdue">overdue</span> {% endif %}{{ t.due_on|d }}</td><td>{{ t.assignee.name if t.assignee else '' }}</td><td>{{ t.priority }}</td><td class="right"><form method="post" action="/tasks/{{ t.id }}/done" class="inline">{{ csrf() }}<input type="hidden" name="next" value="/matters/{{ m.id }}?tab=tasks"><button class="btn small secondary">Done</button></form></td></tr>{% endfor %}</table>
+{% else %}<div class="empty">Nothing open.</div>{% endif %}
+{% if done_tasks %}<h3 style="margin-top:14px">Recently completed</h3><table>{% for t in done_tasks %}<tr><td><a href="/tasks/{{ t.id }}" class="muted">{{ t.title }}</a></td><td class="nowrap small muted">{{ t.done_at|dt }}</td></tr>{% endfor %}</table>{% endif %}</div>
+
+{% elif tab == 'documents' %}
+<div class="card"><div class="topbar" style="margin-bottom:10px"><h2>Documents</h2><div class="actions" style="margin:0">{# Agent E #}<a class="btn small" href="/doctemplates?matter_id={{ m.id }}">Generate document</a><a class="btn small secondary" href="/documents?matter_id={{ m.id }}">All documents</a></div></div>
+{% if documents %}<table><tr><th>Name</th><th>Uploaded</th><th>By</th><th class="num">Size</th><th>Portal</th><th></th></tr>
+{% for d in documents %}<tr><td><a href="/documents/{{ d.id }}/download">{{ d.name }}</a></td><td class="nowrap">{{ d.created_at|d }}</td><td>{% if d.uploaded_by_client %}client{% else %}{{ d.uploaded_by.name if d.uploaded_by else '' }}{% endif %}</td><td class="num">{{ (d.size / 1024)|round(1) }} KB</td>
+<td><form method="post" action="/documents/{{ d.id }}/share" class="inline">{{ csrf() }}<input type="hidden" name="next" value="/matters/{{ m.id }}?tab=documents"><button class="btn small {{ 'ok' if d.shared_to_portal else 'secondary' }}">{{ 'Shared' if d.shared_to_portal else 'Not shared' }}</button></form></td>
+<td class="right"><form method="post" action="/documents/{{ d.id }}/delete" class="inline">{{ csrf() }}<input type="hidden" name="next" value="/matters/{{ m.id }}?tab=documents"><button class="btn small secondary" data-confirm="Delete {{ d.name }}?">Delete</button></form></td></tr>{% endfor %}</table>
+{% else %}<div class="empty">No documents yet.</div>{% endif %}
+<form method="post" action="/documents/upload" enctype="multipart/form-data" style="margin-top:12px">{{ csrf() }}<input type="hidden" name="matter_id" value="{{ m.id }}"><input type="hidden" name="next" value="/matters/{{ m.id }}?tab=documents">
+  <label>Upload a file (25 MB max)</label><div class="actions" style="margin-top:0"><input type="file" name="file" required><label style="margin:0;display:inline-flex;gap:6px;align-items:center;color:var(--ink)"><input type="checkbox" name="shared_to_portal" value="1"> Share to client portal</label><button class="btn small">Upload</button></div></form></div>
+
+{% elif tab == 'engagements' %}
+<div class="card"><div class="topbar" style="margin-bottom:10px"><h2>Engagement letters</h2><div class="actions" style="margin:0"><a class="btn small" href="/engagements/new?matter_id={{ m.id }}">New engagement letter</a></div></div>
+{% if engagements %}<table><tr><th>Subject</th><th>Status</th><th>Sent</th><th>Signed</th></tr>
+{% for e in engagements %}<tr><td><a href="/engagements/{{ e.id }}">{{ e.subject or 'Engagement letter' }}</a></td><td><span class="badge {{ e.status }}">{{ e.status }}</span>{% if e.view_count %} <span class="small muted">viewed {{ e.view_count }}x</span>{% endif %}</td><td class="nowrap">{{ e.sent_at|dt }}</td><td class="nowrap">{{ e.signed_at|dt }}{% if e.signer_name %} <span class="small muted">{{ e.signer_name }}</span>{% endif %}</td></tr>{% endfor %}</table>
+{% else %}<div class="empty">No engagement letters yet.</div>{% endif %}</div>
+
+{% elif tab == 'activity' %}
+<div class="card"><div class="topbar" style="margin-bottom:10px"><h2>Activity</h2><div class="actions" style="margin:0">{% if current_user().role == 'owner' %}<a class="btn small secondary" href="/settings/audit?entity=matter&entity_id={{ m.id }}">See full log</a>{% endif %}</div></div>
+{% if activity %}<ul class="timeline">{% for a in activity %}<li><span class="muted">{{ a.created_at|dt }}</span> &middot; <strong>{{ a.action.replace('_', ' ') }}</strong>{% if a.user %} by {{ a.user.name }}{% endif %}{% if a.detail %} <span class="muted">{{ a.detail }}</span>{% endif %}</li>{% endfor %}</ul>
+{% else %}<div class="empty">No activity recorded.</div>{% endif %}</div>
+{% endif %}
+{% endblock %}
