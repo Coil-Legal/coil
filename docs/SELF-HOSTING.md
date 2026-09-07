@@ -212,3 +212,27 @@ you send it. Nothing from your matters, contacts, documents or ledgers is includ
 
 Set `FEEDBACK_ENABLED=0` in `.env` to remove the link and the route. Point
 `COIL_FEEDBACK_URL` somewhere else to send it to your own endpoint instead.
+
+## Letting an AI assistant use Coil
+
+`mcp/` holds an MCP server, so Claude or any MCP-capable assistant can read the practice,
+log time, run the timer, take notes and book calendar entries. See `mcp/README.md`.
+
+The token decides everything. Create one at Settings, API tokens and tick, resource by
+resource, what it may read and write. Then choose whether client details leave the
+building at all:
+
+- **Withhold client details** (the default). Coil strips identity and substance before
+  anything leaves: client and contact names, matter names, time narratives, note bodies,
+  document names. Numbers, dates, amounts and statuses still come through, so an
+  assistant can answer "how much did I bill last week" or "what is due on M-1001"
+  without learning who the client is or what the case is about.
+- **Send everything.** Only for a model on your own hardware, or a provider you have
+  checked retains nothing. That is a Rule 1.6 call and it is yours to make.
+
+The MCP server registers only the tools the token allows, so a read-only token offers
+nothing that writes, and it tells the assistant which mode it is in so placeholders are
+not mistaken for real names.
+
+Trust accounting, payments, user permissions and deleting anything are not in the API at
+all. No token, however configured, can reach client funds or remove a record.

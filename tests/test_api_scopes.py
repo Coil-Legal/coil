@@ -161,3 +161,51 @@ def test_an_unknown_mode_falls_back_to_redacted(app):
         t, _ = create_token(u, "junk", "read", "anything-goes")
         db.session.commit()
         assert t.confidentiality == "redacted"
+
+
+# --------------------------------------------------- widened API surface
+def test_documents_never_return_file_contents(app):
+    """A document is the most concentrated client confidence in the system. The API
+    returns metadata so an agent can see what exists, and never the bytes or the text."""
+    c = app.test_client()
+    h = _token(app, ["documents:read"], "full")
+    r = c.get("/api/v1/documents", headers=h)
+    assert r.status_code == 200
+    for d in r.json["documents"]:
+        assert "extracted_text" not in d
+        assert "path" not in d, "the filesystem path must never leave the server"
+
+
+def test_notes_and_calendar_writes_need_their_own_scope(app):
+    c = app.test_client()
+    h = _token(app, ["notes:read", "calendar:read"], "full")
+    assert c.post("/api/v1/notes", headers=h, json={"matter_id": 1, "body": "x"}).status_code == 403
+    assert c.post("/api/v1/calendar", headers=h,
+                  json={"title": "x", "starts_at": "2026-09-08T10:00:00"}).status_code == 403
+
+
+def test_a_note_can_be_added_and_is_attributed(app):
+    from app.models import Note, User
+    c = app.test_client()
+    h = _token(app, ["notes:read", "notes:write"], "full")
+    r = c.post("/api/v1/notes", headers=h, json={"matter_id": 1, "body": "Called the client back."})
+    assert r.status_code == 201, r.get_data(as_text=True)
+    with app.app_context():
+        n = Note.query.get(r.json["note"]["id"])
+        owner = User.query.filter_by(email="owner@example.com").first()
+        assert n.body == "Called the client back."
+        assert n.user_id == owner.id, "a note must be attributed to the token's owner"
+
+
+def test_a_note_on_a_matter_that_does_not_exist_is_refused(app):
+    c = app.test_client()
+    h = _token(app, ["notes:write"], "full")
+    assert c.post("/api/v1/notes", headers=h, json={"matter_id": 99999, "body": "x"}).status_code == 404
+
+
+def test_calendar_rejects_a_bad_timestamp_rather_than_guessing(app):
+    c = app.test_client()
+    h = _token(app, ["calendar:write"], "full")
+    r = c.post("/api/v1/calendar", headers=h, json={"title": "Call", "starts_at": "next tuesday"})
+    assert r.status_code == 400
+    assert "ISO 8601" in r.json["error"]

@@ -306,6 +306,39 @@ def task_json(t):
     return d
 
 
+def document_json(d):
+    """Metadata and nothing else. The API never returns file bytes: a document is the
+    most concentrated form of a client confidence in the system, and an agent that can
+    list what exists does not need to read it to be useful."""
+    out = {"id": d.id, "matter_id": d.matter_id, "name": d.name, "folder": d.folder,
+           "tags": d.tags, "size": d.size, "mime": d.mime, "version": d.version,
+           "is_current": bool(d.is_current), "created_at": _iso(d.created_at)}
+    if is_redacted():
+        # File names are captions too: "Smith - settlement demand.pdf".
+        out["name"] = _r_name("Document", d.id)
+        out["folder"] = _r(d.folder)
+        out["tags"] = _r(d.tags)
+    return out
+
+
+def event_json(e):
+    out = {"id": e.id, "matter_id": e.matter_id, "title": e.title, "starts_at": _iso(e.starts_at),
+           "ends_at": _iso(e.ends_at), "all_day": bool(e.all_day), "location": e.location,
+           "user_id": e.user_id}
+    if is_redacted():
+        out["title"] = _r(e.title)
+        out["location"] = _r(e.location)
+    return out
+
+
+def note_json(n):
+    out = {"id": n.id, "matter_id": n.matter_id, "contact_id": n.contact_id,
+           "user_id": n.user_id, "body": n.body, "created_at": _iso(n.created_at)}
+    if is_redacted():
+        out["body"] = _r(n.body)
+    return out
+
+
 # ---------------------------------------------------------------- endpoints
 @bp.route("/me")
 def me():
@@ -597,6 +630,85 @@ def capture_pending():
     rows = pending_query(g.api_user).all()
     return jsonify({"pending": len(rows), "minutes": sum(int(s.minutes or 0) for s in rows),
                     "url": f"{current_app.config['BASE_URL']}/time/suggestions"})
+
+
+@bp.route("/documents")
+@read_required("documents")
+def documents():
+    from ..models import Document
+    q = Document.query.filter_by(is_current=True)
+    mid = request.args.get("matter_id")
+    if mid:
+        q = q.filter_by(matter_id=int(mid))
+    rows = q.order_by(Document.created_at.desc()).limit(min(int(request.args.get("limit", 50)), 200)).all()
+    return jsonify({"documents": [document_json(d) for d in rows]})
+
+
+@bp.route("/calendar")
+@read_required("calendar")
+def calendar_events():
+    from ..models import CalendarEvent
+    q = CalendarEvent.query
+    if request.args.get("matter_id"):
+        q = q.filter_by(matter_id=int(request.args["matter_id"]))
+    frm = parse_date(request.args.get("from")) if request.args.get("from") else None
+    if frm:
+        q = q.filter(CalendarEvent.starts_at >= datetime.combine(frm, datetime.min.time()))
+    rows = q.order_by(CalendarEvent.starts_at).limit(min(int(request.args.get("limit", 50)), 200)).all()
+    return jsonify({"events": [event_json(e) for e in rows]})
+
+
+@bp.route("/calendar", methods=["POST"])
+@scope_required("calendar:write")
+def create_event():
+    from ..models import CalendarEvent
+    b = _body()
+    title = (b.get("title") or "").strip()
+    starts = b.get("starts_at")
+    if not title or not starts:
+        return _error(400, "title and starts_at are required.")
+    try:
+        starts_at = datetime.fromisoformat(str(starts))
+    except ValueError:
+        return _error(400, "starts_at must be ISO 8601, e.g. 2026-09-08T14:30:00.")
+    e = CalendarEvent(title=title[:300], starts_at=starts_at, user_id=g.api_user.id,
+                      matter_id=int(b["matter_id"]) if b.get("matter_id") else None,
+                      location=(b.get("location") or "")[:300])
+    db.session.add(e)
+    audit("calendar_create", "calendar_event", None, title[:120], g.api_user.id)
+    db.session.commit()
+    return jsonify({"event": event_json(e)}), 201
+
+
+@bp.route("/notes")
+@read_required("notes")
+def notes():
+    from ..models import Note
+    q = Note.query
+    if request.args.get("matter_id"):
+        q = q.filter_by(matter_id=int(request.args["matter_id"]))
+    rows = q.order_by(Note.created_at.desc()).limit(min(int(request.args.get("limit", 50)), 200)).all()
+    return jsonify({"notes": [note_json(n) for n in rows]})
+
+
+@bp.route("/notes", methods=["POST"])
+@scope_required("notes:write")
+def create_note():
+    from ..models import Note
+    b = _body()
+    body_text = (b.get("body") or "").strip()
+    if not body_text:
+        return _error(400, "body is required.")
+    if not b.get("matter_id"):
+        return _error(400, "matter_id is required.")
+    m = Matter.query.get(int(b["matter_id"]))
+    if not m:
+        return _error(404, "No such matter.")
+    n = Note(matter_id=m.id, user_id=g.api_user.id, body=body_text[:20000])
+    db.session.add(n)
+    audit("note_create", "note", None, f"on {m.number}", g.api_user.id)
+    db.session.commit()
+    return jsonify({"note": note_json(n)}), 201
 
 
 @bp.route("/<path:_rest>", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
