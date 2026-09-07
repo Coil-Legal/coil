@@ -208,17 +208,21 @@ def _touch_call(call_id, **fields):
 
 
 # ---------------------------------------------------------------- API plumbing
-def voice_api(scope="read"):
-    """Bearer auth and scope exactly as api.py, then the firm-level switch. Off = 403 {ok: false}."""
+def voice_api(access="read"):
+    """Bearer auth and the voice:<access> scope, then the firm-level switch. Off = 403 {ok: false}.
+
+    Its own scope pair on purpose: letting the phone line read a client's matter status is
+    a different decision from letting a token read the whole practice."""
     def deco(f):
         @wraps(f)
         def wrapper(*a, **kw):
             resp = api_authenticate()
             if resp is not None:
                 return resp
+            scope = f"voice:{access}"
             if scope not in token_scopes(g.api_token):
                 return _error(403, f"This token does not have the '{scope}' scope.")
-            if scope == "write" and (g.api_user.role or "") == "readonly":
+            if access == "write" and (g.api_user.role or "") == "readonly":
                 return _error(403, "Read-only users cannot write through the API.")
             firm = Firm.get()
             if not firm.voice_enabled:

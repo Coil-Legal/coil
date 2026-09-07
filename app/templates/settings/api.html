@@ -8,9 +8,30 @@
   <div class="card"><h2>Create a token</h2>
     <form method="post">{{ csrf() }}
       <label>Name (what will use it)</label><input type="text" name="name" placeholder="Chrome extension on my laptop" required>
-      <label>Scope</label>
-      <label><input type="radio" name="scopes" value="read" checked> Read only: matters, contacts, time, invoices, tasks</label>
-      <label><input type="radio" name="scopes" value="read,write"> Read and write: also log time, run the timer, post time capture segments and phone intake leads</label>
+      <label>What may this token see and do?</label>
+      <table style="margin:4px 0 14px">
+        <tr><th></th><th class="small" style="width:70px">Read</th><th class="small" style="width:70px">Write</th></tr>
+        {% for r in resources %}
+        <tr>
+          <td class="small">{{ resource_labels[r] }}</td>
+          <td><input type="checkbox" name="scopes" value="{{ r }}:read"{% if r == 'matters' %} checked{% endif %}></td>
+          <td><input type="checkbox" name="scopes" value="{{ r }}:write"></td>
+        </tr>
+        {% endfor %}
+      </table>
+      <p class="small muted">Trust accounting, payments, user permissions and deleting anything are not on this list and cannot be reached by any token, however it is set up.</p>
+
+      <label style="margin-top:14px">Client confidentiality</label>
+      <label><input type="radio" name="confidentiality" value="redacted" checked>
+        <strong>Withhold client details.</strong> Names, contact details and the substance of
+        matters are replaced before they leave this server. Numbers, dates, amounts and
+        statuses still come through, so an assistant can answer billing and deadline
+        questions without learning who the client is or what the case is about.</label>
+      <label><input type="radio" name="confidentiality" value="full">
+        <strong>Send everything.</strong> Only for a model running on your own hardware, or a
+        provider you have checked retains nothing. This sends client names and your work
+        product to whatever is on the other end, and that is your call to make under
+        Rule 1.6, not ours.</label>
       <div class="actions"><button class="btn">Create token</button></div>
     </form>
     <p class="small muted">Tokens act as the user who created them, so create your own rather than borrowing someone else's: time you log and capture suggestions you file land under your name. Only the SHA-256 of the token is stored.</p>
@@ -22,7 +43,7 @@
   <div class="card"><h2>{{ 'All tokens in the firm' if is_owner else 'Your tokens' }}</h2>
     {% if visible %}<table><tr><th>Name</th><th>Prefix</th><th>Scope</th>{% if is_owner %}<th>User</th>{% endif %}<th>Last used</th><th></th></tr>
     {% for t in visible %}<tr>
-      <td>{{ t.name }}</td><td><code>{{ t.prefix }}...</code></td><td>{{ t.scopes }}</td>{% if is_owner %}<td class="small">{{ t.user.name if t.user else '' }}</td>{% endif %}
+      <td>{{ t.name }}</td><td><code>{{ t.prefix }}...</code></td><td class="small">{% if t.confidentiality == 'redacted' %}<strong>client details withheld</strong>{% else %}<strong style="color:var(--bad)">full client data</strong>{% endif %}<br>{{ t.scopes }}</td>{% if is_owner %}<td class="small">{{ t.user.name if t.user else '' }}</td>{% endif %}
       <td class="small muted">{{ t.last_used_at|dt if t.last_used_at else 'never' }}</td>
       <td>{% if t.revoked_at %}<span class="badge void">revoked {{ t.revoked_at|d }}</span>{% else %}<form method="post" action="/settings/api/{{ t.id }}/revoke" class="inline" onsubmit="return confirm('Revoke this token? Anything using it stops working.')">{{ csrf() }}<button class="btn small secondary">Revoke</button></form>{% endif %}</td>
     </tr>{% endfor %}</table>{% else %}<div class="empty">No tokens yet.</div>{% endif %}

@@ -38,18 +38,73 @@ def hash_token(raw):
     return hashlib.sha256((raw or "").encode("utf-8")).hexdigest()
 
 
-def create_token(user, name, scopes="read"):
-    """-> (ApiToken, raw). The raw value is never stored; show it once."""
+# ---------------------------------------------------------------- scopes
+# A firm decides what each token may touch, resource by resource. This exists because
+# the obvious consumer is now an AI agent, and "read everything and write anything" is
+# not a choice a firm should have to make to let an assistant log time.
+#
+# Deliberately NOT addressable by any scope, at all:
+#   trust accounting, payments, users and permissions, firm settings, and deletes.
+# Those are absent from the API surface rather than gated, so no token, however
+# configured, can reach client funds or remove a record.
+RESOURCES = ("matters", "contacts", "time", "invoices", "tasks",
+             "documents", "calendar", "notes", "leads", "voice")
+ACCESS = ("read", "write")
+ALL_SCOPES = tuple(f"{r}:{a}" for r in RESOURCES for a in ACCESS)
+
+RESOURCE_LABELS = {
+    "matters": "Matters and cases",
+    "contacts": "Contacts and clients",
+    "time": "Time entries and the timer",
+    "invoices": "Invoices (draft only; never sending or payments)",
+    "tasks": "Tasks and deadlines",
+    "documents": "Documents (metadata and text; never the file bytes)",
+    "calendar": "Calendar events",
+    "notes": "Matter notes",
+    "leads": "Intake leads",
+    "voice": "The phone line (client status, notes and time by phone)",
+}
+
+
+def normalise_scopes(raw):
+    """Accept a list or comma string; keep only real scopes. Legacy values still work.
+
+    Tokens issued before scopes were granular carry "read" or "read,write", and those
+    tokens are in the wild on installs we cannot reach. They keep meaning what they
+    meant: everything readable, and everything writable.
+    """
+    # Accept a list of checkbox values, a comma string, or a list holding a comma string
+    # (which is what the form posts when the legacy single-value control is still in use).
+    items = raw if isinstance(raw, (list, tuple, set)) else [raw]
+    parts = [p.strip() for item in items for p in str(item or "").split(",") if p.strip()]
+    if not parts:
+        return ["matters:read"]
+    if set(parts) <= {"read", "write"}:
+        wanted = [s for s in ALL_SCOPES if s.endswith(":read")]
+        if "write" in parts:
+            wanted += [s for s in ALL_SCOPES if s.endswith(":write")]
+        return wanted
+    return [p for p in ALL_SCOPES if p in parts] or ["matters:read"]
+
+
+CONFIDENTIALITY = ("redacted", "full")
+
+
+def create_token(user, name, scopes="read", confidentiality="redacted"):
+    """-> (ApiToken, raw). The raw value is never stored; show it once.
+
+    Defaults to redacted. Anything that wants the whole file has to ask for it.
+    """
     raw = new_raw_token()
-    scopes = "read,write" if "write" in (scopes or "") else "read"
+    mode = confidentiality if confidentiality in CONFIDENTIALITY else "redacted"
     t = ApiToken(user_id=user.id, name=(name or "API token")[:120], token_hash=hash_token(raw), prefix=raw[:12],
-                 scopes=scopes)
+                 scopes=",".join(normalise_scopes(scopes)), confidentiality=mode)
     db.session.add(t)
     return t, raw
 
 
 def token_scopes(t):
-    return {s.strip() for s in (t.scopes or "").split(",") if s.strip()}
+    return set(normalise_scopes(t.scopes if t is not None else ""))
 
 
 # ---------------------------------------------------------------- plumbing
@@ -97,16 +152,26 @@ def _authenticate():
 
 
 def scope_required(scope):
+    """Gate an endpoint on one scope, e.g. "time:write".
+
+    The user's own role still wins: a readonly user cannot write no matter how the token
+    was configured, because a token must never be a way around the permissions a firm
+    already set on a person.
+    """
     def deco(f):
         @wraps(f)
         def wrapper(*a, **kw):
             if scope not in token_scopes(g.api_token):
                 return _error(403, f"This token does not have the '{scope}' scope.")
-            if scope == "write" and (g.api_user.role or "") == "readonly":
+            if scope.endswith(":write") and (g.api_user.role or "") == "readonly":
                 return _error(403, "Read-only users cannot write through the API.")
             return f(*a, **kw)
         return wrapper
     return deco
+
+
+def read_required(resource):
+    return scope_required(f"{resource}:read")
 
 
 @bp.errorhandler(HTTPException)
@@ -133,58 +198,134 @@ def _truthy(v, default=True):
     return str(v).strip().lower() in ("1", "true", "yes", "on")
 
 
+# ------------------------------------------------------------ confidentiality
+# Two modes, chosen per token, because the obvious consumer is a language model and
+# "send the whole practice to a third party" is not one decision, it is two.
+#
+#   full      Everything. For a local model, or a provider under a zero-retention
+#             agreement the firm has actually checked. The firm asserts that.
+#   redacted  Structure without identity or substance. The default.
+#
+# Redacted withholds exactly two classes:
+#
+#   Identity   any name, email, phone or address of a client or contact. A matter
+#              keeps its number, so an agent can still act on "M-1001".
+#   Substance  the free text a lawyer wrote about the representation: matter
+#              descriptions, time narratives, note bodies, document text.
+#
+# What survives is ids, numbers, dates, amounts, minutes, statuses and counts. That is
+# enough for "how much did I bill last week", "what is overdue", "start a timer on
+# M-1001" without the model ever learning who the client is or what the case is about.
+#
+# This is not a substitute for the firm's own judgement under Rule 1.6. It is a way to
+# make the safe option the easy one.
+REDACTED = "[redacted]"
+
+
+def is_redacted():
+    return getattr(g, "api_token", None) is not None and \
+        (g.api_token.confidentiality or "full") == "redacted"
+
+
+def _r(value):
+    """Substance: drop it, but say something was there rather than pretend it was empty."""
+    return REDACTED if value else value
+
+
+def _r_name(kind, ident):
+    """Identity: a stable label so an agent can still refer to the same thing twice."""
+    return f"{kind} #{ident}"
+
+
 # ---------------------------------------------------------------- serializers
 def matter_json(m):
-    return {"id": m.id, "number": m.number, "name": m.name, "label": m.label, "status": m.status,
-            "practice_area": m.practice_area, "billing_type": m.billing_type, "client_id": m.client_id,
-            "client_name": m.client.display_name if m.client else "", "opened_on": _iso(m.opened_on),
-            "closed_on": _iso(m.closed_on), "responsible_user_id": m.responsible_user_id,
-            "court": m.court, "case_number": m.case_number}
+    d = {"id": m.id, "number": m.number, "name": m.name, "label": m.label, "status": m.status,
+         "practice_area": m.practice_area, "billing_type": m.billing_type, "client_id": m.client_id,
+         "client_name": m.client.display_name if m.client else "", "opened_on": _iso(m.opened_on),
+         "closed_on": _iso(m.closed_on), "responsible_user_id": m.responsible_user_id,
+         "court": m.court, "case_number": m.case_number}
+    if is_redacted():
+        # The matter NAME is usually the case caption, so it carries both parties.
+        d["name"] = _r_name("Matter", m.id)
+        d["label"] = m.number or _r_name("Matter", m.id)
+        d["client_name"] = _r_name("Client", m.client_id) if m.client_id else ""
+        d["case_number"] = _r(m.case_number)
+        d["court"] = _r(m.court)
+    return d
 
 
 def contact_json(c):
-    return {"id": c.id, "name": c.display_name, "kind": c.kind, "email": c.email, "phone": c.phone,
-            "is_client": bool(c.is_client)}
+    d = {"id": c.id, "name": c.display_name, "kind": c.kind, "email": c.email, "phone": c.phone,
+         "is_client": bool(c.is_client)}
+    if is_redacted():
+        d.update(name=_r_name("Contact", c.id), email=_r(c.email), phone=_r(c.phone))
+    return d
 
 
 def time_json(t):
-    return {"id": t.id, "matter_id": t.matter_id, "matter_number": t.matter.number if t.matter else "",
-            "user_id": t.user_id, "date": _iso(t.date), "minutes": t.minutes, "hours": t.hours,
-            "description": t.description, "rate_cents": t.rate_cents, "amount_cents": t.amount_cents,
-            "billable": bool(t.billable), "invoice_id": t.invoice_id}
+    d = {"id": t.id, "matter_id": t.matter_id, "matter_number": t.matter.number if t.matter else "",
+         "user_id": t.user_id, "date": _iso(t.date), "minutes": t.minutes, "hours": t.hours,
+         "description": t.description, "rate_cents": t.rate_cents, "amount_cents": t.amount_cents,
+         "billable": bool(t.billable), "invoice_id": t.invoice_id}
+    if is_redacted():
+        # The narrative is what the lawyer did for the client. That is the representation.
+        d["description"] = _r(t.description)
+    return d
 
 
 def timer_json(t):
     if not t:
         return None
-    return {"id": t.id, "matter_id": t.matter_id, "matter_number": t.matter.number if t.matter else "",
-            "description": t.description, "started_at": _iso(t.started_at), "paused": bool(t.paused),
-            "elapsed_seconds": t.elapsed_seconds()}
+    d = {"id": t.id, "matter_id": t.matter_id, "matter_number": t.matter.number if t.matter else "",
+         "description": t.description, "started_at": _iso(t.started_at), "paused": bool(t.paused),
+         "elapsed_seconds": t.elapsed_seconds()}
+    if is_redacted():
+        d["description"] = _r(t.description)
+    return d
 
 
 def invoice_json(i):
-    return {"id": i.id, "number": i.number, "status": i.status, "matter_id": i.matter_id, "client_id": i.client_id,
-            "client_name": i.client.display_name if i.client else "", "issued_on": _iso(i.issued_on),
-            "due_on": _iso(i.due_on), "total_cents": i.total_cents, "paid_cents": i.paid_cents,
-            "balance_cents": i.balance_cents, "currency": i.currency}
+    d = {"id": i.id, "number": i.number, "status": i.status, "matter_id": i.matter_id, "client_id": i.client_id,
+         "client_name": i.client.display_name if i.client else "", "issued_on": _iso(i.issued_on),
+         "due_on": _iso(i.due_on), "total_cents": i.total_cents, "paid_cents": i.paid_cents,
+         "balance_cents": i.balance_cents, "currency": i.currency}
+    if is_redacted():
+        # Amounts and dates stay: billing questions are the point, and a number is not
+        # a confidence. Who it belongs to is.
+        d["client_name"] = _r_name("Client", i.client_id) if i.client_id else ""
+    return d
 
 
 def task_json(t):
-    return {"id": t.id, "title": t.title, "kind": t.kind, "due_on": _iso(t.due_on), "priority": t.priority,
-            "matter_id": t.matter_id, "matter_number": t.matter.number if t.matter else "",
-            "assignee_id": t.assignee_id, "done": bool(t.done)}
+    d = {"id": t.id, "title": t.title, "kind": t.kind, "due_on": _iso(t.due_on), "priority": t.priority,
+         "matter_id": t.matter_id, "matter_number": t.matter.number if t.matter else "",
+         "assignee_id": t.assignee_id, "done": bool(t.done)}
+    if is_redacted():
+        # Titles read "Depose Dr Alvarez re: the fall" as often as "File answer".
+        d["title"] = _r(t.title)
+    return d
 
 
 # ---------------------------------------------------------------- endpoints
 @bp.route("/me")
 def me():
     u, t = g.api_user, g.api_token
-    return jsonify({"user": {"id": u.id, "name": u.name, "email": u.email, "role": u.role},
-                    "token": {"name": t.name, "prefix": t.prefix, "scopes": sorted(token_scopes(t))},
-                    "firm": {"name": Firm.get().name}, "timer": timer_json(Timer.query.filter_by(user_id=u.id).first())})
+    mode = (t.confidentiality or "full")
+    return jsonify({
+        "user": {"id": u.id, "name": u.name, "email": u.email, "role": u.role},
+        # An agent reads this to decide which tools to offer and what it is allowed to
+        # infer. `confidentiality` tells it whether what it is seeing is the real thing.
+        "token": {"name": t.name, "prefix": t.prefix, "scopes": sorted(token_scopes(t)),
+                  "confidentiality": mode,
+                  "note": ("Client identities and the substance of matters are withheld from "
+                           "this token. Do not guess at either." if mode == "redacted"
+                           else "This token returns unredacted client data.")},
+        "firm": {"name": Firm.get().name},
+        "timer": timer_json(Timer.query.filter_by(user_id=u.id).first())})
 
 
 @bp.route("/matters")
+@read_required("matters")
 def matters():
     q = (request.args.get("q") or "").strip()
     status = (request.args.get("status") or "open").strip().lower()
@@ -201,6 +342,7 @@ def matters():
 
 
 @bp.route("/matters/<int:id>")
+@read_required("matters")
 def matter(id):
     m = db.session.get(Matter, id)
     if not m:
@@ -212,6 +354,7 @@ def matter(id):
 
 
 @bp.route("/contacts")
+@read_required("contacts")
 def contacts():
     q = (request.args.get("q") or "").strip()
     query = Contact.query
@@ -224,6 +367,7 @@ def contacts():
 
 
 @bp.route("/time")
+@read_required("time")
 def time_list():
     query = TimeEntry.query
     mid = request.args.get("matter_id", type=int)
@@ -243,7 +387,7 @@ def time_list():
 
 
 @bp.route("/time", methods=["POST"])
-@scope_required("write")
+@scope_required("time:write")
 def time_create():
     b = _body()
     u = g.api_user
@@ -271,12 +415,13 @@ def time_create():
 
 
 @bp.route("/timer")
+@read_required("time")
 def timer_status():
     return jsonify({"timer": timer_json(Timer.query.filter_by(user_id=g.api_user.id).first())})
 
 
 @bp.route("/timer/start", methods=["POST"])
-@scope_required("write")
+@scope_required("time:write")
 def timer_start():
     u = g.api_user
     if Timer.query.filter_by(user_id=u.id).first():
@@ -297,7 +442,7 @@ def timer_start():
 
 
 @bp.route("/timer/stop", methods=["POST"])
-@scope_required("write")
+@scope_required("time:write")
 def timer_stop():
     from .time import round_up_minutes
     u = g.api_user
@@ -328,6 +473,7 @@ def timer_stop():
 
 
 @bp.route("/invoices")
+@read_required("invoices")
 def invoices():
     status = (request.args.get("status") or "").strip().lower()
     query = Invoice.query
@@ -340,6 +486,7 @@ def invoices():
 
 
 @bp.route("/tasks")
+@read_required("tasks")
 def tasks():
     due = (request.args.get("due") or "").strip().lower()
     today = date.today()
@@ -371,7 +518,7 @@ def lead_json(l, created=True):
 
 
 @bp.route("/leads", methods=["POST"])
-@scope_required("write")
+@scope_required("leads:write")
 def lead_create():
     """Phone intake from an answering service or the voice agent. Idempotent on external_id: the id is kept at
     the tail of the description as "[ref: <id>]" and a retry with the same id returns the existing lead."""
@@ -423,7 +570,7 @@ def lead_create():
 
 # ---------------------------------------------------------------- time capture (Smokeball lane, Agent R)
 @bp.route("/capture", methods=["POST"])
-@scope_required("write")
+@scope_required("time:write")
 def capture_create():
     """Segments from the extension: [{started_at ISO, minutes, title, url, source}]. Under two minutes is ignored;
     the same title within 30 minutes of a pending suggestion is merged into it. Logic lives in capture.py."""
@@ -444,6 +591,7 @@ def capture_create():
 
 
 @bp.route("/capture/pending")
+@read_required("time")
 def capture_pending():
     from .capture import pending_query
     rows = pending_query(g.api_user).all()

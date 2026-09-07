@@ -702,15 +702,20 @@ def api_tokens():
         if not name:
             flash("Give the token a name so you know what to revoke later.", "error")
             return redirect(url_for("settings.api_tokens"))
-        t, raw = create_token(u, name, request.form.get("scopes") or "read")
+        # Checkboxes give a list; the old radio posted a single legacy value. Both work.
+        picked = request.form.getlist("scopes") or (request.form.get("scopes") or "read")
+        t, raw = create_token(u, name, picked, request.form.get("confidentiality") or "redacted")
         db.session.flush()
-        audit("api_token_create", "api_token", t.id, f"{name} ({t.scopes})", u.id)
+        audit("api_token_create", "api_token", t.id,
+              f"{name} [{t.confidentiality}] ({t.scopes})", u.id)
         db.session.commit()
         session["_new_api_token"] = raw
         return redirect(url_for("settings.api_tokens"))
     new_token = session.pop("_new_api_token", None)
     rows = ApiToken.query.order_by(ApiToken.revoked_at.isnot(None), ApiToken.created_at.desc()).all()
+    from .api import RESOURCES, RESOURCE_LABELS
     return render_template("settings/api.html", rows=rows, new_token=new_token, base=current_app.config["BASE_URL"],
+                           resources=RESOURCES, resource_labels=RESOURCE_LABELS,
                            rate_limit=current_app.config.get("API_RATE_LIMIT", RATE_LIMIT))
 
 

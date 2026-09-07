@@ -1063,7 +1063,12 @@ class ApiToken(db.Model):
     name = db.Column(db.String(120), default="")
     token_hash = db.Column(db.String(80), unique=True, nullable=False)  # sha256 of the raw token
     prefix = db.Column(db.String(12), default="")  # first 8 chars, for display
-    scopes = db.Column(db.String(60), default="read")  # read | read,write
+    # 60 was sized for "read,write". Granular scopes run to ~250 characters; SQLite
+    # ignores the length so it looked fine, but it would truncate on anything else.
+    scopes = db.Column(db.String(500), default="read")  # see api.ALL_SCOPES
+    # "full" | "redacted". Defaults to full ONLY so that tokens issued before this
+    # existed keep behaving as they did; create_token() defaults new tokens to redacted.
+    confidentiality = db.Column(db.String(20), default="full")
     last_used_at = db.Column(db.DateTime)
     revoked_at = db.Column(db.DateTime)
     created_at = db.Column(db.DateTime, default=now)

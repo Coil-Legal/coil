@@ -261,13 +261,15 @@ def test_pnl_and_balance(app, client):
 
 
 # ---------------------------------------------------------------- REST API
-def _make_token(app, scopes):
+def _make_token(app, scopes, confidentiality="full"):
+    """Defaults to full here so the existing assertions keep testing the endpoints
+    themselves. Redaction has its own tests in test_api_scopes.py."""
     from app.extensions import db
     from app.models import User
     from app.blueprints.api import create_token
     with app.app_context():
         u = User.query.filter_by(email="owner@example.com").first()
-        t, raw = create_token(u, f"test {scopes}", scopes)
+        t, raw = create_token(u, f"test {scopes}", scopes, confidentiality)
         db.session.commit()
         return raw
 
@@ -290,13 +292,21 @@ def test_api_token_page_and_auth(app, client):
     assert b"Copy this token now" not in r.data  # shown once
     with app.app_context():
         t = ApiToken.query.filter_by(name="Laptop").one()
-        assert t.token_hash != raw and t.prefix == raw[:12] and t.scopes == "read,write"
+        # Scopes are granular now. The legacy "read,write" the form posts still means
+        # everything readable and everything writable, because tokens issued before
+        # granular scopes existed are running on installs we cannot reach.
+        from app.blueprints.api import ALL_SCOPES
+        assert t.token_hash != raw and t.prefix == raw[:12]
+        assert set(t.scopes.split(",")) == set(ALL_SCOPES)
         tid = t.id
     # bearer works, no session needed
     anon = app.test_client()
     r = anon.get("/api/v1/me", headers=_h(raw))
     assert r.status_code == 200 and r.json["user"]["email"] == "owner@example.com"
-    assert r.json["token"]["scopes"] == ["read", "write"]
+    # /me reports the granular set the token actually holds, which is what an agent
+    # reads to work out which tools it may offer.
+    from app.blueprints.api import ALL_SCOPES
+    assert set(r.json["token"]["scopes"]) == set(ALL_SCOPES)
     r = anon.get("/api/v1/me")
     assert r.status_code == 401 and r.json["error"]
     r = anon.get("/api/v1/me", headers=_h("coil_wrong"))
