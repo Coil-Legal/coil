@@ -25,6 +25,11 @@ The server reads the mode at startup and tells the model which one it is in, so 
 assistant seeing "Client #4" knows that is a redaction rather than a client called
 Client #4.
 
+## Checking it works
+
+`TESTING.md` walks every tool with fake data, including how to prove that withheld
+mode really withholds. Load the fake practice first with `python demo_data.py`.
+
 ## Running it
 
 ```bash

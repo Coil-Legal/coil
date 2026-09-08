@@ -1,0 +1,55 @@
+SYNTHETIC TEST DATA. Invented deponent, counsel and case. Not a real transcript.
+
+IN THE DISTRICT COURT OF TARRANT VALLEY COUNTY
+CAUSE NO. DEMO-2026-00417
+
+ROSALIND Q. MARCHETTI, Plaintiff
+v.
+NORDVALE FREIGHT CO., Defendant
+
+ORAL DEPOSITION OF HAROLD T. BRINKMAN
+September 2, 2026
+
+---
+PAGE 14
+ 1   Q.  Mr. Brinkman, how long had you been driving that afternoon?
+ 2   A.  Since about six in the morning.
+ 3   Q.  Without a break?
+ 4   A.  I stopped once for fuel. Maybe twenty minutes.
+ 5   Q.  So roughly eleven hours behind the wheel by the time of the collision?
+ 6   A.  That sounds about right, yes.
+ 7   Q.  What does Nordvale's policy say about hours of service?
+ 8   A.  There's a limit. I don't remember the number offhand.
+ 9   Q.  Were you aware you were over it?
+10   A.  I wasn't watching the clock that close.
+
+PAGE 22
+ 3   Q.  Let's talk about the moment before impact. What did you see?
+ 4   A.  Traffic slowed up ahead. Brake lights.
+ 5   Q.  How far ahead?
+ 6   A.  Maybe three car lengths.
+ 7   Q.  Three car lengths at what speed?
+ 8   A.  I was doing about fifty.
+ 9   Q.  Fifty miles an hour, three car lengths behind the vehicle in front?
+10   A.  It happened fast.
+11   Q.  Did you apply the brakes?
+12   A.  I did. There wasn't enough room.
+
+PAGE 31
+14   Q.  Earlier you told me you stopped once for fuel, for about twenty minutes.
+15   A.  Right.
+16   Q.  Your logbook shows a forty-five minute stop at the Farm Road 12 station.
+17   A.  Then it was forty-five. I said I wasn't sure.
+18   Q.  Which is it, Mr. Brinkman?
+19   A.  I don't remember exactly. It was a long day.
+
+PAGE 44
+ 2   Q.  Had the vehicle been serviced in the ninety days before the collision?
+ 3   A.  I couldn't tell you. Maintenance handles that.
+ 4   Q.  Did you complete a pre-trip inspection that morning?
+ 5   A.  I always do.
+ 6   Q.  Is there a written record of it?
+ 7   A.  There should be.
+ 8   Q.  We've asked for those records twice and received nothing. Any idea why?
+ 9        MR. CALLOWAY: Objection, form. Calls for speculation.
+10   A.  No idea.

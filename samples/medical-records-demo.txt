@@ -1,0 +1,57 @@
+SYNTHETIC TEST DATA. Invented patient, providers and facilities. Not a real medical record.
+
+PATIENT: Rosalind Q. Marchetti
+DOB: 1981-04-17
+CLAIM: Marchetti v. Nordvale Freight Co. (demo)
+
+---
+2026-02-11  Cedar Hollow Emergency Center
+Arrived by ambulance following a rear-end collision on Farm Road 12 at approximately
+17:40. Restrained driver. Airbag deployed. Complains of neck pain radiating to the right
+shoulder, headache, and pain across the lower back.
+Exam: cervical paraspinal tenderness, limited rotation to the right. No focal deficit.
+Imaging: CT head without contrast, negative for acute intracranial process. Cervical
+spine x-ray, no acute fracture. Straightening of the normal cervical lordosis noted.
+Assessment: cervical strain, lumbar strain, post-traumatic headache.
+Plan: NSAIDs, muscle relaxant, follow up with primary care in one week.
+
+2026-02-19  Dr. Amara Whitfield, DO, Whitfield Family Medicine
+Follow-up. Neck pain 6/10, worse in the morning. Reports difficulty sleeping and missing
+four days of work. Range of motion reduced in rotation and lateral flexion bilaterally.
+Referred to physical therapy, three times weekly for six weeks.
+
+2026-03-04  Lakeshore Physical Therapy
+Initial evaluation. Cervical rotation 45 degrees right, 60 degrees left. Grip strength
+symmetric. Patient reports pain with prolonged sitting, which affects her work as a
+dispatcher.
+Plan of care: 18 visits over six weeks.
+
+2026-04-02  Dr. Amara Whitfield, DO
+Interim visit. Improvement in the lumbar spine. Cervical symptoms persist with numbness
+into the right index and middle fingers. MRI of the cervical spine ordered.
+
+2026-04-15  Northgate Imaging
+MRI cervical spine without contrast. C5-C6 disc protrusion measuring 3mm with mild
+right-sided foraminal narrowing. No cord signal change. Degenerative changes noted at
+C6-C7 which appear chronic.
+
+2026-05-06  Dr. Sanjay Oduya, MD, Northgate Orthopaedics
+Consultation. History and MRI reviewed. Symptoms consistent with right C6 radiculopathy.
+Recommends epidural steroid injection. Discussed that the C6-C7 changes predate the
+collision and are unlikely to be traumatic in origin.
+
+2026-05-28  Northgate Orthopaedics, procedure
+Right C5-C6 transforaminal epidural steroid injection performed without complication.
+
+2026-07-09  Dr. Sanjay Oduya, MD
+Post-injection follow-up. Approximately 60 percent relief lasting six weeks. Radicular
+symptoms reduced. Continued home exercise recommended. Patient at maximum medical
+improvement for conservative care. Surgery not recommended at this time.
+
+BILLING SUMMARY (demo figures)
+Cedar Hollow Emergency Center      $ 8,412.00
+Whitfield Family Medicine          $   940.00
+Lakeshore Physical Therapy         $ 4,275.00
+Northgate Imaging                  $ 2,150.00
+Northgate Orthopaedics             $ 6,830.00
+TOTAL                              $22,607.00

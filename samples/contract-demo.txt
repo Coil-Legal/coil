@@ -1,0 +1,39 @@
+SYNTHETIC TEST DATA. Invented parties and terms. Not a real agreement and not a template.
+
+FREIGHT SERVICES AGREEMENT (DEMO)
+
+This Agreement is made as of 1 March 2025 between Bluebonnet Logistics LLC, a Texas
+limited liability company ("Shipper"), and Nordvale Freight Co. ("Carrier").
+
+1. SERVICES. Carrier shall transport Shipper's goods between the points listed in
+   Schedule A, on the schedule set out there.
+
+2. RATES. Shipper shall pay the rates in Schedule B. Rates may be adjusted once per
+   calendar year on sixty days' written notice.
+
+3. TERM. This Agreement runs for twenty-four months from the date above and renews for
+   successive twelve-month terms unless either party gives ninety days' written notice.
+
+4. INSURANCE. Carrier shall maintain commercial auto liability coverage of not less than
+   $1,000,000 per occurrence and shall name Shipper as an additional insured.
+
+5. INDEMNITY. Carrier shall indemnify and hold Shipper harmless from claims arising out
+   of Carrier's negligence in the performance of this Agreement, excluding claims arising
+   from Shipper's own negligence.
+
+6. DRIVER QUALIFICATION. Carrier warrants that every driver operating under this
+   Agreement holds a current commercial licence and complies with all applicable
+   hours-of-service regulations. Carrier shall retain records of compliance for the
+   period required by law and produce them to Shipper on reasonable request.
+
+7. LIMITATION OF LIABILITY. Neither party is liable for consequential damages, except
+   that this clause does not limit either party's indemnity obligations under Section 5.
+
+8. GOVERNING LAW. Texas law governs, without regard to its conflict of laws rules.
+
+9. DISPUTES. The parties shall attempt mediation in good faith before filing suit.
+
+BLUEBONNET LOGISTICS LLC          NORDVALE FREIGHT CO.
+By: ______________________        By: ______________________
+Name: Teodora Vance               Name: Harold T. Brinkman
+Title: Managing Member            Title: Operations Director

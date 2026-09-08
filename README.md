@@ -133,3 +133,16 @@ Test a restore before you need one.
 ## License
 
 AGPL-3.0. Run it, change it, host it for others; if you host a modified version, share the changes.
+
+## Trying it out
+
+```bash
+python seed.py          # owner@example.com / password123
+python demo_data.py     # a fake practice with invoices, notes and documents
+```
+
+`samples/` holds fake medical records, a deposition excerpt, a brief whose citations do
+not all resolve, a contract and a demand letter. Everything is invented and says so.
+
+To let an AI assistant use Coil, see `mcp/README.md`, and `mcp/TESTING.md` for a
+tool-by-tool walkthrough. Remove the demo practice with `python demo_data.py --clear`.

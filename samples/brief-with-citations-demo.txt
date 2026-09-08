@@ -1,0 +1,32 @@
+SYNTHETIC TEST DATA. Invented case. TWO CITATIONS BELOW ARE DELIBERATELY FAKE so a
+cite checker has something to catch. Do not rely on any of this.
+
+PLAINTIFF'S RESPONSE TO DEFENDANT'S MOTION FOR SUMMARY JUDGMENT
+
+I. STANDARD
+
+Summary judgment is proper only where there is no genuine dispute as to any material
+fact. Celotex Corp. v. Catrett, 477 U.S. 317 (1986). The evidence of the non-movant is
+to be believed, and all justifiable inferences drawn in that party's favor. Anderson v.
+Liberty Lobby, Inc., 477 U.S. 242 (1986). A dispute is genuine where the evidence could
+lead a reasonable jury to return a verdict for the non-moving party. Matsushita Elec.
+Indus. Co. v. Zenith Radio Corp., 475 U.S. 574 (1986).
+
+II. ARGUMENT
+
+Defendant's own driver conceded that he travelled roughly eleven hours before the
+collision and could not recall the applicable hours-of-service limit. A jury could find
+that a carrier which does not enforce its own fatigue policy has failed to exercise
+ordinary care. See Halloway v. Pemberton Carriers, 812 F.3d 1144 (9th Cir. 2016).
+
+Texas courts have long held that a driver following at three car lengths at fifty miles
+per hour has not maintained a safe following distance as a matter of ordinary prudence.
+Marbury v. Tarrant Valley Transit, 998 S.W.2d 2201 (Tex. App. 2019).
+
+The spoliation of pre-trip inspection records, requested twice and never produced,
+supports an adverse inference. Vasquez-Lindberg v. Cedar Hollow Freight Systems,
+1147 F.4th 88 (5th Cir. 2029).
+
+III. CONCLUSION
+
+For these reasons, Plaintiff respectfully requests that the Court deny the motion.
