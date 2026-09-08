@@ -192,13 +192,18 @@ def build():
 
     # --- documents ---------------------------------------------------------------
     from app.blueprints.documents import store_bytes
+    # Deliberately mixed formats. Coil pulls text out of PDF, DOCX and plain text by
+    # three different routes, and a sample set that is all .txt exercises one of them.
+    # Records really do arrive as PDFs and contracts really do arrive as Word files.
     files = [
-        (pi, "medical-records-demo.txt", "Medical records", "Records"),
+        (pi, "medical-records-demo.pdf", "Medical records", "Records"),
         (pi, "deposition-excerpt-demo.txt", "Depositions", "Discovery"),
         (pi, "settlement-demand-demo.txt", "Demand", "Correspondence"),
         (pi, "intake-notes-demo.txt", "Intake", "Intake"),
         (pi, "brief-with-citations-demo.txt", "Briefing", "Pleadings"),
-        (corp, "contract-demo.txt", "Contract", "Contracts"),
+        (pi, "provider-billing-demo.csv", "Billing", "Records"),
+        (pi, "client-email-demo.eml", "Correspondence", "Correspondence"),
+        (corp, "contract-demo.docx", "Contract", "Contracts"),
     ]
     added = 0
     for matter, fname, tag, folder in files:
@@ -206,7 +211,9 @@ def build():
         if not src.exists():
             print(f"  missing sample {fname}, skipped")
             continue
-        doc, err = store_bytes(matter.id, fname, src.read_bytes(), mime="text/plain",
+        import mimetypes
+        doc, err = store_bytes(matter.id, fname, src.read_bytes(),
+                               mime=mimetypes.guess_type(fname)[0] or "application/octet-stream",
                                user_id=u.id, folder=folder, tags=f"demo,{tag}")
         if err:
             print(f"  {fname}: {err}")

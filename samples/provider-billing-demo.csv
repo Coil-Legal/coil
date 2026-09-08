@@ -1,0 +1,11 @@
+date,provider,description,billed,paid,balance
+2026-02-11,Cedar Hollow Emergency Center,"ED visit, imaging",8412.00,0.00,8412.00
+2026-02-19,Whitfield Family Medicine,Office visit,310.00,310.00,0.00
+2026-03-04,Lakeshore Physical Therapy,PT evaluation,425.00,425.00,0.00
+2026-03-11,Lakeshore Physical Therapy,"PT, 6 sessions",1275.00,900.00,375.00
+2026-04-02,Whitfield Family Medicine,"Office visit, MRI referral",630.00,0.00,630.00
+2026-04-15,Northgate Imaging,MRI cervical spine,2150.00,0.00,2150.00
+2026-05-06,Northgate Orthopaedics,Consultation,780.00,0.00,780.00
+2026-05-28,Northgate Orthopaedics,"ESI, right C5-C6",5300.00,0.00,5300.00
+2026-07-09,Northgate Orthopaedics,Follow-up,750.00,0.00,750.00
+2026-03-25,Lakeshore Physical Therapy,"PT, 12 sessions",2575.00,2575.00,0.00

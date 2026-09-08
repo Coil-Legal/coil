@@ -19,3 +19,12 @@ against the right matters. Or upload one by hand from any matter's Documents tab
 | `contract-demo.txt` | Documents, full-text search, conflict check |
 | `settlement-demand-demo.txt` | Demand drafting, PI settlement worksheet |
 | `intake-notes-demo.txt` | Intake, matter notes, the AI assistant |
+| `medical-records-demo.pdf` | The same records as a PDF, so the pypdf path gets used |
+| `contract-demo.docx` | The same contract as Word, so the DOCX path gets used |
+| `provider-billing-demo.csv` | Lien and billing ledgers, CSV import |
+| `client-email-demo.eml` | Filing an email to a matter |
+
+The binary files are committed, so you do not need to build anything. `python
+samples/build.py` regenerates them from the text versions if you change those. The mix of
+formats is on purpose: Coil reads PDF, Word and plain text by three different routes, and
+a sample set that is all `.txt` only ever exercises one of them.
