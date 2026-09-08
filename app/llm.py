@@ -41,6 +41,12 @@ ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
 ANTHROPIC_VERSION = "2023-06-01"
 TIMEOUT = (10, 90)
 
+def _truthy(v, default=True):
+    if v is None or v == "":
+        return default
+    return str(v).strip().lower() in ("1", "true", "yes", "on")
+
+
 MAX_CONTEXT_CHARS = 12000
 TRUNCATION_NOTE = "\n\n[Context was cut at 12,000 characters. Work from what is above.]"
 
@@ -267,6 +273,18 @@ def _openrouter(model, prompt, system, max_tokens, temperature, effort):
         payload["temperature"] = min(float(temperature), 1.0)
     if is_thinking_model(model) and effort:
         payload["reasoning"] = {"effort": effort}
+
+    # Constrain WHERE the prompt may go, not just which model answers. Without this block
+    # OpenRouter picks a provider on price and speed, and its default data policy allows
+    # ones that retain and train on prompts. These prompts contain client matters.
+    routing = {}
+    if _truthy(_setting("AI_OPENROUTER_ZDR", "1")):
+        routing["zdr"] = True
+    if _truthy(_setting("AI_OPENROUTER_NO_TRAINING", "1")):
+        routing["data_collection"] = "deny"
+    if routing:
+        payload["provider"] = routing
+
     headers = {"Authorization": f"Bearer {_setting('OPENROUTER_API_KEY')}", "Content-Type": "application/json",
                "X-Title": "Coil"}
     base = _setting("BASE_URL")

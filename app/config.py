@@ -67,6 +67,13 @@ class Config:
     ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
     AI_MODEL = os.environ.get("AI_MODEL", "claude-haiku-4-5")
     AI_OPENROUTER_MODEL = os.environ.get("AI_OPENROUTER_MODEL", "anthropic/claude-haiku-4.5")
+    # OpenRouter routes to whichever provider is cheapest or fastest unless told otherwise,
+    # and its default permits providers that may store and train on prompts. Coil's prompts
+    # carry matter content, so the default here is the restrictive one: zero-retention
+    # endpoints only, and no provider that collects data. Set either to 0 to lift it, which
+    # widens the pool of models that will answer at the cost of that guarantee.
+    AI_OPENROUTER_ZDR = os.environ.get("AI_OPENROUTER_ZDR", "1")
+    AI_OPENROUTER_NO_TRAINING = os.environ.get("AI_OPENROUTER_NO_TRAINING", "1")
     AI_DAILY_CAP_CENTS = int(os.environ.get("AI_DAILY_CAP_CENTS", "300") or 300)
     LLM_ENABLED = os.environ.get("LLM_ENABLED", "true")
     LLM_DAILY_CAP = int(os.environ.get("LLM_DAILY_CAP", "0") or 0)

@@ -196,3 +196,55 @@ def test_two_backups_in_the_same_second_do_not_overwrite_each_other(tmp_path):
         b = cli.backup()
     assert a != b, "the second backup overwrote the first"
     assert a.exists() and b.exists()
+
+
+# --- OpenRouter routing ---------------------------------------------------------------
+# Coil's prompts carry client matters. OpenRouter picks a provider on price and speed
+# unless told otherwise, and its default data policy permits providers that retain and
+# train on prompts, so the routing block is the part that actually keeps the promise the
+# confidentiality settings make.
+def test_openrouter_requests_are_pinned_to_zero_retention_providers(auth_app, monkeypatch):
+    import app.llm as llm
+    seen = {}
+
+    class R:
+        status_code = 200
+        text = ""
+        def json(self):
+            return {"choices": [{"message": {"content": "ok"}}], "usage": {}}
+
+    def fake_post(url, headers=None, json=None, timeout=None):
+        seen["url"] = url
+        seen["payload"] = json
+        return R()
+
+    monkeypatch.setattr(llm.requests, "post", fake_post)
+    with auth_app.app_context():
+        auth_app.config["OPENROUTER_API_KEY"] = "test-key"
+        llm._openrouter("anthropic/claude-haiku-4.5", "hello", "", 256, None, None)
+
+    prov = seen["payload"].get("provider")
+    assert prov, "no provider block: the prompt could be routed to a provider that trains on it"
+    assert prov.get("zdr") is True
+    assert prov.get("data_collection") == "deny"
+
+
+def test_the_routing_restriction_can_be_lifted_deliberately(auth_app, monkeypatch):
+    """A firm on a private endpoint may need the wider pool. It has to be a choice."""
+    import app.llm as llm
+
+    class R:
+        status_code = 200
+        text = ""
+        def json(self):
+            return {"choices": [{"message": {"content": "ok"}}], "usage": {}}
+
+    seen = {}
+    monkeypatch.setattr(llm.requests, "post",
+                        lambda url, headers=None, json=None, timeout=None: (seen.update(payload=json), R())[1])
+    monkeypatch.setenv("AI_OPENROUTER_ZDR", "0")
+    monkeypatch.setenv("AI_OPENROUTER_NO_TRAINING", "0")
+    with auth_app.app_context():
+        auth_app.config["OPENROUTER_API_KEY"] = "test-key"
+        llm._openrouter("anthropic/claude-haiku-4.5", "hello", "", 256, None, None)
+    assert "provider" not in seen["payload"]
