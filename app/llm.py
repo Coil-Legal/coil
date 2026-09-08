@@ -262,17 +262,28 @@ def complete_json(prompt, schema, **kw):
 def _call_provider(prov, model, prompt, system, max_tokens, schema, temperature, effort):
     """Returns (text, input_tokens, output_tokens). Raises on any failure (logged by the caller)."""
     if prov == "openrouter":
-        return _openrouter(model, prompt, system, max_tokens, temperature, effort)
+        return _openrouter(model, prompt, system, max_tokens, temperature, effort, schema)
     return _anthropic(model, prompt, system, max_tokens, schema, temperature, effort)
 
 
-def _openrouter(model, prompt, system, max_tokens, temperature, effort):
+def _openrouter(model, prompt, system, max_tokens, temperature, effort, schema=None):
     msgs = ([{"role": "system", "content": system}] if system else []) + [{"role": "user", "content": prompt}]
     payload = {"model": model, "messages": msgs, "max_tokens": max_tokens}
     if temperature is not None and accepts_sampling(model):
         payload["temperature"] = min(float(temperature), 1.0)
     if is_thinking_model(model) and effort:
         payload["reasoning"] = {"effort": effort}
+    if schema:
+        # Sent as well as the prompt line, not instead of it. OpenRouter advertises
+        # structured outputs for these models, but whether the schema is ENFORCED depends
+        # on which provider serves the request, and that is not ours to choose: the same
+        # Sonnet 5 call returns clean JSON from Claude Platform and fenced prose in a
+        # different shape from Amazon Bedrock. The prompt line is what actually holds on
+        # the providers that ignore this, so both go.
+        payload["response_format"] = {
+            "type": "json_schema",
+            "json_schema": {"name": "result", "strict": True, "schema": schema},
+        }
 
     # Constrain WHERE the prompt may go, not just which model answers. Without this block
     # OpenRouter picks a provider on price and speed, and its default data policy allows

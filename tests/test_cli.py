@@ -248,3 +248,29 @@ def test_the_routing_restriction_can_be_lifted_deliberately(auth_app, monkeypatc
         auth_app.config["OPENROUTER_API_KEY"] = "test-key"
         llm._openrouter("anthropic/claude-haiku-4.5", "hello", "", 256, None, None)
     assert "provider" not in seen["payload"]
+
+
+def test_json_calls_send_both_a_schema_and_a_prompt_line(auth_app, monkeypatch):
+    """OpenRouter advertises structured outputs, but whether the schema is enforced
+    depends on which provider serves the request, and that is not ours to choose. The
+    same Sonnet 5 call returns clean JSON from one provider and fenced prose in a
+    different shape from another, so both mechanisms go out together."""
+    import app.llm as llm
+    seen = {}
+
+    class R:
+        status_code = 200
+        text = ""
+        def json(self):
+            return {"choices": [{"message": {"content": '{"ok":true}'}}], "usage": {}}
+
+    monkeypatch.setattr(llm.requests, "post",
+                        lambda url, headers=None, json=None, timeout=None: (seen.update(p=json), R())[1])
+    schema = {"type": "object", "properties": {"ok": {"type": "boolean"}}}
+    with auth_app.app_context():
+        auth_app.config["OPENROUTER_API_KEY"] = "test-key"
+        llm._openrouter("anthropic/claude-sonnet-5", "hi", "", 256, None, None, schema)
+
+    rf = seen["p"].get("response_format")
+    assert rf and rf["type"] == "json_schema"
+    assert rf["json_schema"]["schema"] == schema
