@@ -60,6 +60,10 @@
     <div class="card"><h2>AI and follow-up sequences</h2>
       <label style="display:inline-flex;gap:6px;align-items:center;color:var(--ink)"><input type="checkbox" name="ai_enabled" value="1" {{ 'checked' if f.ai_enabled }}> Turn on AI features (invoice narratives, matter summaries, dates from documents, search)</label>
       <p class="small muted">Matter text is sent to the model when someone presses an AI button, and at no other time. See <a href="/ai">AI status</a> for what is configured right now and what has been spent today.</p>
+      <p class="small muted"><strong>The AI runs on your own account, not ours.</strong> You bring a key,
+      you pay the model maker directly at their price, and Coil takes no part of it. That is true
+      whether you host Coil yourself or we host it for you: we cover the server, never the
+      inference. Without a key the AI buttons stay off and everything else works normally.</p>
 
       <label style="margin-top:14px">Who provides the model</label>
       <label style="display:inline-flex;gap:6px;align-items:flex-start;color:var(--ink)"><input type="radio" name="ai_provider" value="openrouter" {{ 'checked' if (f.ai_provider or 'openrouter') != 'anthropic' }}> <span><strong>OpenRouter.</strong> One key, most models, and you can switch between them. OpenRouter sees each request on its way through.</span></label>

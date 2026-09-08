@@ -216,7 +216,9 @@ def status():
     elif not firm_on:
         reason = "AI features are turned off in Settings."
     elif not prov:
-        reason = "No API key is set (OPENROUTER_API_KEY or ANTHROPIC_API_KEY)."
+        reason = ("No AI key yet. Coil never bills you for AI: you bring your own key, so "
+                  "you pay the model maker directly at their price and we take no part of it. "
+                  "Add one under Settings, AI.")
     return dict(enabled=enabled(), firm_on=firm_on, provider=prov, model=model_for(prov) if prov else "",
                 spent_today_cents=spent_today_cents(), cap_cents=daily_cap_cents(), calls_today=calls_today(),
                 cap_calls=daily_cap_calls(), available=not reason, reason=reason)
