@@ -85,12 +85,26 @@ def index():
             f.daily_agenda_email = form.get("daily_agenda_email") == "1"
             f.require_invoice_approval = form.get("require_invoice_approval") == "1"
             f.ai_enabled = form.get("ai_enabled") == "1"
+            f.ai_zdr = form.get("ai_zdr") == "1"
+            f.ai_no_training = form.get("ai_no_training") == "1"
             f.sequences_auto_send = form.get("sequences_auto_send") == "1"
         else:
             for k in ("surcharge_enabled", "daily_agenda_email", "require_invoice_approval", "ai_enabled",
-                      "sequences_auto_send"):
+                      "ai_zdr", "ai_no_training", "sequences_auto_send"):
                 if k in form:
                     setattr(f, k, form.get(k) == "1")
+        if "ai_model" in form:
+            f.ai_model = (form.get("ai_model") or "").strip()[:120]
+        if "ai_daily_cap_dollars" in form:
+            try:
+                f.ai_daily_cap_cents = max(0, int(round(float(form.get("ai_daily_cap_dollars") or 0) * 100)))
+            except ValueError:
+                pass
+        # Blank means "leave the stored key alone", so saving the page does not wipe it.
+        # A firm clears it deliberately by typing the word none.
+        if form.get("ai_api_key"):
+            v = form["ai_api_key"].strip()
+            f.ai_api_key = "" if v.lower() == "none" else v[:200]
         audit("update", "firm", f.id, "settings saved", current_user().id)
         db.session.commit()
         flash("Settings saved.", "ok")

@@ -77,11 +77,45 @@ class LLMBadOutput(LLMUnavailable):
 # ---------------------------------------------------------------------------
 # settings, read live
 # ---------------------------------------------------------------------------
+# Settings a firm can set for itself in the UI, and the Firm column behind each. The
+# environment still wins: an operator who pinned a model or a key in .env made a
+# deliberate choice, and a Settings page must not quietly override it.
+_FIRM_SETTINGS = {
+    "OPENROUTER_API_KEY": "ai_api_key",
+    "AI_OPENROUTER_MODEL": "ai_model",
+    "AI_OPENROUTER_ZDR": "ai_zdr",
+    "AI_OPENROUTER_NO_TRAINING": "ai_no_training",
+    "AI_DAILY_CAP_CENTS": "ai_daily_cap_cents",
+}
+
+
+def _firm_setting(name):
+    """The firm's own value for one setting, or None. Never raises: a broken settings row
+    must not take the AI features down, it should fall through to the environment."""
+    col = _FIRM_SETTINGS.get(name)
+    if not col or not has_app_context():
+        return None
+    try:
+        v = getattr(Firm.get(), col, None)
+    except Exception:  # noqa: BLE001
+        return None
+    # Booleans first: False == 0 in Python, so the emptiness check below would swallow a
+    # firm deliberately switching zero-retention OFF and silently switch it back on.
+    if isinstance(v, bool):
+        return "1" if v else "0"
+    if v is None or v == "" or v == 0:
+        return None
+    return v
+
+
 def _setting(name, default=""):
-    """Environment first, then app config (so tests can inject), then the default."""
+    """Environment, then the firm's own setting, then app config, then the default."""
     v = os.environ.get(name)
     if v not in (None, ""):
         return v
+    fv = _firm_setting(name)
+    if fv is not None:
+        return fv
     if has_app_context():
         cv = current_app.config.get(name)
         if cv not in (None, ""):

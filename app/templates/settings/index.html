@@ -59,7 +59,46 @@
     </div>
     <div class="card"><h2>AI and follow-up sequences</h2>
       <label style="display:inline-flex;gap:6px;align-items:center;color:var(--ink)"><input type="checkbox" name="ai_enabled" value="1" {{ 'checked' if f.ai_enabled }}> Turn on AI features (invoice narratives, matter summaries, dates from documents, search)</label>
-      <p class="small muted">Also needs OPENROUTER_API_KEY or ANTHROPIC_API_KEY in the environment. Matter text is sent to that provider when a staff member presses an AI button; nothing is sent otherwise. Daily spend is capped by AI_DAILY_CAP_CENTS. See <a href="/ai">AI status</a>.</p>
+      <p class="small muted">Matter text is sent to the model when someone presses an AI button, and at no other time. See <a href="/ai">AI status</a> for what is configured right now and what has been spent today.</p>
+
+      <div class="grid c2" style="margin-top:12px">
+        <div>
+          <label>Model</label>
+          <input type="text" name="ai_model" value="{{ f.ai_model or '' }}" autocomplete="off"
+                 placeholder="google/gemini-2.5-flash" spellcheck="false">
+          <p class="small muted">An OpenRouter model id. Leave blank to use whatever this install was set up with.</p>
+        </div>
+        <div>
+          <label>Daily spend cap</label>
+          <input type="number" name="ai_daily_cap_dollars" step="0.50" min="0"
+                 value="{{ '%.2f'|format((f.ai_daily_cap_cents or 0) / 100) }}">
+          <p class="small muted">0 uses the install default. AI stops for the day when it is reached and says so.</p>
+        </div>
+      </div>
+
+      <label style="margin-top:6px">API key <span class="small muted">(optional)</span></label>
+      <input type="password" name="ai_api_key" autocomplete="off"
+             placeholder="{{ 'a key is saved' if f.ai_api_key else 'sk-or-... from openrouter.ai' }}">
+      <p class="small muted">
+        Leave blank to keep the key already saved; type <code>none</code> to remove it. It is stored in
+        this firm's database, so it travels in your backups. If your server has
+        <code>OPENROUTER_API_KEY</code> set in its environment, that one is used instead and this
+        field is ignored.
+      </p>
+
+      <div style="border-left:3px solid var(--line);padding-left:12px;margin-top:14px">
+        <strong class="small">Where your clients' text is allowed to go</strong>
+        <label style="display:inline-flex;gap:6px;align-items:flex-start;color:var(--ink);margin-top:6px"><input type="checkbox" name="ai_zdr" value="1" {{ 'checked' if f.ai_zdr }}> Only use providers that keep nothing (zero retention)</label>
+        <label style="display:inline-flex;gap:6px;align-items:flex-start;color:var(--ink);margin-top:6px"><input type="checkbox" name="ai_no_training" value="1" {{ 'checked' if f.ai_no_training }}> Refuse providers that train on what is sent</label>
+        <p class="small muted">
+          Both on by default. OpenRouter otherwise picks whichever provider is cheapest or
+          fastest, and some of those keep prompts and train on them. Turning either off widens
+          the pool of models that will answer, and is a decision to make on purpose. Note that
+          this governs the providers OpenRouter routes to, not OpenRouter itself, which sees the
+          request either way. A firm that needs no third party in the middle should use an
+          Anthropic key directly, or run a model on its own hardware.
+        </p>
+      </div>
       <label style="display:inline-flex;gap:6px;align-items:center;color:var(--ink);margin-top:8px"><input type="checkbox" name="sequences_auto_send" value="1" {{ 'checked' if f.sequences_auto_send }}> Send follow-up sequence emails automatically</label>
       <p class="small muted">Off by default. While this is off, nothing is sent: each due step is saved as a draft under <a href="/intake/drafts">Intake, Drafts</a> and goes out only when someone presses Send. Turn it on and <code>python -m app.cli sequences</code> emails due steps to leads without review.</p>
     </div>

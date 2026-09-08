@@ -107,7 +107,15 @@ class Firm(db.Model):
     voice_client_status = db.Column(db.Boolean, default=False)
     voice_reminders = db.Column(db.Boolean, default=False)  # outbound reminder calls before court dates and appointments
     voice_reminder_days = db.Column(db.Integer, default=1)
-    ai_enabled = db.Column(db.Boolean, default=False)  # AI features also need an API key in the environment
+    ai_enabled = db.Column(db.Boolean, default=False)  # also needs a key, in the environment or below
+    # Set from Settings so a firm that cannot reach a container's .env can still choose a
+    # model and control where its matters are allowed to go. The environment still wins:
+    # an operator who pins something in .env is making a decision the UI must not override.
+    ai_model = db.Column(db.String(120), default="")        # OpenRouter id; blank = the install default
+    ai_api_key = db.Column(db.String(200), default="")      # optional; OPENROUTER_API_KEY beats it
+    ai_zdr = db.Column(db.Boolean, default=True)            # zero-retention endpoints only
+    ai_no_training = db.Column(db.Boolean, default=True)    # refuse providers that train on prompts
+    ai_daily_cap_cents = db.Column(db.Integer, default=0)   # 0 = use AI_DAILY_CAP_CENTS
     sequences_auto_send = db.Column(db.Boolean, default=False)  # follow-up sequences send only when this is on; otherwise drafts
 
     @staticmethod
