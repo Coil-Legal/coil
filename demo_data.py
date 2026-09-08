@@ -20,7 +20,7 @@ from pathlib import Path
 from app import create_app
 from app.extensions import db
 from app.models import (Contact, Matter, MatterParty, TimeEntry, Task, Invoice, InvoiceLine,
-                        Note, CalendarEvent, IntakeLead, User, Firm, Document)
+                        Note, CalendarEvent, IntakeLead, User, Firm, Document, TrustTransaction)
 
 TAG = "[demo]"          # every record carries this so --clear can find it
 SAMPLES = Path(__file__).parent / "samples"
@@ -56,6 +56,8 @@ def _clear():
     for row in CalendarEvent.query.filter(CalendarEvent.title.like(f"%{TAG}%")).all():
         db.session.delete(row); n += 1
     for row in IntakeLead.query.filter(IntakeLead.description.like(f"%{TAG}%")).all():
+        db.session.delete(row); n += 1
+    for row in TrustTransaction.query.filter(TrustTransaction.description.like(f"%{TAG}%")).all():
         db.session.delete(row); n += 1
     for m in Matter.query.filter(Matter.description.like(f"%{TAG}%")).all():
         for d in Document.query.filter_by(matter_id=m.id).all():
@@ -114,11 +116,15 @@ def build():
 
     # --- matters -----------------------------------------------------------------
     n = firm.next_matter_number or 1003
+    # Anchored to the date of loss in samples/, not to an arbitrary offset from today,
+    # so the limitations date can be checked against the documents. It was 520 days out
+    # before, which put it a day short of two years and looked like a calculation bug.
+    LOSS = date(2026, 2, 11)          # the collision, per the medical records and intake notes
     pi = Matter(number=f"M-{n}", client_id=rosalind.id, name="Marchetti v. Nordvale Freight (PI)",
                 practice_area="Personal Injury", billing_type="contingency", contingency_pct=33.3,
-                responsible_user_id=u.id, opened_on=date.today() - timedelta(days=180),
-                sol_date=date.today() + timedelta(days=520),
-                sol_basis="Two-year limitations, TX CPRC 16.003",
+                responsible_user_id=u.id, opened_on=LOSS + timedelta(days=9),
+                sol_date=date(LOSS.year + 2, LOSS.month, LOSS.day),
+                sol_basis="Two-year limitations from the 11 Feb 2026 date of loss, TX CPRC 16.003",
                 description=f"{TAG} Rear-end collision, Farm Road 12, 11 Feb 2026. Fake matter for testing.")
     crim = Matter(number=f"M-{n+1}", client_id=lucien.id, name="State v. Okonkwo (DWI)",
                   practice_area="Criminal Defense", billing_type="flat", flat_fee_cents=450000,
@@ -176,6 +182,24 @@ def build():
         (corp, "Section 5 indemnity is one-sided. Flagged to client with suggested revision."),
     ]:
         db.session.add(Note(matter_id=matter.id, user_id=u.id, body=f"{body} {TAG}"))
+
+    # Trust activity, because trust accounting is where a bug costs a licence and there
+    # was previously nothing on the demo instance to exercise it against. Deposits are
+    # positive, disbursements negative, and the running balances are deliberately ordinary
+    # so anything odd in a reconciliation is the software's doing rather than the data's.
+    #   Okonkwo: 4,500 retainer in, 2,250 earned out  -> 2,250 left
+    #   Vance:   3,000 retainer in, 700 earned out    ->   700 refunded, 1,600 left
+    for cl, matter, day, kind, cents, what, ref in [
+        (lucien, crim, 55, "deposit", 450000, "Retainer on engagement", "Check 2213"),
+        (lucien, crim, 28, "to_operating", -225000, "Earned fees, INV for flat fee", "Transfer"),
+        (teodora, corp, 40, "deposit", 300000, "Advance on contract review", "Wire 88121"),
+        (teodora, corp, 18, "to_operating", -70000, "Earned fees, paid invoice", "Transfer"),
+        (teodora, corp, 5, "refund", -70000, "Refund of unearned balance", "Check 1109"),
+    ]:
+        db.session.add(TrustTransaction(
+            client_id=cl.id, matter_id=matter.id, date=date.today() - timedelta(days=day),
+            type=kind, amount_cents=cents, description=f"{what} {TAG}", reference=ref,
+            cleared=day > 10, created_by_id=u.id))
 
     db.session.add(IntakeLead(name="Wendell Achterberg", email=addr("wendell"),
                               phone="+15125550133", matter_type="Landlord dispute",
