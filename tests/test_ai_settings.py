@@ -30,10 +30,16 @@ def app():
 
 
 @pytest.fixture(autouse=True)
-def clean_env(monkeypatch):
-    for k in ("OPENROUTER_API_KEY", "AI_OPENROUTER_MODEL", "AI_OPENROUTER_ZDR",
-              "AI_OPENROUTER_NO_TRAINING", "AI_DAILY_CAP_CENTS"):
+def clean_env(app, monkeypatch):
+    # ANTHROPIC_API_KEY belongs here too: a developer with a real one in their shell
+    # would otherwise see these tests fail, because the environment correctly beats the
+    # firm setting and that is the behaviour being asserted elsewhere.
+    for k in ("OPENROUTER_API_KEY", "ANTHROPIC_API_KEY", "AI_OPENROUTER_MODEL", "AI_MODEL",
+              "AI_OPENROUTER_ZDR", "AI_OPENROUTER_NO_TRAINING", "AI_DAILY_CAP_CENTS"):
         monkeypatch.delenv(k, raising=False)
+        # Config reads the environment at import, so a real key is already baked into
+        # app.config by the time monkeypatch clears os.environ. _setting checks both.
+        monkeypatch.setitem(app.config, k, "")
 
 
 def _firm(app, **kw):
@@ -131,3 +137,70 @@ def test_typing_none_clears_the_stored_key(app):
     c.post("/settings", data={"name": "Demo Law PLLC", "ai_enabled": "1", "ai_api_key": "none", "_csrf": tok})
     with app.app_context():
         assert Firm.get().ai_api_key == ""
+
+
+# ------------------------------------------------- choosing who provides the model
+def test_a_stored_key_only_answers_for_the_chosen_provider(app):
+    """One key field serves both choices. Offering it to the other path would send an
+    OpenRouter key to Anthropic and fail in a way nobody could read."""
+    import app.llm as llm
+    _firm(app, ai_provider="anthropic", ai_api_key="firm-key")
+    with app.app_context():
+        assert llm._setting("ANTHROPIC_API_KEY") == "firm-key"
+        assert llm._setting("OPENROUTER_API_KEY") == ""
+        assert llm.provider() == "anthropic"
+
+    _firm(app, ai_provider="openrouter")
+    with app.app_context():
+        assert llm._setting("OPENROUTER_API_KEY") == "firm-key"
+        assert llm._setting("ANTHROPIC_API_KEY") == ""
+        assert llm.provider() == "openrouter"
+
+
+def test_the_firms_choice_breaks_a_tie_when_the_server_has_both_keys(app, monkeypatch):
+    import app.llm as llm
+    _firm(app, ai_provider="anthropic", ai_api_key="")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "env-or")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "env-an")
+    with app.app_context():
+        assert llm.provider() == "anthropic"
+    _firm(app, ai_provider="openrouter")
+    with app.app_context():
+        assert llm.provider() == "openrouter"
+
+
+def test_the_model_follows_the_provider(app):
+    import app.llm as llm
+    _firm(app, ai_provider="anthropic", ai_model="claude-haiku-4-5")
+    with app.app_context():
+        assert llm.model_for("anthropic") == "claude-haiku-4-5"
+    _firm(app, ai_provider="openrouter", ai_model="google/gemini-2.5-flash")
+    with app.app_context():
+        assert llm.model_for("openrouter") == "google/gemini-2.5-flash"
+
+
+def test_a_direct_key_is_told_that_coil_cannot_enforce_retention_for_it(app):
+    """The routing controls do nothing without a router. A firm on its own key has to
+    check its provider's terms itself, and the page has to say so rather than imply the
+    checkboxes are still protecting them."""
+    from tests.helpers import login
+    _firm(app, ai_provider="anthropic", ai_api_key="k")
+    c = app.test_client()
+    login(c)
+    body = c.get("/settings").get_data(as_text=True)
+    assert "Coil cannot enforce either of these for you" in body
+    assert "retention and training policy" in body
+
+    _firm(app, ai_provider="openrouter")
+    body = c.get("/settings").get_data(as_text=True)
+    assert "Coil cannot enforce either of these for you" not in body
+
+
+def test_choosing_a_provider_is_saved(app):
+    from app.models import Firm
+    from tests.helpers import login
+    c = app.test_client()
+    tok = login(c)
+    c.post("/settings", data={"name": "Demo Law PLLC", "ai_provider": "anthropic", "_csrf": tok})
+    with app.app_context():
+        assert Firm.get().ai_provider == "anthropic"

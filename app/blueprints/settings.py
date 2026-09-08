@@ -93,6 +93,8 @@ def index():
                       "ai_zdr", "ai_no_training", "sequences_auto_send"):
                 if k in form:
                     setattr(f, k, form.get(k) == "1")
+        if form.get("ai_provider") in ("openrouter", "anthropic"):
+            f.ai_provider = form["ai_provider"]
         if "ai_model" in form:
             f.ai_model = (form.get("ai_model") or "").strip()[:120]
         if "ai_daily_cap_dollars" in form:

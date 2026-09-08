@@ -61,12 +61,16 @@
       <label style="display:inline-flex;gap:6px;align-items:center;color:var(--ink)"><input type="checkbox" name="ai_enabled" value="1" {{ 'checked' if f.ai_enabled }}> Turn on AI features (invoice narratives, matter summaries, dates from documents, search)</label>
       <p class="small muted">Matter text is sent to the model when someone presses an AI button, and at no other time. See <a href="/ai">AI status</a> for what is configured right now and what has been spent today.</p>
 
+      <label style="margin-top:14px">Who provides the model</label>
+      <label style="display:inline-flex;gap:6px;align-items:flex-start;color:var(--ink)"><input type="radio" name="ai_provider" value="openrouter" {{ 'checked' if (f.ai_provider or 'openrouter') != 'anthropic' }}> <span><strong>OpenRouter.</strong> One key, most models, and you can switch between them. OpenRouter sees each request on its way through.</span></label>
+      <label style="display:inline-flex;gap:6px;align-items:flex-start;color:var(--ink);margin-top:4px"><input type="radio" name="ai_provider" value="anthropic" {{ 'checked' if f.ai_provider == 'anthropic' }}> <span><strong>Anthropic directly.</strong> Your own key with the model maker. Nobody sits in between, and Anthropic's own terms are the only ones that apply.</span></label>
+
       <div class="grid c2" style="margin-top:12px">
         <div>
           <label>Model</label>
           <input type="text" name="ai_model" value="{{ f.ai_model or '' }}" autocomplete="off"
                  placeholder="google/gemini-2.5-flash" spellcheck="false">
-          <p class="small muted">An OpenRouter model id. Leave blank to use whatever this install was set up with.</p>
+          <p class="small muted">For OpenRouter, an id like <code>google/gemini-2.5-flash</code>. For Anthropic directly, a plain name like <code>claude-haiku-4-5</code>. Blank uses whatever this install was set up with.</p>
         </div>
         <div>
           <label>Daily spend cap</label>
@@ -78,7 +82,7 @@
 
       <label style="margin-top:6px">API key <span class="small muted">(optional)</span></label>
       <input type="password" name="ai_api_key" autocomplete="off"
-             placeholder="{{ 'a key is saved' if f.ai_api_key else 'sk-or-... from openrouter.ai' }}">
+             placeholder="{{ 'a key is saved' if f.ai_api_key else 'paste the key for whichever you picked above' }}">
       <p class="small muted">
         Leave blank to keep the key already saved; type <code>none</code> to remove it. It is stored in
         this firm's database, so it travels in your backups. If your server has
@@ -91,13 +95,22 @@
         <label style="display:inline-flex;gap:6px;align-items:flex-start;color:var(--ink);margin-top:6px"><input type="checkbox" name="ai_zdr" value="1" {{ 'checked' if f.ai_zdr }}> Only use providers that keep nothing (zero retention)</label>
         <label style="display:inline-flex;gap:6px;align-items:flex-start;color:var(--ink);margin-top:6px"><input type="checkbox" name="ai_no_training" value="1" {{ 'checked' if f.ai_no_training }}> Refuse providers that train on what is sent</label>
         <p class="small muted">
-          Both on by default. OpenRouter otherwise picks whichever provider is cheapest or
+          Both on by default, and they apply <strong>only when you are going through
+          OpenRouter</strong>. OpenRouter otherwise picks whichever provider is cheapest or
           fastest, and some of those keep prompts and train on them. Turning either off widens
-          the pool of models that will answer, and is a decision to make on purpose. Note that
-          this governs the providers OpenRouter routes to, not OpenRouter itself, which sees the
-          request either way. A firm that needs no third party in the middle should use an
-          Anthropic key directly, or run a model on its own hardware.
+          the pool of models that will answer, and is a decision to make on purpose. Note this
+          governs the providers OpenRouter routes to, not OpenRouter itself, which sees the
+          request either way.
         </p>
+        {% if f.ai_provider == 'anthropic' %}
+        <p class="small" style="margin-top:8px"><strong>You are using your own key, so Coil cannot enforce either of these for you.</strong>
+          There is no router to constrain: the request goes to the provider you hold the key
+          with, under whatever terms you agreed with them. Before you send client matters
+          through it, check that provider's retention and training policy for the specific model
+          you have chosen, and get a zero-retention arrangement in writing if your practice
+          needs one. Retention terms differ by model and by plan, not just by company.
+        </p>
+        {% endif %}
       </div>
       <label style="display:inline-flex;gap:6px;align-items:center;color:var(--ink);margin-top:8px"><input type="checkbox" name="sequences_auto_send" value="1" {{ 'checked' if f.sequences_auto_send }}> Send follow-up sequence emails automatically</label>
       <p class="small muted">Off by default. While this is off, nothing is sent: each due step is saved as a draft under <a href="/intake/drafts">Intake, Drafts</a> and goes out only when someone presses Send. Turn it on and <code>python -m app.cli sequences</code> emails due steps to leads without review.</p>

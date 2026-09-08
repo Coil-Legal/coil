@@ -81,24 +81,36 @@ class LLMBadOutput(LLMUnavailable):
 # environment still wins: an operator who pinned a model or a key in .env made a
 # deliberate choice, and a Settings page must not quietly override it.
 _FIRM_SETTINGS = {
-    "OPENROUTER_API_KEY": "ai_api_key",
     "AI_OPENROUTER_MODEL": "ai_model",
+    "AI_MODEL": "ai_model",
     "AI_OPENROUTER_ZDR": "ai_zdr",
     "AI_OPENROUTER_NO_TRAINING": "ai_no_training",
     "AI_DAILY_CAP_CENTS": "ai_daily_cap_cents",
 }
+# The one stored key answers to whichever provider the firm picked, and to nothing else.
+# Without this a firm that switched to a direct Anthropic key would have had its key
+# offered to the OpenRouter path as well, which would fail confusingly.
+_FIRM_KEY_FOR = {"OPENROUTER_API_KEY": "openrouter", "ANTHROPIC_API_KEY": "anthropic"}
 
 
 def _firm_setting(name):
     """The firm's own value for one setting, or None. Never raises: a broken settings row
     must not take the AI features down, it should fall through to the environment."""
-    col = _FIRM_SETTINGS.get(name)
-    if not col or not has_app_context():
+    if not has_app_context():
         return None
     try:
-        v = getattr(Firm.get(), col, None)
+        firm = Firm.get()
     except Exception:  # noqa: BLE001
         return None
+    if name in _FIRM_KEY_FOR:
+        want = _FIRM_KEY_FOR[name]
+        if (firm.ai_provider or "openrouter") != want:
+            return None
+        return (firm.ai_api_key or "") or None
+    col = _FIRM_SETTINGS.get(name)
+    if not col:
+        return None
+    v = getattr(firm, col, None)
     # Booleans first: False == 0 in Python, so the emptiness check below would swallow a
     # firm deliberately switching zero-retention OFF and silently switch it back on.
     if isinstance(v, bool):
@@ -142,10 +154,19 @@ def enabled():
 
 
 def provider():
-    """"openrouter", "anthropic" or None."""
-    if _setting("OPENROUTER_API_KEY"):
+    """"openrouter", "anthropic" or None. Whichever has a key; the firm's choice breaks a tie."""
+    has_or, has_an = bool(_setting("OPENROUTER_API_KEY")), bool(_setting("ANTHROPIC_API_KEY"))
+    if has_or and has_an:
+        chosen = None
+        if has_app_context():
+            try:
+                chosen = Firm.get().ai_provider
+            except Exception:  # noqa: BLE001
+                chosen = None
+        return "anthropic" if chosen == "anthropic" else "openrouter"
+    if has_or:
         return "openrouter"
-    if _setting("ANTHROPIC_API_KEY"):
+    if has_an:
         return "anthropic"
     return None
 
