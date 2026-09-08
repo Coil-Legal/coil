@@ -12,6 +12,7 @@ record it writes is tagged so you can find and delete it later. Do not point thi
 instance that holds real matters: it is for trying Coil out and for checking that a tool
 does what it claims before you trust it with a client.
 """
+import os
 import sys
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -23,6 +24,24 @@ from app.models import (Contact, Matter, MatterParty, TimeEntry, Task, Invoice, 
 
 TAG = "[demo]"          # every record carries this so --clear can find it
 SAMPLES = Path(__file__).parent / "samples"
+
+# Demo contacts get unroutable @example.test addresses by default, so nothing this
+# script creates can email a real person. If you want to test the parts of Coil that
+# actually send (engagement letters, invoices, portal invites), point them all at
+# yourself:
+#
+#     DEMO_EMAIL=you@yourfirm.com python demo_data.py
+#
+# Each contact then gets a plus-addressed variant, you@yourfirm.com+rosalind style, so
+# every message lands in your inbox and you can still tell which contact it was for.
+DEMO_EMAIL = os.environ.get("DEMO_EMAIL", "").strip()
+
+
+def addr(who):
+    if not DEMO_EMAIL or "@" not in DEMO_EMAIL:
+        return f"{who}@example.test"
+    local, _, domain = DEMO_EMAIL.partition("@")
+    return f"{local}+demo-{who}@{domain}"
 
 
 def _clear():
@@ -81,14 +100,14 @@ def build():
         return
 
     # --- people ------------------------------------------------------------------
-    rosalind = Contact(first_name="Rosalind", last_name="Marchetti", email="rosalind@example.test",
+    rosalind = Contact(first_name="Rosalind", last_name="Marchetti", email=addr("rosalind"),
                        phone="+15125550164", is_client=True, address="88 Cypress Row, Austin, TX 78704",
                        notes=f"{TAG} Referred by Maria Alvarez.")
-    nordvale = Contact(kind="company", company_name="Nordvale Freight Co.", email="claims@nordvale.test",
+    nordvale = Contact(kind="company", company_name="Nordvale Freight Co.", email=addr("nordvale"),
                        is_client=False, notes=f"{TAG} Adverse party, Marchetti PI matter.")
-    teodora = Contact(first_name="Teodora", last_name="Vance", email="teodora@example.test",
+    teodora = Contact(first_name="Teodora", last_name="Vance", email=addr("teodora"),
                       is_client=True, phone="+15125550188", notes=f"{TAG} Managing member, Bluebonnet.")
-    lucien = Contact(first_name="Lucien", last_name="Okonkwo", email="lucien@example.test",
+    lucien = Contact(first_name="Lucien", last_name="Okonkwo", email=addr("lucien"),
                      is_client=True, phone="+15125550172", notes=f"{TAG} Criminal defense client.")
     db.session.add_all([rosalind, nordvale, teodora, lucien])
     db.session.commit()
@@ -158,7 +177,7 @@ def build():
     ]:
         db.session.add(Note(matter_id=matter.id, user_id=u.id, body=f"{body} {TAG}"))
 
-    db.session.add(IntakeLead(name="Wendell Achterberg", email="wendell@example.test",
+    db.session.add(IntakeLead(name="Wendell Achterberg", email=addr("wendell"),
                               phone="+15125550133", matter_type="Landlord dispute",
                               description=f"{TAG} Withheld deposit after moving out. Fake lead for testing.",
                               source="web"))
