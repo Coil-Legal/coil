@@ -204,3 +204,46 @@ def test_choosing_a_provider_is_saved(app):
     c.post("/settings", data={"name": "Demo Law PLLC", "ai_provider": "anthropic", "_csrf": tok})
     with app.app_context():
         assert Firm.get().ai_provider == "anthropic"
+
+
+# ------------------------------------------- a hosted firm never spends the operator's money
+def test_a_hosted_instance_ignores_an_operator_key_in_the_environment(app, monkeypatch):
+    """The whole billing promise: we cover the server, never the inference. A key in a
+    hosted instance's environment is the operator's, so every call the firm made would be
+    billed to them, silently and per firm."""
+    import app.llm as llm
+    _firm(app, ai_api_key="", ai_provider="openrouter")
+    monkeypatch.setitem(app.config, "COIL_HOSTING", "hosted")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "operator-key-that-must-not-be-used")
+    with app.app_context():
+        assert llm._setting("OPENROUTER_API_KEY") == ""
+        assert llm.provider() is None, "a hosted firm with no key of its own has no AI"
+
+
+def test_a_hosted_firm_uses_its_own_key(app, monkeypatch):
+    import app.llm as llm
+    _firm(app, ai_api_key="the-firms-own-key", ai_provider="openrouter")
+    monkeypatch.setitem(app.config, "COIL_HOSTING", "hosted")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "operator-key-that-must-not-be-used")
+    with app.app_context():
+        assert llm._setting("OPENROUTER_API_KEY") == "the-firms-own-key"
+        assert llm.provider() == "openrouter"
+
+
+def test_a_self_hosted_firm_still_reads_its_own_environment(app, monkeypatch):
+    """Their server, their key, their bill. The environment is the right place there."""
+    import app.llm as llm
+    _firm(app, ai_api_key="", ai_provider="openrouter")
+    monkeypatch.setitem(app.config, "COIL_HOSTING", "self-hosted")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "my-own-server-my-own-key")
+    with app.app_context():
+        assert llm._setting("OPENROUTER_API_KEY") == "my-own-server-my-own-key"
+
+
+def test_the_repo_ships_no_api_key(app):
+    """A key committed to a public repo is a bad day. This is cheap insurance."""
+    import re
+    import subprocess
+    out = subprocess.run(["git", "grep", "-lE", r"sk-(or-v1|ant-api03)-[A-Za-z0-9_-]{20}"],
+                         cwd=ROOT, capture_output=True, text=True)
+    assert out.stdout.strip() == "", f"key-shaped literal committed in: {out.stdout}"

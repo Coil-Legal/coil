@@ -120,8 +120,26 @@ def _firm_setting(name):
     return v
 
 
+def _is_hosted():
+    """True on an instance somebody else runs for this firm."""
+    if not has_app_context():
+        return False
+    return str(current_app.config.get("COIL_HOSTING", "self-hosted")).lower() == "hosted"
+
+
 def _setting(name, default=""):
-    """Environment, then the firm's own setting, then app config, then the default."""
+    """Environment, then the firm's own setting, then app config, then the default.
+
+    One exception, and it is a billing one. On a HOSTED instance an AI key in the server
+    environment would be the operator's, and every call this firm made would be billed to
+    them. Coil covers the server and never the inference, so on a hosted instance the
+    environment is not consulted for a key at all: the firm's own, entered in Settings, is
+    the only one that counts. A self-hosted firm owns its own server, so there the
+    environment is exactly the right place and this does not apply.
+    """
+    if name in _FIRM_KEY_FOR and _is_hosted():
+        fv = _firm_setting(name)
+        return fv if fv is not None else default
     v = os.environ.get(name)
     if v not in (None, ""):
         return v

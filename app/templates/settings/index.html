@@ -63,7 +63,10 @@
       <p class="small muted"><strong>The AI runs on your own account, not ours.</strong> You bring a key,
       you pay the model maker directly at their price, and Coil takes no part of it. That is true
       whether you host Coil yourself or we host it for you: we cover the server, never the
-      inference. Without a key the AI buttons stay off and everything else works normally.</p>
+      inference. Without a key the AI buttons stay off and everything else works normally.
+      {% if config.COIL_HOSTING == 'hosted' %}Because this instance is one we run for you, the key
+      below is the only one it will use: a key on our server is ours, and we will not put your
+      firm's usage on it.{% endif %}</p>
 
       <label style="margin-top:14px">Who provides the model</label>
       <label style="display:inline-flex;gap:6px;align-items:flex-start;color:var(--ink)"><input type="radio" name="ai_provider" value="openrouter" {{ 'checked' if (f.ai_provider or 'openrouter') != 'anthropic' }}> <span><strong>OpenRouter.</strong> One key, most models, and you can switch between them. OpenRouter sees each request on its way through.</span></label>
