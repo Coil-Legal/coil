@@ -667,6 +667,83 @@ def template_delete(id):
 def integrations():
     c = current_app.config
     base = c["BASE_URL"]
+    # Plain-English guidance for each integration. Written for a solo attorney rather than
+    # an operator: what it is, whether they actually need it, what it costs, and what
+    # happens if they never set it up. Most firms need none of these on day one.
+    guide = {
+        "Email (SMTP)": dict(
+            what="Lets Coil send email: invoices, engagement letters for signature, client "
+                 "portal invitations, payment reminders and your daily agenda.",
+            need="Yes, in practice. Almost everything Coil sends a client goes through this. "
+                 "Without it Coil still works, and every message is written to a dev outbox "
+                 "you can read, but nothing reaches anyone.",
+            cost="Usually nothing. Use the mail account you already have.",
+            steps=["In your email provider, create an app password. Gmail and Microsoft 365 "
+                   "both require one for this; your normal login password will not work and "
+                   "you should not use it here.",
+                   "Find your provider's SMTP server and port. Gmail is smtp.gmail.com:587, "
+                   "Microsoft 365 is smtp.office365.com:587.",
+                   "Put the host, port, your address and the app password in the server "
+                   "settings, then send yourself a test invoice."]),
+        "Stripe (card and ACH payments)": dict(
+            what="Lets clients pay an invoice online by card or bank transfer, from a link in "
+                 "the invoice email or the client portal.",
+            need="Only if you want to be paid online. Without it, invoices show your mailing "
+                 "and wire instructions instead, and you record payments by hand as they "
+                 "arrive. Plenty of firms run that way.",
+            cost="No monthly fee. Stripe takes a percentage of each payment. Coil adds nothing "
+                 "on top and never touches the money: it goes to your Stripe account.",
+            steps=["Create an account at stripe.com and complete their identity checks. Use "
+                   "your firm's legal name and bank details, not a personal account.",
+                   "In the Stripe dashboard, open Developers, then API keys, and copy both the "
+                   "secret key and the publishable key.",
+                   "Still in Developers, open Webhooks and add the endpoint shown on this page. "
+                   "Choose the event checkout.session.completed, then copy the signing secret.",
+                   "Test with Stripe's test-mode keys first. A live key starts sk_live_ and a "
+                   "test key starts sk_test_."]),
+        "Twilio (two-way texting)": dict(
+            what="Text your clients from inside Coil, with replies landing on the matter "
+                 "instead of on your personal phone.",
+            need="Only if you want to text clients. Without it, messages you write are saved "
+                 "on the matter but never sent. Nothing else is affected.",
+            cost="A few dollars a month for the number, plus a fraction of a cent per message.",
+            steps=["Create an account at twilio.com and buy a phone number with SMS enabled. "
+                   "Pick one in your own area code.",
+                   "From the Twilio console home, copy the Account SID and Auth Token.",
+                   "Open your number's settings, find 'A message comes in', set it to HTTP POST "
+                   "and paste the webhook URL shown on this page. Without this step you can "
+                   "send but you will never see replies.",
+                   "US and Canadian numbers need A2P 10DLC registration before carriers will "
+                   "deliver business texts. Twilio walks you through it; allow a few days."]),
+        "Research (CourtListener)": dict(
+            what="Free case law search from the Free Law Project, including full opinion text "
+                 "and a citation checker that flags cites in a brief that do not resolve.",
+            need="Optional, and search already works without it. A token adds full opinion "
+                 "text, the citation check, and a higher rate limit.",
+            cost="Free. There is no paid tier to fall into.",
+            steps=["Create a free account at courtlistener.com.",
+                   "Open your profile and copy the API token shown there.",
+                   "Paste it into the Research field on the Settings page. It is stored for "
+                   "your firm, so you do not need server access.",
+                   "Get your own rather than sharing one. Their terms forbid more than one "
+                   "account per organisation, and the free limit is 125 requests a day, which "
+                   "two firms would exhaust between them."]),
+        "Email filing (IMAP)": dict(
+            what="Watches a mailbox you forward or BCC to, and files those emails and their "
+                 "attachments onto the right matter automatically.",
+            need="Optional, and a real time saver if you live in email. Without it you save "
+                 "documents to a matter by hand, which is what most people do at first.",
+            cost="Nothing. It reads a mailbox you already have.",
+            steps=["Decide which mailbox to watch. A dedicated address like "
+                   "files@yourfirm.com is tidier than your personal inbox.",
+                   "Create an app password for it, the same as for sending. Gmail and "
+                   "Microsoft 365 both require one.",
+                   "Put the IMAP host, port, address and app password in the server settings. "
+                   "Gmail is imap.gmail.com:993, Microsoft 365 is outlook.office365.com:993.",
+                   "Forward or BCC mail to that address with the matter number in brackets in "
+                   "the subject, like [M-1002]. Mail from a client who has exactly one open "
+                   "matter files itself with no number needed."]),
+    }
     cards = [
         dict(name="Email (SMTP)", ok=bool(c.get("SMTP_HOST")),
              detail=f"Sending from {c.get('MAIL_FROM')} via {c.get('SMTP_HOST')}:{c.get('SMTP_PORT')}" if c.get("SMTP_HOST")
@@ -694,7 +771,10 @@ def integrations():
              env="COURTLISTENER_TOKEN (or the Research field on the firm settings form)",
              link=("/research", "Open research")),
     ]
+    for card in cards:
+        card["guide"] = guide.get(card["name"])
     return render_template("settings/integrations.html", cards=cards, base=base,
+                           guide=guide, hosted=str(c.get("COIL_HOSTING", "")).lower() == "hosted",
                            intake_url=f"{base}/intake/form")
 
 

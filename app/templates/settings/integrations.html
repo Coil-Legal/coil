@@ -1,12 +1,30 @@
 {% extends "base.html" %}{% block title %}Integrations{% endblock %}{% block content %}
 <div class="topbar"><h1>Integrations</h1><div class="actions" style="margin:0"><a class="btn small secondary" href="/settings">Settings</a></div></div>
-<p class="small muted">These are read from the server environment (.env). Change them there and restart the app.</p>
+<p class="sub" style="max-width:70ch">Coil works without any of these. Each one switches on a
+convenience, and each says below what it does, whether you actually need it, what it costs and
+how to set it up. They are all your own accounts: Coil never bills you for a service and never
+sits between you and your money.</p>
+<p class="small muted">Most of these are read from the server environment{% if hosted %}, which
+on an instance we host means we set them for you, so ask and we will. The research token is the
+exception: you can paste that one in yourself under Settings{% else %} (.env). Change them there
+and restart Coil. The research token is the exception and can be pasted under Settings{% endif %}.</p>
 <div class="grid c3">
 {% for c in cards %}
 <div class="card">
   <h2>{{ c.name }} {% if c.ok %}<span class="badge open">configured</span>{% else %}<span class="badge draft">not configured</span>{% endif %}</h2>
   <p class="small">{{ c.detail }}</p>
-  <p class="small muted">Env: {{ c.env }}</p>
+  {% if c.guide %}
+  <p class="small">{{ c.guide.what }}</p>
+  <p class="small"><strong>Do you need it?</strong> {{ c.guide.need }}</p>
+  <p class="small"><strong>Cost.</strong> {{ c.guide.cost }}</p>
+  <details style="margin:8px 0">
+    <summary class="small">How to set it up</summary>
+    <ol class="small" style="margin:8px 0 0;padding-left:20px">
+      {% for step in c.guide.steps %}<li style="margin-bottom:5px">{{ step }}</li>{% endfor %}
+    </ol>
+  </details>
+  {% endif %}
+  <p class="small muted">Server setting: {{ c.env }}</p>
   {% if c.webhook %}<label>Webhook URL</label><div class="searchbar"><input type="text" readonly value="{{ c.webhook }}"><button type="button" class="btn small secondary" data-copy="{{ c.webhook }}">Copy</button></div><p class="small muted">{{ c.webhook_note }}</p>{% endif %}
   {% if c.link %}<a class="btn small secondary" href="{{ c.link[0] }}">{{ c.link[1] }}</a>{% endif %}
 </div>
@@ -15,7 +33,17 @@
   <h2>Email filing (IMAP) {% if config.IMAP_HOST and config.IMAP_USER %}<span class="badge open">configured</span>{% else %}<span class="badge draft">not configured</span>{% endif %}</h2>
   {% if config.IMAP_HOST and config.IMAP_USER %}<p class="small">Forward or BCC <strong>{{ config.IMAP_USER }}</strong> and put the matter number in brackets in the subject, like <code>[M-1002]</code>. Mail from a client with exactly one open matter files itself without a number. Run <code>python -m app.cli emailin</code> on a schedule (every few minutes is fine); it reads {{ config.IMAP_FOLDER }} on {{ config.IMAP_HOST }}:{{ config.IMAP_PORT }}.</p>
   {% else %}<p class="small">IMAP_HOST is empty. Set the IMAP variables for a mailbox the firm can forward or BCC to, then run <code>python -m app.cli emailin</code> on a schedule. Staff put the matter number in brackets in the subject, like <code>[M-1002]</code>, and Coil files the email and its attachments on that matter.</p>{% endif %}
-  <p class="small muted">Env: IMAP_HOST, IMAP_PORT, IMAP_USER, IMAP_PASS, IMAP_FOLDER</p>
+  {% set g = guide['Email filing (IMAP)'] %}
+  <p class="small">{{ g.what }}</p>
+  <p class="small"><strong>Do you need it?</strong> {{ g.need }}</p>
+  <p class="small"><strong>Cost.</strong> {{ g.cost }}</p>
+  <details style="margin:8px 0">
+    <summary class="small">How to set it up</summary>
+    <ol class="small" style="margin:8px 0 0;padding-left:20px">
+      {% for step in g.steps %}<li style="margin-bottom:5px">{{ step }}</li>{% endfor %}
+    </ol>
+  </details>
+  <p class="small muted">Server setting: IMAP_HOST, IMAP_PORT, IMAP_USER, IMAP_PASS, IMAP_FOLDER</p>
   <a class="btn small secondary" href="/messages/unfiled">Unfiled email</a>
 </div>
 </div>
