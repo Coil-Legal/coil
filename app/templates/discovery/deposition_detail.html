@@ -19,6 +19,9 @@
     <div><label>Status</label><select name="status">{% for s in statuses %}<option value="{{ s }}" {% if dep.status == s %}selected{% endif %}>{{ s }}</option>{% endfor %}</select></div>
   </div>
   <textarea name="summary_text" rows="10">{{ dep.summary_text }}</textarea>
+  {% if dep.summary_text %}<label class="small" style="display:inline-flex;gap:6px;align-items:center;margin-top:4px">
+    <input type="checkbox" name="clear_summary" value="1"> Clear the summary (leaving the box empty on its own keeps it)
+  </label>{% endif %}
   <div class="actions" style="margin-top:8px"><button class="btn">Save</button></div>
 </form>
 </div>

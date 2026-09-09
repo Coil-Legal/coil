@@ -1001,7 +1001,17 @@ def deposition_detail(id):
 @login_required
 def deposition_save(id):
     dep = _dep_or_404(id)
-    dep.summary_text = request.form.get("summary_text", dep.summary_text or "").strip()
+    # form.get(k, default) only falls back when the key is ABSENT, and the textarea is
+    # always submitted, so an empty box silently wiped a summary that cost a model call
+    # and that an attorney may have spent time editing. Clearing it has to be deliberate.
+    posted = request.form.get("summary_text")
+    if posted is not None and posted.strip():
+        dep.summary_text = posted.strip()
+    elif posted is not None and (dep.summary_text or "").strip() and request.form.get("clear_summary") != "1":
+        flash("The summary box was empty, so the existing summary was kept. "
+              "Tick 'clear the summary' if you meant to remove it.", "error")
+    elif request.form.get("clear_summary") == "1":
+        dep.summary_text = ""
     dep.deponent = request.form.get("deponent", dep.deponent or "").strip()[:200]
     dep.taken_on = parse_date(request.form.get("taken_on"), dep.taken_on)
     st = request.form.get("status", dep.status)

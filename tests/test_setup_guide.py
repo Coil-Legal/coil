@@ -140,3 +140,44 @@ def test_logged_out_visitors_cannot_reach_the_wizard(app):
     c = app.test_client()
     assert c.get("/setup-guide").status_code in (302, 401)
     assert c.post("/setup-guide/stripe", data={"action": "skip"}).status_code in (302, 400, 401)
+
+
+# --------------------------------------------- a summary is not thrown away by accident
+def test_saving_a_deposition_with_an_empty_box_keeps_the_summary(app):
+    """form.get(k, default) only falls back when the key is ABSENT, and the textarea is
+    always submitted. An empty box therefore wiped a summary that cost a model call and
+    that an attorney may have spent time editing, with no warning and no undo."""
+    from app.extensions import db
+    from app.models import DepositionSummary, Matter
+    from tests.helpers import login
+    c = app.test_client()
+    tok = login(c)
+    with app.app_context():
+        m = Matter.query.first()
+        dep = DepositionSummary(matter_id=m.id, deponent="A Witness", summary_text="Worth keeping.")
+        db.session.add(dep); db.session.commit()
+        dep_id = dep.id
+
+    r = c.post(f"/discovery/depositions/{dep_id}/save",
+               data={"summary_text": "", "deponent": "A Witness", "_csrf": tok})
+    assert r.status_code == 302
+    with app.app_context():
+        assert db.session.get(DepositionSummary, dep_id).summary_text == "Worth keeping."
+
+
+def test_clearing_a_deposition_summary_on_purpose_works(app):
+    from app.extensions import db
+    from app.models import DepositionSummary, Matter
+    from tests.helpers import login
+    c = app.test_client()
+    tok = login(c)
+    with app.app_context():
+        m = Matter.query.first()
+        dep = DepositionSummary(matter_id=m.id, deponent="B Witness", summary_text="Remove me.")
+        db.session.add(dep); db.session.commit()
+        dep_id = dep.id
+
+    c.post(f"/discovery/depositions/{dep_id}/save",
+           data={"summary_text": "", "clear_summary": "1", "deponent": "B Witness", "_csrf": tok})
+    with app.app_context():
+        assert db.session.get(DepositionSummary, dep_id).summary_text == ""
