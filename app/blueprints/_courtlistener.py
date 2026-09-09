@@ -331,6 +331,57 @@ def _candidate(c):
             "url": _abs(c.get("absolute_url")) if c.get("absolute_url") else ""}
 
 
+# A citation is written as "Name v. Name, 812 F.3d 1144". This pulls the party names that
+# sit immediately in front of each citation so they can be compared with the case the
+# reporter page actually belongs to.
+_NAME_BEFORE_CITE = re.compile(
+    r"([A-Z][\w.'&-]*(?:\s+[A-Za-z.'&-]+){0,7}?\s+v\.?\s+[A-Z][\w.'&-]*(?:\s+[A-Za-z.'&-]+){0,7}?)"
+    r"\s*,\s*(?=\d)")
+
+
+def _norm_name(n):
+    """Party names for comparison: lowercase, no punctuation, no corporate noise."""
+    n = re.sub(r"[^\w\s]", " ", (n or "").lower())
+    drop = {"inc", "llc", "llp", "ltd", "co", "corp", "corporation", "company", "the", "of",
+            "et", "al", "plaintiff", "defendant", "appellant", "appellee", "v", "vs"}
+    return [w for w in n.split() if w and w not in drop]
+
+
+def _claimed_names(text):
+    """-> [(end_offset, "Name v. Name")] for every case name that precedes a citation."""
+    return [(m.end(), m.group(1).strip()) for m in _NAME_BEFORE_CITE.finditer(text or "")]
+
+
+def _name_for(text, citation, claims):
+    """The case name written just before this citation in the source text, if any."""
+    if not citation:
+        return ""
+    i = (text or "").find(citation)
+    if i == -1:
+        return ""
+    before = [(end, name) for end, name in claims if end <= i and i - end < 6]
+    if not before:
+        return ""
+    # Drop the signal that introduced the cite ("See Halloway v. ..." -> "Halloway v. ...").
+    # The trailing period matters: "Cf." and "e.g." carry one, "See" does not.
+    return re.sub(r"^(?:see also|see|accord|cf|but see|e\.?g|compare|contra)\.?\s+", "",
+                  before[-1][1], flags=re.I).strip()
+
+
+def _names_agree(claimed, actual):
+    """True when the brief's party names and the matched case's name share a surname.
+
+    Deliberately loose. Real citations are written "Smith v. Jones" against a full case
+    name of "Smith v. Jones Manufacturing Co., Inc.", and reporters abbreviate. One
+    shared distinctive word is enough to say these are the same case; zero shared words
+    is what a fabricated citation looks like.
+    """
+    c, a = set(_norm_name(claimed)), set(_norm_name(actual))
+    if not c or not a:
+        return True          # nothing to compare, do not cry wolf
+    return bool(c & a)
+
+
 def citation_lookup(text):
     """POST the text to /citation-lookup/. Returns {ok, citations: [...]} where each item has
     citation, normalized, status, resolution, found, ambiguous, match_count, candidates, case_name,
@@ -347,6 +398,7 @@ def citation_lookup(text):
     if not out.get("ok"):
         return out
     items = out["data"] if isinstance(out["data"], list) else []
+    claims = _claimed_names(text)
     found = []
     for it in items:
         status = it.get("status")
@@ -358,11 +410,28 @@ def citation_lookup(text):
         # labelled "not found".
         ambiguous = bool(clusters) and (status == 300 or (status == 200 and len(clusters) > 1))
         resolved = status == 200 and len(clusters) == 1
+
+        # A reporter page can resolve to a real case that is NOT the one the brief names.
+        # A pincite lands inside another case's page range, so "812 F.3d 1144" happily
+        # resolves to a case beginning at 1141. That is CourtListener working correctly and
+        # it is also exactly what an invented citation looks like: plausible numbers over a
+        # case name nobody wrote. Reporting that as "resolved" is worse than saying nothing,
+        # because it tells an attorney a fabricated cite has been checked.
+        cite_str = it.get("citation") or (norm[0] if norm else "")
+        actual_name = first.get("case_name") or first.get("case_name_full") or ""
+        claimed_name = _name_for(text, cite_str, claims)
+        mismatch = bool(resolved and claimed_name and actual_name
+                        and not _names_agree(claimed_name, actual_name))
+        if mismatch:
+            resolved = False
         found.append({
+            "claimed_name": claimed_name,
+            "name_mismatch": mismatch,
             "citation": it.get("citation") or (norm[0] if norm else ""),
             "normalized": norm[0] if norm else (it.get("citation") or ""),
             "status": status,
-            "resolution": "resolved" if resolved else ("ambiguous" if ambiguous else "not_found"),
+            "resolution": ("name_mismatch" if mismatch else
+                           "resolved" if resolved else ("ambiguous" if ambiguous else "not_found")),
             "found": resolved or ambiguous,
             "ambiguous": ambiguous,
             "match_count": len(clusters),

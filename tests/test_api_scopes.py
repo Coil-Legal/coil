@@ -209,3 +209,47 @@ def test_calendar_rejects_a_bad_timestamp_rather_than_guessing(app):
     r = c.post("/api/v1/calendar", headers=h, json={"title": "Call", "starts_at": "next tuesday"})
     assert r.status_code == 400
     assert "ISO 8601" in r.json["error"]
+
+
+# --------------------------------------------------------------- rate limiting
+def test_the_enforced_rate_limit_matches_the_advertised_one(app, monkeypatch):
+    """The counter lives in this process and gunicorn runs several workers, so each one
+    was enforcing the full limit on its own share of the traffic. Two workers meant the
+    advertised 120 a minute was really 240, which is how 200 authenticated calls sailed
+    through a review without one 429."""
+    import app.blueprints.api as api
+    monkeypatch.setitem(app.config, "API_RATE_LIMIT", 120)
+
+    monkeypatch.delenv("WEB_CONCURRENCY", raising=False)
+    with app.app_context():
+        assert api._effective_limit() == 120
+
+    monkeypatch.setenv("WEB_CONCURRENCY", "2")
+    with app.app_context():
+        assert api._effective_limit() == 60, "each of 2 workers may allow only half"
+
+    monkeypatch.setenv("WEB_CONCURRENCY", "4")
+    with app.app_context():
+        assert api._effective_limit() == 30
+
+
+def test_a_nonsense_worker_count_never_disables_the_limit(app, monkeypatch):
+    import app.blueprints.api as api
+    monkeypatch.setitem(app.config, "API_RATE_LIMIT", 120)
+    for bad in ("0", "", "nope"):
+        monkeypatch.setenv("WEB_CONCURRENCY", bad)
+        with app.app_context():
+            assert api._effective_limit() >= 1
+
+
+def test_going_over_the_limit_returns_429_with_retry_after(app, monkeypatch):
+    import app.blueprints.api as api
+    monkeypatch.setitem(app.config, "API_RATE_LIMIT", 10)
+    monkeypatch.setenv("WEB_CONCURRENCY", "1")
+    api.reset_rate_limits()
+    c = app.test_client()
+    h = _token(app, ["matters:read"], "full")
+    codes = [c.get("/api/v1/me", headers=h).status_code for _ in range(14)]
+    assert codes.count(200) == 10 and codes.count(429) == 4, codes
+    r = c.get("/api/v1/me", headers=h)
+    assert r.headers.get("Retry-After") == "60"

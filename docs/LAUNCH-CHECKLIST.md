@@ -63,11 +63,17 @@ A bug here costs a licence, not a customer. Test these properly even if it is sl
 - [ ] INV-1009 is paid and appears in **no** AR aging bucket and gets **no** reminder.
 - [ ] Create an invoice from unbilled time on M-1010. Hours and rate produce the right total.
 - [ ] Edit a draft, add a line, adjust, discount. Totals recompute.
-- [ ] Approve, submit and reject flows behave and are recorded in the audit log.
+- [ ] Approval is opt-in: turn on "require invoice approval" in Settings, then submit,
+      approve and reject are available on a draft and recorded in the audit log. With it
+      off there is deliberately no approval step.
 - [ ] Void an invoice. It stops counting toward AR and cannot be paid.
-- [ ] Interest: `/invoices/<id>/interest` adds one line, not one per run.
+- [ ] Interest: set an interest rate in Settings first, or the interest action has nothing
+      to do. Then `/invoices/<id>/interest` adds one line, not one per run.
+- [ ] Monthly bulk billing is opt-in per matter: set a billing day on the matter, otherwise
+      `/invoices/bulk/monthly` correctly skips it and says why.
 - [ ] Bulk monthly run `/invoices/bulk/monthly` skips matters it should skip and says why.
-- [ ] PDF renders with the firm's name, logo and correct figures.
+- [ ] PDF renders with the firm's name and correct figures. A logo only appears once one
+      is uploaded in Settings, Invoice template; no logo on a fresh firm is correct.
 - [ ] Public view `/p/<token>` shows the invoice without a login and without leaking
       anything about other matters.
 
@@ -79,10 +85,11 @@ A bug here costs a licence, not a customer. Test these properly even if it is sl
 - [ ] Pause, resume and cancel a plan.
 - [ ] With no Stripe key, pay links show mailing instructions rather than erroring.
 
-## Fee splits and compensation `/money/splits`, `/reports`
+## Fee splits and compensation
 
-- [ ] Origination and working splits total 100% and the compensation report agrees with
-      the underlying time.
+- [ ] Fee splits live per matter at `/money/splits/<matter_id>`, reached from the matter,
+      not from a bare `/money/splits`. Origination and working splits total 100%.
+- [ ] The compensation report at `/reports` agrees with the underlying time entries.
 
 ---
 
@@ -185,8 +192,11 @@ Missing one of these is malpractice.
 - [ ] Case law search returns results.
 - [ ] Full opinion text loads, now that a CourtListener token is set.
 - [ ] **Cite check on `brief-with-citations-demo.txt`.** Six citations. Celotex, Anderson
-      and Matsushita are real. Halloway, Marbury and Vasquez-Lindberg are **invented** and
-      must be flagged. One has an impossible page number and another a 2029 date.
+      and Matsushita are real and must resolve. Marbury and Vasquez-Lindberg are invented
+      and must come back not found. **Halloway 812 F.3d 1144 is the interesting one**: that
+      page is a real pincite into *Tubbs v. Surface Transportation Board*, so the number
+      resolves while the case name does not. It must be reported as **wrong case**, never
+      as resolved.
 - [ ] Confirm it does not claim to say whether a case is still good law. It is not a
       citator and must not imply it is.
 
@@ -232,7 +242,9 @@ The demo documents contain deliberate traps. These matter more than the happy pa
       MCP response. Then repeat with a full token and confirm it does. Absence alone
       proves nothing.
 - [ ] `/api/v1/documents` returns metadata only, never file bytes or the filesystem path.
-- [ ] Rate limit returns 429 with Retry-After, not a 500.
+- [ ] Rate limit returns 429 with Retry-After. Note the counter is per worker: with
+      WEB_CONCURRENCY=2 the advertised 120 a minute is enforced as 60 per worker, so
+      sequential calls over a slow link may never trip it. Hammer it from one connection.
 - [ ] Full walkthrough in `mcp/TESTING.md`.
 
 ## Exports, import, webhooks

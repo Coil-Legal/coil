@@ -6,6 +6,7 @@ per token. The browser session is ignored here on purpose; only the Authorizatio
 /api/v1/ is in helpers.CSRF_EXEMPT_PREFIXES, which also puts it on permissions.ALWAYS_ALLOW.
 """
 import hashlib
+import os
 import secrets
 import threading
 import time as _time
@@ -112,8 +113,32 @@ def _error(status, message):
     return jsonify({"error": message, "status": status}), status
 
 
+def _effective_limit():
+    """The per-worker share of the advertised limit.
+
+    The counter is a dict in this process, and gunicorn runs several workers, so each one
+    was enforcing the full limit on its own share of the traffic. With two workers the
+    advertised 120 a minute was really 240, and it grew with every worker added. Dividing
+    by the worker count makes the number Coil promises the number it enforces.
+
+    WEB_CONCURRENCY has to match the -w in the Dockerfile. Set too low the limit is merely
+    stricter than advertised, which is the safe direction to be wrong in.
+    """
+    # A typo in either value must not take the API down, and must not silently switch the
+    # limiter off. Anything unreadable falls back to the stricter interpretation.
+    try:
+        limit = int(current_app.config.get("API_RATE_LIMIT") or RATE_LIMIT)
+    except (TypeError, ValueError):
+        limit = RATE_LIMIT
+    try:
+        workers = max(1, int(os.environ.get("WEB_CONCURRENCY") or 1))
+    except (TypeError, ValueError):
+        workers = 1
+    return max(1, limit // workers)
+
+
 def _rate_limited(token_id):
-    limit = current_app.config.get("API_RATE_LIMIT", RATE_LIMIT)
+    limit = _effective_limit()
     t = _time.monotonic()
     with _rate_lock:
         dq = _rate.setdefault(token_id, deque())
@@ -140,7 +165,8 @@ def _authenticate():
     if not tok or tok.revoked_at or not tok.user or not tok.user.is_active:
         return _error(401, "Unknown or revoked token.")
     if _rate_limited(tok.id):
-        resp = _error(429, f"Rate limit of {current_app.config.get('API_RATE_LIMIT', RATE_LIMIT)} calls per minute reached.")
+        resp = _error(429, f"Rate limit of {current_app.config.get('API_RATE_LIMIT') or RATE_LIMIT} "
+                            f"calls per minute reached.")
         resp[0].headers["Retry-After"] = "60"
         return resp
     g.api_token = tok

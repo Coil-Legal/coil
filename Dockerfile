@@ -15,4 +15,7 @@ LABEL org.opencontainers.image.version=$COIL_VERSION \
       org.opencontainers.image.revision=$COIL_COMMIT
 
 EXPOSE 8000
+# WEB_CONCURRENCY must match -w below. The API rate limiter counts in-process, so it
+# divides the advertised limit by this to enforce the number it actually promises.
+ENV WEB_CONCURRENCY=2
 CMD ["gunicorn", "-b", "0.0.0.0:8000", "-w", "2", "--timeout", "120", "wsgi:app"]

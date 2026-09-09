@@ -20,7 +20,10 @@
   {% set resolved = items|selectattr('resolution', 'equalto', 'resolved')|list %}
   {% set ambiguous = items|selectattr('resolution', 'equalto', 'ambiguous')|list %}
   {% set missing = items|selectattr('resolution', 'equalto', 'not_found')|list %}
-  <h2>{{ items|length }} citation{{ '' if items|length == 1 else 's' }} found in {{ source_label }}{% if items %}, {{ resolved|length }} resolved{% if ambiguous %}, {{ ambiguous|length }} ambiguous{% endif %}, {{ missing|length }} not found{% endif %}</h2>
+  {% set mismatched = items|selectattr('resolution', 'equalto', 'name_mismatch')|list %}
+  <h2>{{ items|length }} citation{{ '' if items|length == 1 else 's' }} found in {{ source_label }}{% if items %}, {{ resolved|length }} resolved{% if ambiguous %}, {{ ambiguous|length }} ambiguous{% endif %}, {{ missing|length }} not found{% if mismatched %}, <strong>{{ mismatched|length }} pointing at a different case</strong>{% endif %}{% endif %}</h2>
+  {% if mismatched %}<div class="flash error"><strong>{{ mismatched|length }} citation{{ '' if mismatched|length == 1 else 's' }} resolve to a real page in the reporter, but that page belongs to a different case than the one named.</strong>
+  That is what an invented citation looks like: plausible numbers over a case nobody wrote. It can also be an honest typo in the volume or page. Either way, open the matched case and check it before this goes near a court.</div>{% endif %}
   {% if ambiguous %}<p class="small">An ambiguous citation matched more than one case on CourtListener, so the database cannot say which one you meant. Pick the right case from the candidates and check the citation before filing.</p>{% endif %}
   {% if note %}<div class="flash">Saved as a note on <a href="/matters/{{ note.matter_id }}?tab=activity">{{ note.matter.label }}</a>.</div>{% endif %}
   {% if items %}
@@ -29,7 +32,7 @@
     {% for c in items %}
     <tr>
       <td><strong>{{ c.citation }}</strong>{% if c.normalized and c.normalized != c.citation %}<div class="small muted">{{ c.normalized }}</div>{% endif %}</td>
-      <td>{% if c.resolution == 'ambiguous' %}<span class="badge pending">{{ c.match_count }} possible matches, verify before filing</span>{% elif c.resolution == 'resolved' %}<span class="badge open">resolved</span>{% else %}<span class="badge unresolved">not found, verify before filing</span>{% endif %}
+      <td>{% if c.resolution == 'name_mismatch' %}<span class="badge unresolved">wrong case, do not file</span><div class="small">Named <strong>{{ c.claimed_name or 'a case' }}</strong>, but {{ c.citation }} is {{ c.case_name }}.</div>{% elif c.resolution == 'ambiguous' %}<span class="badge pending">{{ c.match_count }} possible matches, verify before filing</span>{% elif c.resolution == 'resolved' %}<span class="badge open">resolved</span>{% else %}<span class="badge unresolved">not found, verify before filing</span>{% endif %}
         {% if c.error_message and c.resolution != 'resolved' %}<div class="small muted">{{ c.error_message }}</div>{% endif %}</td>
       <td>{% if c.resolution == 'ambiguous' %}{% for x in c.candidates %}<div>{{ x.case_name or 'Untitled' }}{% if x.date_filed %} <span class="muted small">({{ x.date_filed[:4] }})</span>{% endif %}{% if x.url %} <a class="small" href="{{ x.url }}" target="_blank" rel="noopener">open</a>{% endif %}</div>{% endfor %}{% elif c.case_name %}{{ c.case_name }}{% if c.date_filed %} <span class="muted small">({{ c.date_filed[:4] }})</span>{% endif %}{% if c.citations %}<div class="small muted">{{ c.citations|join('; ') }}</div>{% endif %}{% else %}<span class="muted">No match on CourtListener</span>{% endif %}</td>
       <td class="small nowrap">{% if c.url %}<a href="{{ c.url }}" target="_blank" rel="noopener">CourtListener</a>{% endif %}{% if c.cluster_id %} <a href="/research?q={{ ('cluster_id:' ~ c.cluster_id)|urlencode }}">Open</a>{% endif %}</td>
