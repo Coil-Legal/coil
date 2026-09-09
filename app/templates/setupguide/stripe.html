@@ -1,0 +1,23 @@
+{% extends "setupguide/_layout.html" %}
+{% block explain %}
+<h2>What this does</h2>
+<p class="small">Lets clients pay an invoice online by card or bank transfer, from a link in the
+invoice email or in the client portal.</p>
+<p class="small"><strong>Do you need it?</strong> Only if you want to be paid online. Without it,
+invoices show your mailing and wire instructions instead and you record payments by hand as they
+arrive. Plenty of firms run that way for years.</p>
+<p class="small"><strong>Cost.</strong> No monthly fee. Stripe takes a percentage of each payment.
+Coil adds nothing on top and never touches the money: it goes straight to your Stripe account.</p>
+<h3>Getting the keys</h3>
+<ol class="small" style="padding-left:20px">
+  <li>Create an account at <code>stripe.com</code> and finish their identity checks. Use the firm's
+    legal name and bank details, not a personal account.</li>
+  <li>In the dashboard open <strong>Developers, API keys</strong> and copy the secret and
+    publishable keys.</li>
+  <li>Still under Developers, open <strong>Webhooks</strong>, add the endpoint shown on the
+    Integrations page, choose the event <code>checkout.session.completed</code>, and copy the
+    signing secret.</li>
+  <li>Start with test keys. A test key begins <code>sk_test_</code> and a live one
+    <code>sk_live_</code>, so you can try the whole flow before real money moves.</li>
+</ol>
+{% endblock %}

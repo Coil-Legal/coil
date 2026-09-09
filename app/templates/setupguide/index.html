@@ -1,0 +1,26 @@
+{% extends "base.html" %}{% block title %}Setup guide{% endblock %}{% block content %}
+<div class="topbar"><h1>Setup guide</h1>
+  <div class="actions" style="margin:0"><a class="btn small secondary" href="/settings/integrations">Integrations</a></div>
+</div>
+<p class="sub" style="max-width:70ch">Coil already works. These five are optional extras, each
+one switching on something you may or may not want. Set up the ones you need, skip the rest,
+and come back whenever that changes. Nothing here is a problem to fix.</p>
+{% if remaining %}<p class="small muted">{{ remaining }} not answered yet.</p>
+{% else %}<p class="small muted">You have been through all of them.</p>{% endif %}
+
+<div class="card" style="max-width:70ch">
+  <table>
+    <tr><th>What</th><th>Status</th><th></th></tr>
+    {% for r in rows %}
+    <tr>
+      <td>{{ r.step.title }}</td>
+      <td>{% if r.configured %}<span class="badge open">working</span>
+          {% elif r.state == 'skipped' %}<span class="badge draft">skipped</span>
+          {% else %}<span class="muted small">not set up</span>{% endif %}</td>
+      <td class="num"><a class="btn small secondary" href="/setup-guide/{{ r.step.key }}">
+        {{ 'Change' if r.configured else 'Set up' }}</a></td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

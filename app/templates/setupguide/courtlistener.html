@@ -1,0 +1,23 @@
+{% extends "setupguide/_layout.html" %}
+{% block explain %}
+<h2>What this does</h2>
+<p class="small">Free case law search from the Free Law Project, with full opinion text and a
+citation checker that flags cites in a brief that do not resolve.</p>
+<p class="small"><strong>Do you need it?</strong> Optional, and search already works without a token.
+Adding one unlocks full opinion text, the citation check, and a higher rate limit.</p>
+<p class="small"><strong>Cost.</strong> Free. There is no paid tier to fall into.</p>
+<p class="small"><strong>Worth knowing.</strong> This checks whether a citation <em>resolves</em>, not
+whether a case is still good law. It is not a citator and will not replace Shepard's or KeyCite.</p>
+<h3>Getting the token</h3>
+<ol class="small" style="padding-left:20px">
+  <li>Create a free account at <code>courtlistener.com</code>.</li>
+  <li>Open your profile and copy the API token shown there.</li>
+  <li>Use your own rather than borrowing one. Their terms forbid more than one account per
+    organisation, and the free limit is 125 requests a day.</li>
+</ol>
+{% endblock %}
+{% block fields %}
+<label>API token</label>
+<input type="text" name="COURTLISTENER_TOKEN" value="{{ stored.COURTLISTENER_TOKEN }}"
+       autocomplete="off" placeholder="paste the token from your CourtListener profile">
+{% endblock %}

@@ -52,6 +52,7 @@
     <a class="nav {{ 'active' if _path.startswith('/settings/rules') or _path.startswith('/settings/holidays') }}" href="/settings/rules">Court rules</a>
     <a class="nav {{ 'active' if _path.startswith('/import') }}" href="/import">Import from another system</a>
     <a class="nav {{ 'active' if _path.startswith('/exports') }}" href="/exports">Exports</a>
+    <a class="nav {{ 'active' if _path.startswith('/setup-guide') }}" href="/setup-guide">Setup guide</a>
     <a class="nav {{ 'active' if _path.startswith('/features') }}" href="/features">Feature map</a>
     {% if u and config.FEEDBACK_ENABLED not in ('0', 'false', 'no') %}
     <a class="nav feedback-link {{ 'active' if _path.startswith('/feedback') }}"

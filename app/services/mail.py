@@ -9,7 +9,8 @@ log = logging.getLogger("mail")
 
 def send_email(to, subject, html, text=None, attachments=None, reply_to=None):
     """attachments: list of (filename, bytes, mime). Returns True if handed to SMTP, False if logged only."""
-    cfg = current_app.config
+    # A firm may have supplied SMTP itself; setting() checks env, then the firm, then config.
+    cfg = _SmtpView(current_app.config)
     msg = EmailMessage()
     msg["From"] = cfg["MAIL_FROM"]
     msg["To"] = to
@@ -39,3 +40,29 @@ _dev_outbox = []  # last emails when SMTP is unset; surfaced at /dev/outbox for 
 
 def dev_outbox():
     return list(reversed(_dev_outbox[-50:]))
+
+
+class _SmtpView:
+    """current_app.config, except the SMTP keys resolve through integrations.setting so a
+    firm that entered its own mail server in the setup wizard actually sends with it."""
+
+    _RESOLVED = ("SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS", "MAIL_FROM")
+
+    def __init__(self, cfg):
+        self._cfg = cfg
+
+    def __getitem__(self, k):
+        if k in self._RESOLVED:
+            from ..integrations import setting
+            v = setting(k)
+            if v not in (None, ""):
+                return v
+        return self._cfg[k]
+
+    def get(self, k, default=None):
+        if k in self._RESOLVED:
+            from ..integrations import setting
+            v = setting(k)
+            if v not in (None, ""):
+                return v
+        return self._cfg.get(k, default)

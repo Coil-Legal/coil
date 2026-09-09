@@ -1,0 +1,37 @@
+{% extends "base.html" %}{% block title %}{{ s.title }}{% endblock %}{% block content %}
+<div class="topbar">
+  <h1>{{ s.title }}</h1>
+  <div class="actions" style="margin:0"><a class="btn small secondary" href="/setup-guide">All steps</a></div>
+</div>
+<p class="small muted">Step {{ step_no }} of {{ step_total }}
+  {% if configured %}<span class="badge open">already working</span>
+  {% elif state == 'skipped' %}<span class="badge draft">skipped earlier</span>{% endif %}
+</p>
+
+<div class="grid c2">
+  <div class="card" style="max-width:62ch">
+    {% block explain %}{% endblock %}
+  </div>
+
+  <div class="card">
+    <h2>{% block formtitle %}Enter your details{% endblock %}</h2>
+    <form method="post">{{ csrf() }}
+      {% block fields %}
+        {% for name, label, placeholder, secret in s.fields %}
+        <label>{{ label }}</label>
+        <input type="{{ 'password' if secret else 'text' }}" name="{{ name }}"
+               value="{{ '' if secret else stored[name] }}" autocomplete="off"
+               placeholder="{{ 'saved, leave blank to keep it' if (secret and stored[name ~ '_isset']) else placeholder }}">
+        {% endfor %}
+        <p class="small muted">A blank box keeps whatever is already saved. Type <code>none</code> to clear one.</p>
+      {% endblock %}
+      <div class="actions" style="margin-top:14px">
+        <button class="btn" name="action" value="save">Save and continue</button>
+        <button class="btn secondary" name="action" value="skip">Skip for now</button>
+      </div>
+    </form>
+    <p class="small muted" style="margin-top:10px">Skipping changes nothing and breaks nothing.
+      Coil works without this; come back whenever you are ready.</p>
+  </div>
+</div>
+{% endblock %}

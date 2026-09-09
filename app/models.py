@@ -120,6 +120,12 @@ class Firm(db.Model):
     ai_zdr = db.Column(db.Boolean, default=True)            # zero-retention endpoints only
     ai_no_training = db.Column(db.Boolean, default=True)    # refuse providers that train on prompts
     ai_daily_cap_cents = db.Column(db.Integer, default=0)   # 0 = use AI_DAILY_CAP_CENTS
+    # Integration credentials the firm supplied itself, as {"STRIPE_SECRET_KEY": "...", ...}.
+    # A firm on an instance somebody else runs cannot reach a .env, so without this it could
+    # never switch on payments, texting or email filing. The environment still wins.
+    integration_json = db.Column(db.Text, default="{}")
+    # Which setup steps have been finished or deliberately skipped, as {"stripe": "skipped"}.
+    setup_json = db.Column(db.Text, default="{}")
     sequences_auto_send = db.Column(db.Boolean, default=False)  # follow-up sequences send only when this is on; otherwise drafts
 
     @staticmethod

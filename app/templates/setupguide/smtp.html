@@ -1,0 +1,18 @@
+{% extends "setupguide/_layout.html" %}
+{% block explain %}
+<h2>What this does</h2>
+<p class="small">Lets Coil send email on your behalf: invoices, engagement letters for signature,
+client portal invitations, payment reminders and your daily agenda.</p>
+<p class="small"><strong>Do you need it?</strong> In practice yes, sooner or later. Almost everything
+Coil sends a client goes through here. Without it Coil works normally and writes every message to a
+dev outbox you can read, but nothing reaches anyone.</p>
+<p class="small"><strong>Cost.</strong> Nothing. Use the mail account you already have.</p>
+<h3>Getting the details</h3>
+<ol class="small" style="padding-left:20px">
+  <li>Create an <strong>app password</strong> in your email provider. Gmail and Microsoft 365 both
+    require one for this. Your normal login password will not work, and you should not put it here.</li>
+  <li>Your provider's SMTP server and port: Gmail is <code>smtp.gmail.com</code> port <code>587</code>,
+    Microsoft 365 is <code>smtp.office365.com</code> port <code>587</code>.</li>
+  <li>Send yourself a test invoice afterwards to confirm it arrives.</li>
+</ol>
+{% endblock %}

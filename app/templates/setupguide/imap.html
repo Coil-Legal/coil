@@ -1,0 +1,20 @@
+{% extends "setupguide/_layout.html" %}
+{% block explain %}
+<h2>What this does</h2>
+<p class="small">Watches a mailbox you forward or BCC to, and files those emails and their
+attachments onto the right matter automatically.</p>
+<p class="small"><strong>Do you need it?</strong> Optional, and a real time saver if you live in
+email. Without it you save documents to a matter by hand, which is what most people do at first.</p>
+<p class="small"><strong>Cost.</strong> Nothing. It reads a mailbox you already have.</p>
+<h3>Setting it up</h3>
+<ol class="small" style="padding-left:20px">
+  <li>Pick which mailbox to watch. A dedicated address like <code>files@yourfirm.com</code> is
+    tidier than your personal inbox.</li>
+  <li>Create an <strong>app password</strong> for it, same as for sending.</li>
+  <li>Gmail is <code>imap.gmail.com</code> port <code>993</code>; Microsoft 365 is
+    <code>outlook.office365.com</code> port <code>993</code>.</li>
+  <li>Then forward or BCC mail there with the matter number in brackets in the subject, like
+    <code>[M-1002]</code>. Mail from a client with exactly one open matter files itself with no
+    number needed.</li>
+</ol>
+{% endblock %}

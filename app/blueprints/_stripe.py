@@ -2,14 +2,16 @@
 monkeypatch these functions and so the API key is always read from app config at call time."""
 from flask import current_app
 
+from ..integrations import setting as _setting
+
 
 def configured():
-    return bool(current_app.config.get("STRIPE_SECRET_KEY"))
+    return bool(_setting("STRIPE_SECRET_KEY"))
 
 
 def _sdk():
     import stripe
-    stripe.api_key = current_app.config.get("STRIPE_SECRET_KEY", "")
+    stripe.api_key = _setting("STRIPE_SECRET_KEY")
     return stripe
 
 

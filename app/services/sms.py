@@ -2,10 +2,11 @@
 import requests
 from flask import current_app
 
+from ..integrations import setting
+
 
 def configured():
-    c = current_app.config
-    return bool(c.get("TWILIO_ACCOUNT_SID") and c.get("TWILIO_AUTH_TOKEN") and c.get("TWILIO_FROM_NUMBER"))
+    return all(setting(k) for k in ("TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_FROM_NUMBER"))
 
 
 def send_sms(to, body):
@@ -13,11 +14,12 @@ def send_sms(to, body):
     if not configured():
         current_app.logger.info("[SMS-DEV] to=%s body=%s", to, body)
         return "", "unconfigured"
-    c = current_app.config
+    sid, tok, frm = (setting("TWILIO_ACCOUNT_SID"), setting("TWILIO_AUTH_TOKEN"),
+                     setting("TWILIO_FROM_NUMBER"))
     r = requests.post(
-        f"https://api.twilio.com/2010-04-01/Accounts/{c['TWILIO_ACCOUNT_SID']}/Messages.json",
-        auth=(c["TWILIO_ACCOUNT_SID"], c["TWILIO_AUTH_TOKEN"]),
-        data={"To": to, "From": c["TWILIO_FROM_NUMBER"], "Body": body}, timeout=20)
+        f"https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json",
+        auth=(sid, tok),
+        data={"To": to, "From": frm, "Body": body}, timeout=20)
     if r.status_code >= 300:
         return "", f"error:{r.status_code}"
     j = r.json()

@@ -1,0 +1,21 @@
+{% extends "setupguide/_layout.html" %}
+{% block explain %}
+<h2>What this does</h2>
+<p class="small">Text your clients from inside Coil, with their replies landing on the matter
+instead of on your personal phone.</p>
+<p class="small"><strong>Do you need it?</strong> Only if you want to text clients. Without it,
+messages you write are saved on the matter but never sent. Nothing else is affected.</p>
+<p class="small"><strong>Cost.</strong> A few dollars a month for the number, plus a fraction of a
+cent per message.</p>
+<h3>Getting the details</h3>
+<ol class="small" style="padding-left:20px">
+  <li>Create an account at <code>twilio.com</code> and buy a number with SMS enabled. Pick one in
+    your own area code.</li>
+  <li>Copy the Account SID and Auth Token from the console home page.</li>
+  <li>Open the number's settings, find <strong>A message comes in</strong>, set it to HTTP POST and
+    paste the webhook URL from the Integrations page. Skip this and you can send but will never see
+    replies.</li>
+  <li>US and Canadian numbers need <strong>A2P 10DLC registration</strong> before carriers deliver
+    business texts. Twilio walks you through it; allow a few days.</li>
+</ol>
+{% endblock %}
