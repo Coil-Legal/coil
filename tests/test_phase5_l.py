@@ -441,6 +441,26 @@ def test_demand_draft_generated_and_saved_as_pdf(app, owner, monkeypatch, no_key
     assert f"/documents/{S['demand_doc_id']}/download" in html and "Open narrative demand draft" in html
 
 
+def test_demand_draft_prompt_includes_notes_and_warns_against_omitting_them(app, owner, monkeypatch):
+    """A note instructing the drafter to disclose something (e.g. a finding is chronic, not caused by this
+    collision) must reach the demand-draft prompt, and the prompt must tell the model not to bury it."""
+    c, tok = owner
+    mid = S["mid"]
+    from app.extensions import db
+    from app.models import Note
+    with app.app_context():
+        db.session.add(Note(matter_id=mid, user_id=1,
+                            body="C6-C7 changes look chronic and are not attributed to this collision; say so "
+                                 "in the demand."))
+        db.session.commit()
+    calls = _fake_json(monkeypatch, {"demand_draft": MODEL_DEMAND})
+    r = c.post(f"/records/{mid}/demand-draft", data={"_csrf": tok, "demand_amount": "45,000.00"})
+    assert r.status_code == 302
+    prompt = calls[0][0]
+    assert "C6-C7 changes look chronic and are not attributed to this collision" in prompt
+    assert "a demand that omits a known weakness reads as less credible" in prompt
+
+
 def test_demand_template_fallback(app, owner, monkeypatch, no_keys):
     c, tok = owner
     mid = S["mid"]

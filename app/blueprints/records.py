@@ -794,7 +794,7 @@ def _demand_inputs(m, c):
     return entries, providers, liens, sum(int(p.total_billed_cents or 0) for p in providers)
 
 
-def _demand_prompt(m, c, head, demand_cents, style_notes, examples):
+def _demand_prompt(m, c, head, demand_cents, style_notes, examples, notes):
     instr = ("Draft a narrative settlement demand letter to the insurer for this personal injury claim, from the "
              "material below only. Write in the first person plural for the firm ('our client', 'we'). Sections: "
              "intro (who we represent, the claim, purpose of the letter), facts (what happened), liability (why "
@@ -805,13 +805,16 @@ def _demand_prompt(m, c, head, demand_cents, style_notes, examples):
              + (f" against policy limits of {cents_to_str(c.policy_limits_cents)}" if c.policy_limits_cents else "")
              + ", a 30 day response deadline, and that this is a settlement communication), closing (a courteous "
              "close, no signature block). Plain, confident, specific. No headings inside the text, no bullet "
-             "lists, no invented facts or figures. Return JSON with exactly those seven keys.\n\n")
+             "lists, no invented facts or figures. If a note instructs you to disclose something (for example, "
+             "that a finding is chronic or not attributable to this collision), say so candidly in the relevant "
+             "section rather than leaving it out: the insurer has the same records, and a demand that omits a "
+             "known weakness reads as less credible, not more. Return JSON with exactly those seven keys.\n\n")
     if style_notes:
         instr += "Tone notes from the attorney for this letter: " + style_notes.strip() + "\n\n"
     if examples:
         instr += ("Match the voice, sentence rhythm and level of formality of these earlier letters from the firm. "
                   "Do not copy their facts.\n\n" + examples + "\n\n")
-    return instr + "Case material:\n" + head
+    return instr + "Case material:\n" + head + ("\n\n" + notes if notes else "")
 
 
 def _template_demand(m, c, entries, providers, liens, total, demand_cents):
@@ -877,12 +880,13 @@ def demand_draft(matter_id):
         return redirect(url_for("records.demand_draft", matter_id=m.id))
     c.demand_amount_cents = demand_cents
     head = _structured_context(m, c, entries, providers, liens)
-    budget = llm.MAX_CONTEXT_CHARS - len(head) - 1400 - len(style_notes)
+    notes = _notes_text(m)
+    budget = llm.MAX_CONTEXT_CHARS - len(head) - len(notes) - 1400 - len(style_notes)
     examples, example_names = _style_examples(budget)
     draft = dict(generated_at=now().isoformat(timespec="seconds"), demand_cents=demand_cents, template=False,
                  examples=example_names)
     try:
-        data = llm.complete_json(_demand_prompt(m, c, head, demand_cents, style_notes, examples), DEMAND_SCHEMA,
+        data = llm.complete_json(_demand_prompt(m, c, head, demand_cents, style_notes, examples, notes), DEMAND_SCHEMA,
                                  system=SYSTEM, max_tokens=4000, kind="demand_draft", entity="matter",
                                  entity_id=m.id, user_id=_uid())
         sections = {k: _s((data or {}).get(k)) for k, _ in DEMAND_SECTIONS} if isinstance(data, dict) else {}

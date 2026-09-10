@@ -212,9 +212,12 @@ def matter_summary(id):
     m = db.session.get(Matter, id) or abort(404)
     ctx, cut = llm.clip(_matter_context(m), 11000)
     prompt = ("Write a summary of this matter for a lawyer who is picking it up cold: about 150 words, plain "
-              "prose, past tense for what happened, present tense for where it stands. Then list the open items "
-              "(deadlines, unanswered questions, unbilled work, unpaid invoices) as short strings. Use only the "
-              "material below. Return JSON {\"summary\": \"...\", \"open_items\": [\"...\"]}.\n\n" + ctx)
+              "prose, past tense for what happened, present tense for where it stands. If a note mentions "
+              "anything that cuts against the client's position, concedes a point, or contradicts an earlier "
+              "note, include it: a summary that quietly leaves out an unfavorable fact is worse than no summary. "
+              "Then list the open items (deadlines, unanswered questions, unbilled work, unpaid invoices) as "
+              "short strings. Use only the material below. Return JSON {\"summary\": \"...\", "
+              "\"open_items\": [\"...\"]}.\n\n" + ctx)
     try:
         data = llm.complete_json(prompt, SUMMARY_SCHEMA, system=SYSTEM, max_tokens=1200, kind="matter_summary",
                                  entity="matter", entity_id=m.id, user_id=_uid())

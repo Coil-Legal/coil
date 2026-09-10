@@ -248,6 +248,24 @@ def test_matter_summary_saves_note(app, client, monkeypatch):
     assert r.status_code == 200 and b"AI summary" in r.data
 
 
+def test_matter_summary_prompt_warns_against_omitting_unfavorable_facts(app, client, monkeypatch):
+    """A note that concedes something against the client (e.g. a pre-existing injury) must reach the model,
+    and the prompt must tell it not to quietly leave that kind of fact out of the summary."""
+    db, M = _models()
+    with app.app_context():
+        mid = M.Matter.query.filter_by(number="M-1002").first().id
+        db.session.add(M.Note(matter_id=mid, user_id=1,
+                              body="Records complete from all five providers. C6-C7 changes look chronic; "
+                                   "say so in the demand."))
+        db.session.commit()
+    calls = _fake_complete(monkeypatch, {"summary": "Summary.", "open_items": []})
+    r = client.post(f"/ai/matter/{mid}/summary", data={"_csrf": S["tok"]})
+    assert r.status_code == 200
+    prompt = calls[0][0]
+    assert "C6-C7 changes look chronic" in prompt  # the adverse fact reached the model
+    assert "cuts against the client's position" in prompt  # and the prompt says not to bury it
+
+
 # ---------------------------------------------------------------- 3. dates from a document
 def test_document_dates_create_selected(app, client, monkeypatch):
     db, M = _models()
