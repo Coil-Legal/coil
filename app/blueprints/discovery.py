@@ -814,8 +814,9 @@ DEPO_SCHEMA = {
         "contradictions": {"type": "array", "items": {
             "type": "object",
             "properties": {"testimony": {"type": "string"}, "conflicts_with": {"type": "string"},
-                           "source": {"type": "string"}},
-            "required": ["testimony", "conflicts_with", "source"], "additionalProperties": False}},
+                           "source": {"type": "string"},
+                           "kind": {"type": "string", "enum": ["internal", "external"]}},
+            "required": ["testimony", "conflicts_with", "source", "kind"], "additionalProperties": False}},
     },
     "required": ["summary", "key_testimony", "contradictions"], "additionalProperties": False,
 }
@@ -865,10 +866,20 @@ def summarize_transcript(dep, text):
         prompt = (f"This is part {i} of {len(chunks)} of the deposition transcript of {dep.deponent or 'the deponent'}"
                   f"{', taken ' + dep.taken_on.strftime('%b %-d, %Y') if dep.taken_on else ''}. {marker_note}\n"
                   f"Return JSON with: \"summary\" (a plain summary of this part, about 150 words), \"key_testimony\" "
-                  f"(up to 10 items: page, line, a short verbatim quote, topic), and \"contradictions\" (each place "
-                  f"the testimony conflicts with the confirmed chronology or PI facts below: the testimony, what it "
-                  f"conflicts with, and the source named as \"chronology <date> <provider>\" or \"PI facts: "
-                  f"<field>\"). Only report contradictions the facts below actually support.\n\n"
+                  f"(up to 10 items: page, line, a short verbatim quote, topic), and \"contradictions\".\n\n"
+                  f"Contradictions are of two kinds and BOTH matter. Give each one a \"kind\".\n"
+                  f"  kind \"internal\": the witness contradicts himself inside this transcript, or contradicts a "
+                  f"document he is shown in it. Give a figure and then a different figure for the same thing, "
+                  f"say a duration, a distance, a speed or a time; say he does not recall something he described "
+                  f"earlier; agree with a record that differs from his own account. These are the ones a litigator "
+                  f"reads first, so look for them carefully. Set \"source\" to the page and line of the other "
+                  f"statement, like \"p31:17\".\n"
+                  f"  kind \"external\": the testimony conflicts with the confirmed chronology or the PI facts "
+                  f"below. Set \"source\" to \"chronology <date> <provider>\" or \"PI facts: <field>\".\n\n"
+                  f"In both cases put the testimony in \"testimony\" and what it conflicts with in "
+                  f"\"conflicts_with\". Quote or closely paraphrase the actual words rather than describing them. "
+                  f"Report only what the transcript or the facts below actually support: a contradiction you are "
+                  f"not sure of costs an attorney more time than a missing one.\n\n"
                   f"Matter facts:\n{facts}\n\nTranscript part {i}:\n{chunk}")
         data = llm.complete_json(prompt, DEPO_SCHEMA, system=SYSTEM, max_tokens=2500, kind="deposition_summary",
                                  entity="deposition_summary", entity_id=dep.id, user_id=_uid())
@@ -882,9 +893,11 @@ def summarize_transcript(dep, text):
                             "quote": str(k.get("quote")).strip(), "topic": str(k.get("topic") or "").strip()})
         for c in data.get("contradictions") or []:
             if isinstance(c, dict) and (c.get("testimony") or "").strip():
+                kind = str(c.get("kind") or "external").strip().lower()
                 contras.append({"testimony": str(c.get("testimony")).strip(),
                                 "conflicts_with": str(c.get("conflicts_with") or "").strip(),
-                                "source": str(c.get("source") or "").strip()})
+                                "source": str(c.get("source") or "").strip(),
+                                "kind": kind if kind in ("internal", "external") else "external"})
     if not summaries:
         raise llm.LLMBadOutput("The AI returned nothing usable for this transcript.")
     summary = summaries[0]

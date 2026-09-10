@@ -16,7 +16,16 @@
     <td><select name="kind_{{ loop.index0 }}" style="width:auto;margin:0">{% for k in kinds %}<option value="{{ k }}" {{ 'selected' if k == r.kind }}>{{ k.replace('_', ' ') }}</option>{% endfor %}</select></td>
   </tr>{% endfor %}</table>
   <div class="actions"><button class="btn">Create selected</button><a class="btn secondary" href="/matters/{{ doc.matter_id }}?tab=documents">Cancel</a></div>
-  {% else %}<div class="empty">No actionable dates were found in this document.</div>{% endif %}
+  {% else %}<div class="empty">
+    <p><strong>No deadlines or hearing dates in this one.</strong></p>
+    <p class="small">This looks for dates something has to happen by: filing deadlines, responses,
+    hearings, trial settings, depositions, appointments. It deliberately skips dates that are only
+    history, so a document that is entirely a record of what already happened comes back empty even
+    though it is full of dates. That is the usual reason for this message, and it is not an error.</p>
+    <p class="small">If this is a medical record, a treatment history or a bill, the tool you want is
+    <a href="/records">Records to chronology</a>, which builds a dated timeline of past treatment.
+    Coil read {{ doc.extracted_text|length }} characters from this file, so the text came through fine.</p>
+  </div>{% endif %}
 </div>
 </form>
 {% endif %}
