@@ -525,6 +525,11 @@ class Invoice(db.Model):
 
     @property
     def balance_cents(self):
+        # A void invoice is owed by nobody. It was already excluded from AR and from
+        # payment, but the detail page still printed the old figure, so a firm chasing
+        # receivables saw money that does not exist and a client could be asked for it.
+        if self.status == "void":
+            return 0
         return max(0, (self.total_cents or 0) - (self.paid_cents or 0))
 
     def recalc(self):

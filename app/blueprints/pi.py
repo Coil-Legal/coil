@@ -270,6 +270,84 @@ def build_reduction_letter(matter, case, lien, pct, proposed_cents):
     return pdf
 
 
+# Folders whose documents belong in a demand package, in the order an adjuster expects
+# to read them. A "package" that packages nothing is just a letter with a grand name.
+EXHIBIT_FOLDERS = ("Records", "Billing", "Liens", "Discovery", "Correspondence")
+
+
+def _exhibit_documents(matter):
+    from ..models import Document
+    rows = (Document.query.filter_by(matter_id=matter.id, is_current=True)
+            .filter(Document.folder.in_(EXHIBIT_FOLDERS)).all())
+    order = {f: i for i, f in enumerate(EXHIBIT_FOLDERS)}
+    return sorted(rows, key=lambda d: (order.get(d.folder, 99), d.name.lower()))
+
+
+def _attach_exhibits(matter, letter_pdf):
+    """Bind the matter's records, bills and lien correspondence onto the demand letter.
+
+    Returns (pdf_bytes, attached_count, listed_count). Only PDFs can be bound; anything
+    else is named in the exhibit index instead of being dropped silently, because an
+    adjuster who is told there are eight exhibits and receives six will say so, and a
+    firm that never noticed looks careless.
+    """
+    import io
+    import os as _os
+    letter_bytes = _pdf_bytes(letter_pdf)
+    docs = _exhibit_documents(matter)
+    if not docs:
+        return letter_bytes, 0, 0
+
+    from pypdf import PdfReader, PdfWriter
+    from flask import current_app
+    base = current_app.config["UPLOAD_DIR"]
+
+    pdfs, others = [], []
+    for d in docs:
+        path = _os.path.join(base, d.path)
+        if d.name.lower().endswith(".pdf") and _os.path.exists(path):
+            pdfs.append((d, path))
+        else:
+            others.append(d)
+
+    index = _exhibit_index(matter, pdfs, others)
+
+    writer = PdfWriter()
+    for chunk in (letter_bytes, index):
+        for page in PdfReader(io.BytesIO(chunk)).pages:
+            writer.add_page(page)
+    attached = 0
+    for d, path in pdfs:
+        try:
+            for page in PdfReader(path).pages:
+                writer.add_page(page)
+            attached += 1
+        except Exception as e:  # noqa: BLE001
+            # A corrupt or encrypted exhibit must not lose the whole demand.
+            current_app.logger.warning("demand package: could not bind %s: %s", d.name, e)
+    out = io.BytesIO()
+    writer.write(out)
+    return out.getvalue(), attached, len(others)
+
+
+def _exhibit_index(matter, pdfs, others):
+    """A one-page index so the recipient can see what should be here."""
+    f = Firm.get()
+    pdf = PiPDF(f, title="Exhibit index")
+    pdf.add_page()
+    _line(pdf, "Exhibits", size=12, style="B")
+    n = 0
+    for d, _path in pdfs:
+        n += 1
+        _para(pdf, f"{n}. {d.name}  ({d.folder})")
+    for d in others:
+        n += 1
+        _para(pdf, f"{n}. {d.name}  ({d.folder}) - provided separately, not a PDF")
+    if not n:
+        _para(pdf, "No exhibits on file.")
+    return _pdf_bytes(pdf)
+
+
 def build_demand_package(matter, case, providers, demand_cents):
     f = Firm.get()
     pdf = PiPDF(f, title="Demand package")
@@ -744,11 +822,22 @@ def lien_delete(matter_id, lid):
 def lien_reduction_letter(matter_id, lid):
     m, c = _load(matter_id)
     l = Lien.query.filter_by(id=lid, matter_id=m.id).first() or abort(404)
-    pct = _float(request.form.get("pct"), -1)
-    if not 0 < pct < 100:
-        flash("Enter a reduction percentage between 0 and 100.", "error")
-        return redirect(url_for("pi.case", matter_id=m.id) + "#liens")
-    proposed = int(round(int(l.original_cents or 0) * (100.0 - pct) / 100.0))
+    original = int(l.original_cents or 0)
+    # A reduction that has already been negotiated is a fact, not a percentage to
+    # recompute. The letter used to ignore the saved figure and ask for whatever the
+    # percentage box happened to say, so a lien reduced to $8,000 went out asking for
+    # $9,000. Whatever is on the record wins; the percentage is only a way to propose
+    # one when nothing has been agreed yet.
+    saved = l.reduced_cents
+    if saved is not None and original > 0:
+        proposed = int(saved)
+        pct = round((original - proposed) * 100.0 / original, 2)
+    else:
+        pct = _float(request.form.get("pct"), -1)
+        if not 0 < pct < 100:
+            flash("Enter a reduction percentage between 0 and 100.", "error")
+            return redirect(url_for("pi.case", matter_id=m.id) + "#liens")
+        proposed = int(round(original * (100.0 - pct) / 100.0))
     pdf = build_reduction_letter(m, c, l, pct, proposed)
     name = f"Lien reduction request - {l.holder} - {m.number}.pdf"
     doc = save_pdf_document(m, pdf, name, "Liens", current_user())
@@ -757,6 +846,9 @@ def lien_reduction_letter(matter_id, lid):
     audit("pi_lien_reduction_letter", "matter", m.id, f"{l.holder} {pct:g}% to {cents_to_str(proposed)}",
           current_user().id)
     db.session.commit()
+    if saved is not None:
+        flash(f"Using the reduced figure already recorded for {l.holder}, {cents_to_str(proposed)}, "
+              f"rather than the percentage box.", "ok")
     flash(f"Reduction request to {l.holder} ({pct:g}%, proposing {cents_to_str(proposed)}) saved to Documents "
           f"(Liens). The lien stays at its current figure until the holder confirms.", "ok")
     return redirect(url_for("documents.download", id=doc.id))
@@ -788,8 +880,14 @@ def demand_package(matter_id):
     c.demand_amount_cents = amount
     providers = _providers(m)
     pdf = build_demand_package(m, c, providers, amount)
+    data, attached, listed = _attach_exhibits(m, pdf)
     name = f"Demand package - {m.number}.pdf"
-    doc = save_pdf_document(m, pdf, name, "Demand", current_user())
+    from .documents import store_bytes
+    doc, err = store_bytes(m.id, name, data, mime="application/pdf",
+                           user_id=current_user().id, folder="Demand", tags="demand")
+    if err:
+        flash(err, "error")
+        return redirect(url_for("pi.case", matter_id=m.id) + "#demand")
     if request.form.get("mark_sent"):
         c.demand_sent_on = date.today()
         if c.stage in ("intake", "treating", "records"):
@@ -797,7 +895,14 @@ def demand_package(matter_id):
     audit("pi_demand_package", "matter", m.id,
           f"{cents_to_str(amount)}{' marked sent' if request.form.get('mark_sent') else ''}", current_user().id)
     db.session.commit()
-    flash(f"Demand package saved to Documents (Demand).{' Demand marked as sent today.' if c.demand_sent_on == date.today() and request.form.get('mark_sent') else ''}", "ok")
+    bits = []
+    if attached:
+        bits.append(f"{attached} exhibit{'s' if attached != 1 else ''} bound in")
+    if listed:
+        bits.append(f"{listed} listed in the index but not bound (not a PDF)")
+    flash(f"Demand package saved to Documents (Demand)"
+          + (f", {', '.join(bits)}." if bits else ", with no exhibits attached yet.")
+          + (' Demand marked as sent today.' if c.demand_sent_on == date.today() and request.form.get('mark_sent') else ''), "ok")
     return redirect(url_for("documents.download", id=doc.id))
 
 
