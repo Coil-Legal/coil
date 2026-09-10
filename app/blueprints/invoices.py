@@ -376,7 +376,12 @@ def _builder_context(matter, user=None):
     firm = Firm.get()
     issued = date.today()
     show_flat = matter.billing_type in ("flat", "hybrid")
-    show_hourly = matter.billing_type in ("hourly", "hybrid")
+    # Time is not normally billed on a flat-fee matter, so it is not offered by default.
+    # But hiding time somebody deliberately marked billable is how a firm quietly loses
+    # money: it never appears on an invoice and nobody goes looking. If any exists, offer
+    # it and say why it is unusual.
+    show_hourly = matter.billing_type in ("hourly", "hybrid") or bool(time_entries)
+    time_unexpected = bool(time_entries) and matter.billing_type in ("flat", "contingency")
     show_contingency = matter.billing_type == "contingency"
     already_flat = sum(l.amount_cents for i in matter.invoices if i.status != "void"
                        for l in i.lines if l.kind == "flat")
@@ -384,6 +389,7 @@ def _builder_context(matter, user=None):
     return dict(matter=matter, milestones=milestones, time_entries=time_entries, expenses=expenses, firm_settings=firm,
                 issued_on=issued, due_on=issued + timedelta(days=firm.invoice_terms_days or 30),
                 show_flat=show_flat, show_hourly=show_hourly, show_contingency=show_contingency,
+                time_unexpected=time_unexpected,
                 default_flat_cents=max(0, (matter.flat_fee_cents or 0) - already_flat),
                 first_milestone_id=milestones[0].id if milestones else None,
                 time_total=sum(t.amount_cents for t in time_entries),

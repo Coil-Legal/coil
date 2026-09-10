@@ -443,10 +443,33 @@ def sequence_start(id):
     db.session.add(ls)
     db.session.flush()
     audit("start", "lead_sequence", ls.id, f"{seq.name} on lead #{lead.id}", current_user().id)
-    db.session.commit()
     auto = Firm.get().sequences_auto_send
-    flash(f"Started {seq.name}. The day-0 step is {'sent' if auto else 'drafted for your review'} the next time "
-          f"python -m app.cli sequences runs.", "ok")
+    # Day 0 means today. Leaving it for the overnight job made starting a sequence look
+    # like nothing had happened, and a first touch that arrives tomorrow morning is not
+    # the thing anyone designed. Later steps still wait for their day, as they should.
+    sent = drafted = 0
+    try:
+        # Deliberately the start date, not today. Passing today would treat every step
+        # already "due" on a backdated start as due now, so backdating a sequence by a
+        # fortnight would fire the whole thing at once, at a client, in one go. Using the
+        # start date makes exactly the day-0 step due, which is what day 0 means; the rest
+        # keep their own dates and the nightly job picks them up.
+        # Honour the firm's setting rather than second-guessing it. Forcing a draft here
+        # when auto-send is on looked safer, but process_lead_sequence advances next_step,
+        # so the day-0 message would have sat in Drafts and never gone out at all.
+        sent, drafted = process_lead_sequence(ls, ls.started_on or date.today(), auto)
+    except Exception as e:  # noqa: BLE001
+        current_app.logger.warning("day-0 sequence step failed for lead %s: %s", lead.id, e)
+    db.session.commit()
+    if sent:
+        flash(f"Started {seq.name} and sent the day-0 step. Later steps go out on their own days. "
+              f"Turn off automatic sending in Settings if you would rather review each one first.", "ok")
+    elif drafted:
+        flash(f"Started {seq.name}. The day-0 step is waiting for you at "
+              f"Intake, Drafts. Later steps go out on their own days.", "ok")
+    else:
+        flash(f"Started {seq.name}. The day-0 step is "
+              f"{'sent' if auto else 'drafted'} the next time python -m app.cli sequences runs.", "ok")
     return redirect(url_for("intake.detail", id=lead.id))
 
 
@@ -672,6 +695,21 @@ def convert(id):
     query_names = [lead.name, contact.display_name, adverse]
     hits = fuzzy_hits(query_names, exclude_contact_id=contact.id)
 
+    # 2a. A conflict search that finds something has to be answered by a person before a
+    # matter exists. Opening one over an unresolved conflict is the kind of thing that ends
+    # in front of a disciplinary board, and "the software let me" is not a defence. The way
+    # past this is a waiver with a reason attached to a named user, not a warning nobody
+    # reads. A false positive is common and clearing one takes a sentence.
+    if hits and f.get("conflict_ack") != "1":
+        db.session.rollback()
+        names = ", ".join(sorted({h.get("name", "") for h in hits if h.get("name")})[:4])
+        flash(f"The conflict search found {len(hits)} possible hit{'s' if len(hits) != 1 else ''}"
+              + (f" ({names})" if names else "")
+              + ". Nothing was created. Review them, then convert again with the conflict box "
+                "ticked and a reason, which is recorded against your name.", "error")
+        return redirect(url_for("intake.detail", id=lead.id) + "#conflict")
+    waiver_reason = (f.get("conflict_reason") or "").strip()[:500] if hits else ""
+
     # 3. matter
     number = _next_matter_number()
     billing = f.get("billing_type", "flat")
@@ -717,8 +755,10 @@ def convert(id):
     # 6. conflict check record
     check = ConflictCheck(run_by_id=u.id, query="\n".join(n for n in [lead.name, adverse] if n),
                           results_json=json.dumps(hits), matter_id=matter.id, contact_id=contact.id,
-                          outcome="unresolved" if hits else "clear",
-                          notes=f"Run automatically when converting intake lead #{lead.id}.")
+                          outcome="waived" if hits else "clear",
+                          notes=(f"Run automatically when converting intake lead #{lead.id}."
+                                 + (f" Cleared to proceed by {u.name}: {waiver_reason}"
+                                    if hits else "")))
     db.session.add(check)
     db.session.flush()
 
@@ -732,7 +772,8 @@ def convert(id):
 
     audit("create", "contact" if contact_created else "contact_link", contact.id, f"intake lead #{lead.id}", u.id)
     audit("create", "matter", matter.id, f"{matter.number} {matter.name} from intake lead #{lead.id}", u.id)
-    audit("create", "conflict_check", check.id, f"{check.outcome}, {len(hits)} hit(s)", u.id)
+    audit("create", "conflict_check", check.id,
+          f"{check.outcome}, {len(hits)} hit(s)" + (f", waived: {waiver_reason}" if hits else ""), u.id)
     audit("convert", "intake_lead", lead.id, f"contact {contact.id}, matter {matter.id}", u.id)
 
     # 8. engagement letter

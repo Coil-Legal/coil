@@ -151,7 +151,22 @@
     <div><label>Scope of work (merge field: scope)</label><textarea name="scope" style="min-height:60px">{{ defaults.scope }}</textarea></div>
   </div>
   {% if not lead.email %}<p class="small muted">This lead has no email, so a letter would be created but not emailed. You can copy the sign link from the letter page.</p>{% endif %}
-  <div class="actions"><button class="btn">Convert{% if hits %} (conflict check will be recorded as unresolved){% endif %}</button></div>
+  {% if hits %}
+  <div id="conflict" style="border-left:3px solid var(--bad);padding:10px 12px;margin:14px 0;background:var(--surface-2)">
+    <strong>The conflict search found {{ hits|length }} possible hit{{ '' if hits|length == 1 else 's' }}.</strong>
+    <p class="small" style="margin:6px 0">Read them above before going further. Most are the same
+    common surname twice and clear in a sentence; some are not. Coil will not open the matter
+    until someone says which this is, and your name goes on the answer.</p>
+    <label style="display:inline-flex;gap:6px;align-items:flex-start;color:var(--ink)">
+      <input type="checkbox" name="conflict_ack" value="1" required>
+      <span>I have reviewed these and there is no conflict that prevents this representation.</span>
+    </label>
+    <label style="margin-top:8px">Why (recorded against your name)</label>
+    <input type="text" name="conflict_reason" required maxlength="500"
+           placeholder="e.g. Different Maria Alvarez, prior matter closed 2019 and unrelated">
+  </div>
+  {% endif %}
+  <div class="actions"><button class="btn">Convert{% if hits %} and record the waiver{% endif %}</button></div>
 </form>
 <script>
 (function(){

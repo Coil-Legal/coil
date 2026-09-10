@@ -113,7 +113,9 @@ def pay(token):
     if inv.status == "paid" or inv.balance_cents <= 0:
         return render_template("payments/pay_closed.html", inv=inv, reason="paid")
     if inv.status == "draft":
-        abort(404)
+        # A 404 tells a client their link is broken and prompts a phone call. It is not
+        # broken; the invoice simply has not been sent yet.
+        return render_template("payments/pay_closed.html", inv=inv, reason="draft")
     surcharge = surcharge_for(inv, method)
     total = inv.balance_cents + surcharge
     if request.method == "GET":

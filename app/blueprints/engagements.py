@@ -489,8 +489,23 @@ def template_delete(id):
 # ---------------------------------------------------------------------------
 # Public: sign, decline, tracking pixel
 # ---------------------------------------------------------------------------
+class _InvalidSigningLink(Exception):
+    """A signing token that matches nothing. Its own type so the public routes can answer
+    with an explanation while every other 404 in the app stays a plain 404."""
+
+
 def _by_token(token):
-    return Engagement.query.filter_by(token=token).first() or abort(404)
+    e = Engagement.query.filter_by(token=token).first()
+    if not e:
+        # A bare 404 tells a client their link is broken and prompts a phone call to a firm
+        # that has no idea what happened. Say what probably went wrong and what to do.
+        raise _InvalidSigningLink()
+    return e
+
+
+@bp.errorhandler(_InvalidSigningLink)
+def _invalid_signing_link(_e):
+    return render_template("engagements/sign_invalid.html"), 404
 
 
 @bp.route("/sign/<token>", methods=["GET", "POST"])

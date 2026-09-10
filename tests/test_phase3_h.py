@@ -442,12 +442,14 @@ def test_sequences_drafts_then_send_idempotent_and_day3(app, client, monkeypatch
     assert r.status_code == 302
     with app.app_context():
         ls = M.LeadSequence.query.filter_by(lead_id=lid).first()
-        assert ls and ls.status == "active" and ls.next_step == 0 and ls.started_on == fixed
+        # The day-0 step is drafted when the sequence starts, not left for the overnight
+        # job: "day 0" means today, and an empty Drafts page made starting a sequence look
+        # like nothing had happened. It is only ever DRAFTED here, never sent, so a firm
+        # that enrolled the wrong lead still has until the scheduled run to stop it.
+        assert ls and ls.status == "active" and ls.next_step == 1 and ls.started_on == fixed
         lsid = ls.id
         outbox_before = len(_dev_outbox)
-        # day 0: draft, not sent
-        assert cli.run_sequences() == (0, 1)
-        assert cli.run_sequences() == (0, 0)  # idempotent
+        assert cli.run_sequences() == (0, 0)  # day 0 already drafted, and idempotent
         msgs = M.Message.query.filter(M.Message.provider_id.like(f"lead-seq:{lsid}:%")).all()
         assert len(msgs) == 1 and msgs[0].status == "draft" and msgs[0].direction == "out" and msgs[0].channel == "email"
         assert msgs[0].subject == "Thanks Sam from Demo Law PLLC"
@@ -491,14 +493,15 @@ def test_sequences_drafts_then_send_idempotent_and_day3(app, client, monkeypatch
         db.session.add(lead2)
         db.session.commit()
         lid2 = lead2.id
+    outbox_before_auto = len(_dev_outbox)
     r = client.post(f"/intake/{lid2}/sequence/start", data={"_csrf": S["tok"], "sequence_id": sid,
                                                            "started_on": fixed.isoformat()})
     assert r.status_code == 302
     with app.app_context():
-        n = len(_dev_outbox)
-        assert cli.run_sequences() == (1, 0)
+        # With auto-send on, the day-0 step went out as the sequence started, so the
+        # scheduled run has nothing left to do for it.
         assert cli.run_sequences() == (0, 0)
-        assert len(_dev_outbox) == n + 1 and dev_outbox()[0]["to"] == "ava.auto@example.test"
+        assert dev_outbox()[0]["to"] == "ava.auto@example.test"
         ls2 = M.LeadSequence.query.filter_by(lead_id=lid2).first()
         m3 = M.Message.query.filter_by(provider_id=f"lead-seq:{ls2.id}:0").first()
         assert m3.status == "sent" and ls2.next_step == 1

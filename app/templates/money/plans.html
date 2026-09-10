@@ -13,7 +13,7 @@
   <td><a href="/invoices/{{ p.invoice_id }}">{{ p.invoice.number if p.invoice else '' }}</a> <span class="small muted">balance {{ p.invoice.balance_cents|money if p.invoice else '' }}</span></td>
   <td>{{ p.installments }} x {{ p.installment_cents|money }} {{ labels[p.frequency] }}</td>
   <td>{{ p.paid_installments }} of {{ p.installments }} paid</td>
-  <td class="nowrap">{% if p.status == 'active' and p.next_charge_on %}{{ p.next_charge_on|d }}{% if p.next_charge_on <= today %} <span class="badge pending">due</span>{% endif %}{% elif p.next_charge_on %}<span class="muted">{{ p.next_charge_on|d }}</span>{% endif %}</td>
+  <td class="nowrap">{% if p.status == 'active' and p.next_charge_on %}{{ p.next_charge_on|d }}{% if p.next_charge_on <= today %} <span class="badge pending">due</span>{% endif %}{% elif p.status in ('cancelled', 'completed') %}<span class="muted">&mdash;</span>{% elif p.next_charge_on %}<span class="muted">{{ p.next_charge_on|d }}</span>{% endif %}</td>
   <td class="num">{{ next_cents(p)|money }}</td>
   <td>{{ 'card on file' if p.auto_charge else 'email reminder' }}</td>
   <td><a href="/money/plans/{{ p.id }}"><span class="badge {{ {'active':'open','paused':'draft','failed':'overdue','completed':'paid','cancelled':'void'}[p.status] }}">{{ p.status }}</span></a>{% if p.last_error %}<br><span class="small muted">{{ p.last_error }}</span>{% endif %}</td>

@@ -1,6 +1,7 @@
 {% extends "public.html" %}{% block title %}Invoice {{ inv.number }}{% endblock %}{% block content %}
 <div class="card">
-  {% if reason == 'paid' %}<h1>Invoice {{ inv.number }} is paid</h1><p>Nothing is owed on this invoice. Thank you.</p>
+  {% if reason == 'draft' %}<h1>Invoice {{ inv.number }} is not ready yet</h1><p>This invoice has not been sent, so there is nothing to pay on it yet. You will get a new link when it is issued. Nothing is wrong with the one you followed.</p>
+  {% elif reason == 'paid' %}<h1>Invoice {{ inv.number }} is paid</h1><p>Nothing is owed on this invoice. Thank you.</p>
   {% else %}<h1>Invoice {{ inv.number }} is no longer open</h1><p>This invoice was cancelled. If you were expecting to pay something, please get in touch{% if firm().phone %} at {{ firm().phone }}{% endif %}.</p>{% endif %}
   <p><a href="/p/{{ inv.public_token }}">View the invoice</a></p>
 </div>

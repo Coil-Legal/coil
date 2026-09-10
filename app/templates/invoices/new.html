@@ -45,6 +45,10 @@
 </div>
 {% endif %}
 
+{% if time_unexpected %}<p class="small" style="border-left:3px solid var(--line);padding-left:10px">
+This is a {{ matter.billing_type }}-fee matter, so time is not normally billed to the client.
+Someone marked the entries below billable, so they are offered here rather than left to go
+unnoticed. Leave them unticked if they were only for your own records.</p>{% endif %}
 {% if show_hourly or show_contingency %}
 <div class="card"><h2>Unbilled time</h2>
   {% if time_entries %}
