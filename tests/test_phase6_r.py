@@ -317,6 +317,11 @@ def test_court_date_chain_and_speedy_trial(app, client):
         st = Task.query.filter_by(matter_id=m2, title="Speedy trial / limitations check").all()
         assert len(st) == 1 and st[0].kind == "deadline" and st[0].due_on == arrest + timedelta(days=180)
         assert "jurisdiction" in st[0].notes
+        # QA #24: tolling is not modelled, so the count itself must say it is unadjusted, not just point at the
+        # jurisdiction's rule in general terms.
+        assert "unadjusted for tolling" in st[0].notes
+    r = client.get(f"/criminal/{m2}")
+    assert b"unadjusted for tolling" in r.data
     # once discovery is recorded, the chain for a new setting adds three, not four
     with app.app_context():
         c = CriminalCase.query.filter_by(matter_id=m2).one()

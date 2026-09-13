@@ -526,7 +526,10 @@ def row_values(mapping, raw):
 
 # ---------------------------------------------------------------- parsers
 _DATE_FORMATS = ["%Y-%m-%d", "%m/%d/%Y", "%m/%d/%y", "%d-%b-%Y", "%b %d, %Y", "%B %d, %Y", "%Y/%m/%d", "%d %b %Y",
-                 "%d %B %Y", "%m-%d-%Y", "%Y%m%d"]
+                 "%d %B %Y", "%m-%d-%Y", "%Y%m%d",
+                 # DD/MM/YYYY (British), tried only once the equivalent MM/DD/YYYY read has already failed above,
+                 # so an ambiguous date like 03/09/2026 still reads as the US month/day it always has.
+                 "%d/%m/%Y", "%d/%m/%y"]
 _DT_FORMATS = ["%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%m/%d/%Y %H:%M:%S",
                "%m/%d/%Y %H:%M", "%m/%d/%Y %I:%M %p", "%m/%d/%Y %I:%M:%S %p", "%m/%d/%y %H:%M", "%m/%d/%y %I:%M %p",
                "%Y-%m-%d %I:%M %p", "%b %d, %Y %I:%M %p", "%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%d %H:%M:%S %z"]

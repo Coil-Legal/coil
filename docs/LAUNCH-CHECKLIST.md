@@ -191,7 +191,7 @@ Missing one of these is malpractice.
 
 - [x] Charges with attorney-entered ranges.
 - [x] Court date chain generates.
-- [x] Speedy-trial calculation is right, and says what it is counting from.
+- [ ] Speedy-trial calculation is right, and says what it is counting from. (#24)
 - [x] Disposition PDF renders.
 
 ## Discovery and depositions `/discovery`

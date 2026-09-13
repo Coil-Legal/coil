@@ -424,6 +424,8 @@ def test_cite_check_flags_unresolved_and_saves_note(app, client, monkeypatch):
     assert "384 U.S. 436" in html and "Miranda v. Arizona" in html and ">resolved<" in html
     assert "999 F.3d 9999" in html and "not found, verify before filing" in html
     assert "Saved as a note" in html and html.count("free public database") == 1
+    # QA #27: the page must plainly say this cannot tell good law from bad, not just that a cite resolves
+    assert "not whether a case is still good law" in html
     assert calls[0] == ("POST", "/citation-lookup/", {"text": text})
     with app.app_context():
         notes = M.Note.query.filter_by(matter_id=mid).order_by(M.Note.id.desc()).all()

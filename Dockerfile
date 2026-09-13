@@ -18,4 +18,8 @@ EXPOSE 8000
 # WEB_CONCURRENCY must match -w below. The API rate limiter counts in-process, so it
 # divides the advertised limit by this to enforce the number it actually promises.
 ENV WEB_CONCURRENCY=2
-CMD ["gunicorn", "-b", "0.0.0.0:8000", "-w", "2", "--timeout", "120", "wsgi:app"]
+# A CSV import commits one row at a time (see run_import in importer.py) so a firm's own writes can
+# interleave with it; at real switch-from-Clio sizes that adds up to minutes, not seconds, of wall time
+# on one request. 120s killed the worker mid-commit on a 10,000-row import, which the browser saw as the
+# tab going unresponsive even though the rows committed before the kill had already been saved.
+CMD ["gunicorn", "-b", "0.0.0.0:8000", "-w", "2", "--timeout", "600", "wsgi:app"]

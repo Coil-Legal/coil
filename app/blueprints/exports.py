@@ -30,6 +30,7 @@ CONTACT_COLUMNS = ["Id", "Kind", "FirstName", "LastName", "Company", "Email", "P
 
 def _csv(filename, header, rows):
     buf = io.StringIO()
+    buf.write("﻿")  # BOM: Excel on Windows opens UTF-8 CSVs as ANSI without one
     w = csv.writer(buf)
     w.writerow(header)
     for r in rows:

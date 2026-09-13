@@ -807,6 +807,7 @@ def export(id):
 CHUNK_CHARS = 10_000
 _PAGE_RE = re.compile(r"\b(?:Page|PAGE)\s+(\d{1,4})\b")  # case-sensitive so "of page 3" in prose is not a marker
 _PL_RE = re.compile(r"\b(\d{1,4}):(\d{1,2})\b")
+_VOLUME_RE = re.compile(r"\bVOLUME\s+([IVXLCDM]+|\d+)\b", re.IGNORECASE)  # multi-volume transcripts restart Page 1
 
 DEPO_SCHEMA = {
     "type": "object",
@@ -832,6 +833,16 @@ CONDENSE_SCHEMA = {"type": "object", "properties": {"summary": {"type": "string"
 
 def has_markers(text):
     return bool(_PAGE_RE.search(text or "") or _PL_RE.search(text or ""))
+
+
+def _volume_labels(text):
+    return [m.upper() for m in _VOLUME_RE.findall(text or "")]
+
+
+def _is_multi_volume(text):
+    """True when the transcript itself names more than one volume, which is the only case where page numbers
+    restarting from one volume to the next can make two different passages collide on the same citation."""
+    return len(set(_volume_labels(text))) > 1
 
 
 def chunk_transcript(text, size=CHUNK_CHARS):
@@ -863,12 +874,20 @@ def summarize_transcript(dep, text):
     m = dep.matter
     facts, _ = llm.clip(matter_facts(m), 1500)
     marked = has_markers(text)
+    multi_volume = _is_multi_volume(text)
     chunks = chunk_transcript(text)
     summaries, key, contras = [], [], []
     marker_note = ("The text keeps the transcript's page and line markers (lines like \"Page 12\" or \"12:5\" meaning "
                    "page 12 line 5). Cite the page and line each quote comes from."
                    if marked else "The text has no page or line markers, so use 0 for page and line.")
+    if multi_volume:
+        marker_note += (" The transcript covers more than one volume, and page numbers restart at 1 in each "
+                        "volume, so a page/line pair alone does not tell two volumes apart.")
+    volume = None
     for i, chunk in enumerate(chunks, 1):
+        labels = _volume_labels(chunk)
+        if labels:
+            volume = labels[-1]
         prompt = (f"This is part {i} of {len(chunks)} of the deposition transcript of {dep.deponent or 'the deponent'}"
                   f"{', taken ' + dep.taken_on.strftime('%b %-d, %Y') if dep.taken_on else ''}. {marker_note}\n"
                   f"Return JSON with: \"summary\" (a plain summary of this part, about 150 words), \"key_testimony\" "
@@ -879,7 +898,10 @@ def summarize_transcript(dep, text):
                   f"say a duration, a distance, a speed or a time; say he does not recall something he described "
                   f"earlier; agree with a record that differs from his own account. These are the ones a litigator "
                   f"reads first, so look for them carefully. Set \"source\" to the page and line of the other "
-                  f"statement, like \"p31:17\".\n"
+                  f"statement, like \"p31:17\". Do NOT report it when the witness catches and corrects himself, "
+                  f"such as in the very next answer, and the transcript shows the correction was accepted (\"I "
+                  f"misspoke\", \"let me correct that\", or simply restating and confirming the new answer): that "
+                  f"is corrected testimony, not a contradiction, and belongs in the summary instead.\n"
                   f"  kind \"external\": the testimony conflicts with the confirmed chronology or the PI facts "
                   f"below. Set \"source\" to \"chronology <date> <provider>\" or \"PI facts: <field>\".\n\n"
                   f"In both cases put the testimony in \"testimony\" and what it conflicts with in "
@@ -895,8 +917,11 @@ def summarize_transcript(dep, text):
             summaries.append(str(data["summary"]).strip())
         for k in data.get("key_testimony") or []:
             if isinstance(k, dict) and (k.get("quote") or "").strip():
-                key.append({"page": _int(k.get("page")) or 0, "line": _int(k.get("line")) or 0,
-                            "quote": str(k.get("quote")).strip(), "topic": str(k.get("topic") or "").strip()})
+                item = {"page": _int(k.get("page")) or 0, "line": _int(k.get("line")) or 0,
+                        "quote": str(k.get("quote")).strip(), "topic": str(k.get("topic") or "").strip()}
+                if multi_volume and volume:
+                    item["volume"] = volume
+                key.append(item)
         for c in data.get("contradictions") or []:
             if isinstance(c, dict) and (c.get("testimony") or "").strip():
                 kind = str(c.get("kind") or "external").strip().lower()
@@ -923,12 +948,15 @@ def summarize_transcript(dep, text):
 
 
 def cite(dep, k):
-    """Copy-ready citation: "Depo. Tr. 12:5", or "Depo. Tr. p. 12" when there is no line."""
+    """Copy-ready citation: "Depo. Tr. 12:5", "Vol. II, Depo. Tr. 12:5" when the transcript names more than one
+    volume (page numbers restart per volume, so the volume alone tells two otherwise-identical cites apart), or
+    "Depo. Tr. p. 12" when there is no line."""
     p, l = _int(k.get("page")) or 0, _int(k.get("line")) or 0
+    prefix = f"Vol. {k['volume']}, " if k.get("volume") else ""
     if p and l:
-        return f"Depo. Tr. {p}:{l}"
+        return f"{prefix}Depo. Tr. {p}:{l}"
     if p:
-        return f"Depo. Tr. p. {p}"
+        return f"{prefix}Depo. Tr. p. {p}"
     return "Depo. Tr. (no page ref)"
 
 

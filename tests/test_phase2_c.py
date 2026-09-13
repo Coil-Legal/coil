@@ -152,7 +152,8 @@ def test_origination_csv(client):
     r = client.get("/reports/origination", query_string=dict(RANGE, format="csv"))
     assert r.status_code == 200 and r.mimetype == "text/csv"
     assert "origination.csv" in r.headers["Content-Disposition"]
-    lines = r.data.decode().splitlines()
+    assert r.data.startswith(b"\xef\xbb\xbf"), "export has no UTF-8 BOM, Excel on Windows will mojibake it"
+    lines = r.data.decode("utf-8-sig").splitlines()
     assert lines[0] == "Attorney,Matter,Name,Client,Payments,Collected,Flag"
     assert any(l.startswith("Demo Owner,M-C002,") and "responsible attorney used" in l for l in lines)
     assert lines[-1].startswith("ALL,2025-01-01 to 2025-01-31,") and lines[-1].split(",")[5] == "350.00"
@@ -186,7 +187,8 @@ def test_realization_known_writedown(app, client):
 def test_realization_csv(client):
     r = client.get("/reports/realization", query_string=dict(RANGE, format="csv"))
     assert r.status_code == 200 and r.mimetype == "text/csv"
-    lines = r.data.decode().splitlines()
+    assert r.data.startswith(b"\xef\xbb\xbf"), "export has no UTF-8 BOM, Excel on Windows will mojibake it"
+    lines = r.data.decode("utf-8-sig").splitlines()
     assert lines[0] == ("Group,Key,Name,Hours,Worked,Billed,Collected,Billing realization %,"
                         "Collection realization %,Write-downs,Flag")
     ma = next(l for l in lines if l.startswith("matter,M-C001,"))
@@ -224,7 +226,8 @@ def test_profitability_margin_and_missing_rate_flag(app, client):
 def test_profitability_csv(client):
     r = client.get("/reports/profitability", query_string=dict(RANGE, format="csv"))
     assert r.status_code == 200 and r.mimetype == "text/csv"
-    lines = r.data.decode().splitlines()
+    assert r.data.startswith(b"\xef\xbb\xbf"), "export has no UTF-8 BOM, Excel on Windows will mojibake it"
+    lines = r.data.decode("utf-8-sig").splitlines()
     assert lines[0] == ("Matter,Name,Client,Status,Revenue,Hours,Time cost,Non-billable expenses,Total cost,"
                         "Margin,Margin %,Flag")
     mc = next(l for l in lines if l.startswith("M-C003,"))

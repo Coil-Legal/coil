@@ -33,8 +33,11 @@ DISPOSITIONS = [("pending", "Pending"), ("dismissed", "Dismissed"), ("plea", "Pl
                 ("convicted", "Convicted"), ("deferred", "Deferred adjudication")]
 SPEEDY_TRIAL_DAYS = 180
 SPEEDY_TRIAL_TITLE = "Speedy trial / limitations check"
-SPEEDY_TRIAL_NOTE = ("Placeholder at arrest + 180 days. Confirm the jurisdiction's speedy-trial rule and any charging "
-                     "limitations period for these charges; Coil does not ship statute tables.")
+SPEEDY_TRIAL_NOTE = ("Placeholder at arrest + 180 days, unadjusted for tolling. Coil does not model tolling periods "
+                     "(continuances, competency proceedings, interlocutory appeals, etc.), so any tolled time is not "
+                     "subtracted from this count. Confirm the jurisdiction's speedy-trial rule, any tolling that "
+                     "applies, and the charging limitations period for these charges; Coil does not ship statute "
+                     "tables.")
 RANGE_NOTE = ("Sentencing ranges, degrees and maximum fines are entered by the attorney. Coil ships no statute tables "
               "and does not look anything up.")
 

@@ -303,8 +303,9 @@ def test_exports_headers(staff):
         r = client.get(path)
         assert r.status_code == 200, path
         assert r.mimetype == "text/csv" and "attachment" in r.headers["Content-Disposition"]
-        assert r.data.decode().splitlines()[0] == header, path
-    body = client.get("/exports/time.csv").data.decode()
+        assert r.data.startswith(b"\xef\xbb\xbf"), f"{path} export has no UTF-8 BOM, Excel on Windows will mojibake it"
+        assert r.data.decode("utf-8-sig").splitlines()[0] == header, path
+    body = client.get("/exports/time.csv").data.decode("utf-8-sig")
     assert "M-1002" in body and "1.50" in body
 
 

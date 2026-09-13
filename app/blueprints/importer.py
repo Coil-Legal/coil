@@ -1340,6 +1340,7 @@ def failed_csv(job_id):
                     seen.append(k)
         headers = seen
     out = io.StringIO()
+    out.write("﻿")  # BOM: Excel on Windows opens UTF-8 CSVs as ANSI without one
     w = csv.writer(out)
     w.writerow(headers + ["Import error"])
     for e in errs:

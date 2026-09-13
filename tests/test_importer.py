@@ -224,7 +224,8 @@ def test_trust_date_order_refuses_negative_and_failed_csv_round_trip(app, client
     # failed rows CSV keeps the original columns plus the reason
     r = client.get(f"/import/jobs/{job}/failed.csv")
     assert r.status_code == 200 and "attachment" in r.headers["Content-Disposition"]
-    failed = r.data.decode()
+    assert r.data.startswith(b"\xef\xbb\xbf"), "failed-rows export has no UTF-8 BOM, Excel on Windows will mojibake it"
+    failed = r.data.decode("utf-8-sig")
     lines = failed.strip().splitlines()
     assert lines[0].startswith("ID,Date,Type") and lines[0].endswith("Import error") and len(lines) == 2 and "t503" in lines[1]
     # opening balance, then re-upload just the failed rows
@@ -365,3 +366,16 @@ def test_bad_uploads_are_refused(client):
     assert r.status_code == 302 and "/import/preview/" not in r.headers["Location"]
     assert client.get("/import/preview/deadbeef").status_code == 302
     assert client.get("/import/nothing/upload").status_code in (404, 405)
+
+
+def test_parse_any_date_reads_british_dd_mm_yyyy_without_breaking_us_ambiguous_dates():
+    """QA #29: '13/09/2026' (a day that can't be a month) was rejected outright. Fixed by trying DD/MM/YYYY as a
+    fallback, tried only after MM/DD/YYYY has already failed, so an ambiguous date like '03/09/2026' still reads
+    the way it always has: as the US month/day Coil has assumed since launch."""
+    from app.blueprints._importmap import parse_any_date
+    assert parse_any_date("13/09/2026") == date(2026, 9, 13)
+    assert parse_any_date("31/12/2025") == date(2025, 12, 31)
+    assert parse_any_date("13/09/26") == date(2026, 9, 13)
+    assert parse_any_date("03/09/2026") == date(2026, 3, 9)  # unchanged: still read as US MM/DD/YYYY
+    assert parse_any_date("09/13/2026") == date(2026, 9, 13)
+    assert parse_any_date("32/13/2026") is None  # not a date in either reading

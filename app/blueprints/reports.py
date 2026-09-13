@@ -18,6 +18,7 @@ BUCKETS = ["current", "1-30", "31-60", "61-90", "90+"]
 
 def _csv(filename, header, rows):
     buf = io.StringIO()
+    buf.write("﻿")  # BOM: Excel on Windows opens UTF-8 CSVs as ANSI without one
     w = csv.writer(buf)
     w.writerow(header)
     for r in rows:

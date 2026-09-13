@@ -376,6 +376,9 @@ def test_deposition_summary_with_canned_model(app, client, monkeypatch):
     S["dep"] = did
     assert len(calls) == 1 and calls[0][1]["kind"] == "deposition_summary"
     assert "page and line markers" in calls[0][0] and "12:5" in calls[0][0] and "Austin ER" in calls[0][0]
+    # QA #26: a witness catching and correcting himself in the next answer is corrected testimony, not a
+    # contradiction, and the prompt has to say so or the model flags the corrected figure anyway.
+    assert "Do NOT report it when the witness catches and corrects himself" in calls[0][0]
     with app.app_context():
         dep = DepositionSummary.query.get(did)
         assert dep.deponent == "Jane Holloway" and dep.taken_on == date(2026, 8, 20)
@@ -451,6 +454,67 @@ def test_deposition_multi_chunk_condenses(app, client, monkeypatch):
         key = json.loads(dep.key_testimony_json)
         assert dep.summary_text == "Condensed summary of every part."
         assert len(key) >= 3 and n["i"] == len(key) + 1
+
+
+def test_deposition_multi_volume_citations_include_volume(app, client, monkeypatch):
+    """QA #25: a multi-volume transcript restarts page numbers at 1 in each volume, so "Depo. Tr. 1:1" from
+    Volume I and "Depo. Tr. 1:1" from Volume II are two different passages wearing the same citation. Once the
+    transcript names more than one volume, every cite must say which one."""
+    from app.extensions import db
+    from app.models import DepositionSummary, User
+    from app.blueprints.documents import store_bytes
+    from app.blueprints import discovery
+    from app import llm
+    full_text = "VOLUME I\nPage 1 1:1 The witness described the warehouse.\n" \
+               "VOLUME II\nPage 1 1:1 The witness described the office."
+    with app.app_context():
+        u = User.query.first()
+        doc, err = store_bytes(S["mid"], "two volume transcript.txt", full_text.encode(), user_id=u.id)
+        assert err is None
+        db.session.commit()
+        doc_id = doc.id
+    monkeypatch.setattr(discovery, "chunk_transcript", lambda text, size=discovery.CHUNK_CHARS: [
+        "VOLUME I\nPage 1 1:1 The witness described the warehouse.",
+        "VOLUME II\nPage 1 1:1 The witness described the office."])
+    n = {"i": 0}
+
+    def fake(prompt, **kw):
+        n["i"] += 1
+        quote = "The witness described the warehouse." if n["i"] == 1 else "The witness described the office."
+        return json.dumps({"summary": f"Part {n['i']}.",
+                           "key_testimony": [{"page": 1, "line": 1, "quote": quote, "topic": "Location"}],
+                           "contradictions": []})
+    monkeypatch.setattr(llm, "complete", fake)
+    r = client.post(f"/discovery/depositions/new?matter_id={S['mid']}", data={
+        "_csrf": S["tok"], "document_id": doc_id, "deponent": "Two Volume Witness"})
+    assert r.status_code == 302, r.data[:300]
+    did = int(r.headers["Location"].rstrip("/").rsplit("/", 1)[1])
+    with app.app_context():
+        dep = DepositionSummary.query.get(did)
+        key = json.loads(dep.key_testimony_json)
+        assert [k.get("volume") for k in key] == ["I", "II"], key
+    r = client.get(f"/discovery/depositions/{did}")
+    assert r.status_code == 200
+    assert b"Vol. I, Depo. Tr. 1:1" in r.data and b"Vol. II, Depo. Tr. 1:1" in r.data
+
+
+def test_deposition_single_volume_citations_omit_volume_prefix(app, client, monkeypatch):
+    """A transcript that never names a volume, or names only one, keeps the plain "Depo. Tr. p:l" citation, since
+    there is nothing for a volume label to disambiguate."""
+    from app.models import DepositionSummary
+    canned = {"summary": "Summary.",
+              "key_testimony": [{"page": 12, "line": 6, "quote": "I was not on my phone at any point that morning.",
+                                 "topic": "Phone use"}],
+              "contradictions": []}
+    _fake_complete(monkeypatch, canned)
+    r = client.post(f"/discovery/depositions/new?matter_id={S['mid']}", data={
+        "_csrf": S["tok"], "document_id": S["transcript_doc"], "deponent": "One Volume Witness"})
+    did = int(r.headers["Location"].rstrip("/").rsplit("/", 1)[1])
+    with app.app_context():
+        key = json.loads(DepositionSummary.query.get(did).key_testimony_json)
+        assert "volume" not in key[0]
+    r = client.get(f"/discovery/depositions/{did}")
+    assert b"Depo. Tr. 12:6" in r.data and b"Vol." not in r.data
 
 
 def test_deposition_without_model_still_creates_record(app, client, no_keys):

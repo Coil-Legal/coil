@@ -2,6 +2,7 @@
 <div class="topbar"><h1>Citation check</h1>
 <div class="actions" style="margin:0"><a class="btn small secondary" href="/research">Search case law</a><a class="btn small secondary" href="/research/saved">Saved authorities</a></div></div>
 <p class="small">Paste a brief, a memo, or an AI draft, or pick a document on a matter. Every case citation is looked up on CourtListener. A citation that does not resolve may be mistyped, may be too new or too obscure for the database, or may not exist at all, so verify it before filing. {% if not has_token %}This check needs a free CourtListener token under Settings.{% endif %}</p>
+<p class="small"><strong>This checks whether a citation resolves, not whether a case is still good law.</strong> CourtListener is not a citator and this page cannot tell you if a resolved case has been overruled, reversed, or otherwise stopped being good law. It is not a replacement for Shepard's or KeyCite.</p>
 {% include "research/_disclaimer.html" %}
 {% include "research/_notice.html" %}
 <div class="card">
