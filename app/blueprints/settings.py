@@ -1,6 +1,8 @@
 """Firm profile, users, offices, matter templates, the audit log, integration status, and the dev outbox.
 /dev/outbox is outside /settings, so no url_prefix. Access is gated by app.permissions.enforce (owner for
 everything here except a user editing their own account, and reading the template list)."""
+import csv
+import io
 import json
 import os
 from datetime import datetime, timedelta
@@ -9,7 +11,7 @@ from sqlalchemy import func
 from ..extensions import db
 from ..models import Firm, User, Office, Matter, MatterTemplate, AuditLog, audit, now
 from ..helpers import (login_required, owner_required, permission_required, current_user, parse_money,
-                      parse_date, CURRENCIES)
+                      parse_date, CURRENCIES, csv_safe)
 from ..permissions import ROLES, ROLE_DESCRIPTIONS, canonical_role
 from ..services.mail import dev_outbox
 from ..services import sms as smssvc
@@ -453,8 +455,19 @@ def audit_log():
     if q:
         query = query.filter(AuditLog.detail.ilike(f"%{q}%"))
     total = query.count()
-    rows = query.order_by(AuditLog.created_at.desc(), AuditLog.id.desc()).offset((page - 1) * AUDIT_PAGE).limit(
-        AUDIT_PAGE).all()
+    ordered = query.order_by(AuditLog.created_at.desc(), AuditLog.id.desc())
+    if request.args.get("format") == "csv":
+        buf = io.StringIO()
+        buf.write("﻿")  # BOM: Excel on Windows opens UTF-8 CSVs as ANSI without one
+        w = csv.writer(buf)
+        w.writerow(["When", "Who", "Action", "Record type", "Record id", "Detail"])
+        for r in ordered.all():
+            w.writerow([csv_safe(v) for v in (r.created_at.isoformat() if r.created_at else "",
+                                               r.user.name if r.user else "system", r.action or "",
+                                               r.entity or "", r.entity_id, r.detail or "")])
+        return Response(buf.getvalue(), mimetype="text/csv",
+                        headers={"Content-Disposition": 'attachment; filename="audit-log.csv"'})
+    rows = ordered.offset((page - 1) * AUDIT_PAGE).limit(AUDIT_PAGE).all()
     pages = max(1, (total + AUDIT_PAGE - 1) // AUDIT_PAGE)
     actions = [r for (r,) in db.session.query(AuditLog.action).distinct().order_by(AuditLog.action) if r]
     entities = [r for (r,) in db.session.query(AuditLog.entity).distinct().order_by(AuditLog.entity) if r]

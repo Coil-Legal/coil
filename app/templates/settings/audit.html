@@ -13,8 +13,9 @@
     {% if f.user_id or f.action or f.entity or f.entity_id or f['from'] or f['to'] or f.q %}<a class="small" href="/settings/audit">Clear</a>{% endif %}
   </form>
 </div>
+{% set qs = 'user_id=' ~ f.user_id ~ '&action=' ~ f.action|urlencode ~ '&entity=' ~ f.entity|urlencode ~ '&entity_id=' ~ f.entity_id ~ '&from=' ~ f['from'] ~ '&to=' ~ f['to'] ~ '&q=' ~ f.q|urlencode %}
 <div class="card">
-<p class="small muted">{{ total }} entr{{ 'y' if total == 1 else 'ies' }}{% if pages > 1 %}, page {{ page }} of {{ pages }}{% endif %}.</p>
+<p class="small muted">{{ total }} entr{{ 'y' if total == 1 else 'ies' }}{% if pages > 1 %}, page {{ page }} of {{ pages }}{% endif %}. <a class="small" href="/settings/audit?{{ qs }}&format=csv">Download CSV</a></p>
 {% if rows %}
 <table><tr><th>When</th><th>Who</th><th>Action</th><th>Record</th><th>Detail</th></tr>
 {% for a in rows %}<tr>
@@ -27,7 +28,6 @@
 </tr>{% endfor %}</table>
 {% else %}<div class="empty">Nothing matches.</div>{% endif %}
 {% if pages > 1 %}
-{% set qs = 'user_id=' ~ f.user_id ~ '&action=' ~ f.action|urlencode ~ '&entity=' ~ f.entity|urlencode ~ '&entity_id=' ~ f.entity_id ~ '&from=' ~ f['from'] ~ '&to=' ~ f['to'] ~ '&q=' ~ f.q|urlencode %}
 <div class="actions">
   {% if page > 1 %}<a class="btn small secondary" href="/settings/audit?{{ qs }}&page={{ page - 1 }}">Newer</a>{% endif %}
   {% if page < pages %}<a class="btn small secondary" href="/settings/audit?{{ qs }}&page={{ page + 1 }}">Older</a>{% endif %}

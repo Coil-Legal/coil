@@ -300,6 +300,25 @@ def test_audit_page_filters_by_action(app, owner):
     assert f"/settings/audit?entity=matter&entity_id={mid}".encode() in r.data
 
 
+def test_audit_log_csv_export(app, owner):
+    c, tok = owner
+    r = c.get("/settings/audit")
+    assert b"Download CSV" in r.data
+    r = c.get("/settings/audit?action=create&entity=office&format=csv")
+    assert r.status_code == 200
+    assert r.mimetype == "text/csv"
+    body = r.data.decode("utf-8-sig")
+    lines = body.splitlines()
+    assert lines[0] == "When,Who,Action,Record type,Record id,Detail"
+    assert any("Downtown" in ln for ln in lines[1:])
+    assert all(",delete," not in ln and ",update," not in ln for ln in lines[1:])
+    # export returns every matching row, not just the current page
+    r_unfiltered = c.get("/settings/audit")
+    total = int(re.search(r"(\d+) entr", r_unfiltered.data.decode()).group(1))
+    r_all = c.get("/settings/audit?format=csv")
+    assert len(r_all.data.decode("utf-8-sig").splitlines()) - 1 == total
+
+
 # ---------------------------------------------------------------- templates
 def test_sample_templates_created_lazily(app, owner):
     c, tok = owner
