@@ -508,6 +508,8 @@ def test_gbp_matter_invoice_renders_pound_sign(app, client):
         db.session.flush()
         db.session.add(M.TimeEntry(matter_id=m.id, user_id=u.id, minutes=120, rate_cents=40000,
                                    description="Advice on UK lease"))
+        db.session.add(M.Expense(matter_id=m.id, date=date.today(), category="Filing fee",
+                                  description="Court fee", amount_cents=5000, billable=True))
         db.session.commit()
         S["gbp_matter"] = m.id
         t_id = M.TimeEntry.query.filter_by(matter_id=m.id).first().id
@@ -516,8 +518,18 @@ def test_gbp_matter_invoice_renders_pound_sign(app, client):
     assert r.status_code == 200
     assert "£400.00/hr".encode("utf-8") in r.data, "the matter's billing card must use the matter currency, not $"
     assert b"$400.00/hr" not in r.data
+    # the global time and expense lists, filtered to this matter, must use its currency too
+    r = client.get(f"/time?matter_id={S['gbp_matter']}")
+    assert "£400.00".encode("utf-8") in r.data and "£800.00".encode("utf-8") in r.data
+    assert b"$400.00" not in r.data and b"$800.00" not in r.data
+    r = client.get(f"/time/expenses?matter_id={S['gbp_matter']}")
+    assert "£50.00".encode("utf-8") in r.data
+    assert b"$50.00" not in r.data
     r = client.get(f"/invoices/new?matter_id={S['gbp_matter']}")
     assert b"Currency <strong>GBP</strong>" in r.data
+    assert "£800.00".encode("utf-8") in r.data and "£50.00".encode("utf-8") in r.data, \
+        "the unbilled time/expense lines and totals in the composer must use the matter currency"
+    assert b"$800.00" not in r.data and b"$50.00" not in r.data
     r = client.post("/invoices/new", data={"_csrf": tok, "matter_id": S["gbp_matter"],
                                            "issued_on": date.today().isoformat(), "time_ids": [str(t_id)]})
     inv_id = _redirect_id(r)

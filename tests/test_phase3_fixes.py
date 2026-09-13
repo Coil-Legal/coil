@@ -116,6 +116,32 @@ def test_signing_survives_a_mail_relay_that_refuses_the_recipient(app, monkeypat
         assert e.signature_hash
 
 
+def test_portal_magic_link_request_survives_a_bad_smtp_credential(app, monkeypatch):
+    """A firm's SMTP password expiring must not turn a magic-link request into a 500;
+    the neutral confirmation is shown either way, so the login route also cannot leak
+    whether an email was actually delivered."""
+    db, M = _models()
+    cid, mid = _client_and_matter(app, "L")
+    with app.app_context():
+        contact_email = db.session.get(M.Contact, cid).email
+
+    import app.blueprints.portal as portal
+
+    def _bad_creds(*a, **k):
+        import smtplib
+        raise smtplib.SMTPAuthenticationError(535, b"5.7.8 Username and Password not accepted")
+    monkeypatch.setattr(portal, "send_email", _bad_creds)
+
+    c = app.test_client()
+    r = c.post("/portal/login", data={"email": contact_email}, follow_redirects=True)
+    assert r.status_code == 200, f"magic-link request got {r.status_code} on an SMTP failure"
+    assert b"sign-in link" in r.data
+
+    with app.app_context():
+        assert M.PortalToken.query.filter_by(contact_id=cid).count() == 1, \
+            "the token should still be recorded even though the email did not go out"
+
+
 # --- 2. a post-dated deposit is not money on hand -------------------------------------------
 
 def _trust_post(client, **fields):
@@ -219,6 +245,31 @@ def test_summary_prompt_forbids_inferring_completion():
     src = inspect.getsource(ai.matter_summary)
     assert "requested is not received" in src
     assert "one provider is not all of them" in src
+
+
+def test_summary_context_includes_the_matters_own_incident_type(app):
+    """The summary once hedged 'either auto or premises related' on a matter with a plain
+    rear-end collision, because the PI case's own incident type never reached the prompt.
+    It is now spelled out, the same way the provider record status is."""
+    db, M = _models()
+    cid, mid = _client_and_matter(app, "K")
+    with app.app_context():
+        db.session.add(M.PiCase(matter_id=mid, incident_type="auto", date_of_loss=date(2026, 6, 1),
+                                incident_description="Rear-ended at a red light; other driver cited."))
+        db.session.commit()
+        from app.blueprints.ai import _matter_context
+        ctx = _matter_context(db.session.get(M.Matter, mid))
+
+    assert "Incident type: auto" in ctx
+    assert "Rear-ended at a red light" in ctx
+
+
+def test_summary_prompt_forbids_paraphrasing_names_or_guessing_claim_type():
+    import inspect
+    from app.blueprints import ai
+    src = inspect.getsource(ai.matter_summary)
+    assert "never shorten, " in src and "combine or approximate a name" in src
+    assert "either X or Y" in src
 
 
 # --- 5. deadlines belong in the feed a lawyer subscribes to -----------------------------------

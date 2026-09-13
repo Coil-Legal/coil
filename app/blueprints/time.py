@@ -89,9 +89,11 @@ def index():
     prev_url = url_for("time.index", page=page - 1, **args) if page > 1 else None
     next_url = url_for("time.index", page=page + 1, **args) if page < pages else None
     timer = Timer.query.filter_by(user_id=current_user().id).first()
+    list_currency = db.session.get(Matter, matter_id).currency_code if matter_id else None
     return render_template("time/index.html", entries=entries, matters=Matter.query.order_by(Matter.number).all(),
                            users=User.query.order_by(User.name).all(), total_minutes=total_minutes,
                            total_amount=total_amount, unbilled_amount=unbilled_amount, timer=timer,
+                           list_currency=list_currency,
                            total_count=total_count, page=page, pages=pages, prev_url=prev_url, next_url=next_url,
                            f={"matter_id": matter_id, "user_id": user_id,
                               "from": request.args.get("from", ""), "to": request.args.get("to", "")})
@@ -296,8 +298,10 @@ def expenses():
     items = q.order_by(Expense.date.desc(), Expense.id.desc()).all()
     total = sum(e.amount_cents for e in items)
     unbilled = sum(e.amount_cents for e in items if e.billable and e.invoice_id is None)
+    list_currency = db.session.get(Matter, matter_id).currency_code if matter_id else None
     return render_template("time/expenses.html", expenses=items, total=total, unbilled=unbilled,
-                           matters=Matter.query.order_by(Matter.number).all(), matter_id=matter_id)
+                           matters=Matter.query.order_by(Matter.number).all(), matter_id=matter_id,
+                           list_currency=list_currency)
 
 
 def _save_receipt(file):

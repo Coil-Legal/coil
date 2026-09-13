@@ -67,7 +67,13 @@ def login():
                             f"<p><a href=\"{link}\">{link}</a></p>"
                             f"<p>{t('email.portal_link.ignore', cl)}</p>")
                     text = t("email.portal_link.text", cl, firm=firm.name, minutes=TOKEN_TTL_MIN, url=link)
-                    send_email(contact.email, t("email.portal_link.subject", cl, firm=firm.name), html, text)
+                    # The neutral message below is shown either way, on purpose (it must not reveal
+                    # whether the email is on file). A mail relay outage must not turn that into a 500.
+                    try:
+                        send_email(contact.email, t("email.portal_link.subject", cl, firm=firm.name), html, text)
+                    except Exception as exc:  # noqa: BLE001 - any relay failure
+                        current_app.logger.warning("portal magic link for contact %s not sent: %s",
+                                                   contact.id, exc)
                     audit("portal_link_sent", "contact", contact.id, contact.email)
                     db.session.commit()
         flash(t("portal.login.neutral", lang), "ok")

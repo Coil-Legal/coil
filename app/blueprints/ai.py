@@ -11,7 +11,7 @@ from html import escape
 from flask import Blueprint, render_template, request, redirect, url_for, flash, abort, current_app
 from ..extensions import db
 from ..models import (Matter, Contact, Invoice, TimeEntry, Expense, Task, CalendarEvent, Document, Note, Message,
-                      User, TrustTransaction, Firm, AiRun, audit, now, MedicalProvider)
+                      User, TrustTransaction, Firm, AiRun, audit, now, MedicalProvider, PiCase)
 from ..helpers import login_required, current_user, parse_date
 from ..services.mail import send_email
 from ..i18n import lang_for
@@ -177,6 +177,17 @@ def _matter_context(m):
         parts.append("Description: " + m.description.strip())
     if m.parties:
         parts.append("Parties: " + "; ".join(f"{p.name} ({p.role})" for p in m.parties))
+    pi = PiCase.query.filter_by(matter_id=m.id).first()
+    if pi:
+        # The matter's own claim type and facts, spelled out, so the model is not left to guess or
+        # hedge between possibilities ("either auto or premises related") when one is on record.
+        pi_parts = [f"Incident type: {pi.incident_type or 'not entered'}",
+                    f"Date of loss: {pi.date_of_loss.isoformat() if pi.date_of_loss else 'not entered'}"]
+        if pi.incident_description:
+            pi_parts.append("Incident facts: " + pi.incident_description.strip())
+        if pi.injuries:
+            pi_parts.append("Injuries: " + pi.injuries.strip())
+        parts.append("PI case facts:\n" + "\n".join(pi_parts))
     notes = sorted(m.notes, key=lambda n: n.created_at or datetime.min, reverse=True)[:10]
     if notes:
         parts.append("Notes (newest first):\n" + "\n".join(
@@ -230,7 +241,10 @@ def matter_summary(id):
               "short strings. Use only the material below. Every date, name and figure you use must appear "
               "there, attached to the same person or event it is attached to there: two entries on different "
               "days about different people are not one event. Do not say a step is done unless the material "
-              "says it is done; requested is not received, and one provider is not all of them. Return JSON "
+              "says it is done; requested is not received, and one provider is not all of them. Copy every "
+              "provider, party and organization name exactly as it is written in the material; never shorten, "
+              "combine or approximate a name, and never guess at a claim type or category ('either X or Y') "
+              "when the material states only one. Return JSON "
               "{\"summary\": \"...\", \"open_items\": [\"...\"]}.\n\n" + ctx)
     try:
         data = llm.complete_json(prompt, SUMMARY_SCHEMA, system=SYSTEM, max_tokens=1200, kind="matter_summary",

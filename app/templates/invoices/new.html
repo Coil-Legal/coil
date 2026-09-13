@@ -1,7 +1,7 @@
 {% extends "base.html" %}{% block title %}New invoice: {{ matter.number }}{% endblock %}{% block content %}
 <div class="topbar"><h1>New invoice for {{ matter.label }}</h1>
 <div class="actions" style="margin:0"><a class="btn secondary small" href="/matters/{{ matter.id }}">Back to matter</a></div></div>
-<p class="muted">Client: <a href="/contacts/{{ matter.client_id }}">{{ matter.client.display_name }}</a> · Billing: <strong>{{ matter.billing_type }}</strong>{% if matter.billing_type in ('flat','hybrid') and matter.flat_fee_cents %} · Flat fee {{ matter.flat_fee_cents|money }}{% endif %}{% if matter.billing_type == 'contingency' %} · {{ matter.contingency_pct }}%{% endif %}{% if currency != 'USD' %} · Currency <strong>{{ currency }}</strong>{% endif %}</p>
+<p class="muted">Client: <a href="/contacts/{{ matter.client_id }}">{{ matter.client.display_name }}</a> · Billing: <strong>{{ matter.billing_type }}</strong>{% if matter.billing_type in ('flat','hybrid') and matter.flat_fee_cents %} · Flat fee {{ matter.flat_fee_cents|cur(currency) }}{% endif %}{% if matter.billing_type == 'contingency' %} · {{ matter.contingency_pct }}%{% endif %}{% if currency != 'USD' %} · Currency <strong>{{ currency }}</strong>{% endif %}</p>
 {% if payers %}<div class="flash {{ 'ok' if payers_ok else 'error' }}">Split billing: this build creates one invoice per payer{% for p in payers %}{{ ',' if not loop.first else ':' }} {{ p.contact.display_name }} {{ p.percent|round(2) }}%{% if p.label %} ({{ p.label }}){% endif %}{% endfor %}. {% if payers_ok %}Every line is shared by percentage, rounding half up, with any leftover cent on the last payer so the group adds up exactly.{% else %}The percentages total {{ payers_total|round(2) }}%, not 100%. <a href="/matters/{{ matter.id }}">Fix the payers</a> before building.{% endif %}</div>{% endif %}
 {% if needs_approval %}<div class="flash">Your firm requires invoice approval. This draft will wait for the owner or a billing user to approve it before it can be sent.</div>{% endif %}
 <form method="post" action="{{ url_for('invoices.new') }}" id="builder">{{ csrf() }}
@@ -16,11 +16,11 @@
   <tr><th></th><th>Milestone</th><th>Due</th><th class="num">Amount</th></tr>
   {% for m in milestones %}
   <tr><td><input type="checkbox" name="milestone_ids" value="{{ m.id }}" data-amt="{{ m.amount_cents }}" class="pick" {{ 'checked' if m.id == first_milestone_id }}></td>
-      <td>{{ m.description }}</td><td class="nowrap">{{ m.due_on|d }}</td><td class="num">{{ m.amount_cents|money }}</td></tr>
+      <td>{{ m.description }}</td><td class="nowrap">{{ m.due_on|d }}</td><td class="num">{{ m.amount_cents|cur(currency) }}</td></tr>
   {% endfor %}
   </table>
   {% set invoiced = matter.milestones|selectattr('invoice_id')|list %}
-  {% if invoiced %}<p class="small muted" style="margin-top:8px">Already invoiced: {% for m in invoiced %}{{ m.description }} ({{ m.amount_cents|money }}, <a href="/invoices/{{ m.invoice_id }}">{{ m.invoice.number }}</a>){{ ', ' if not loop.last }}{% endfor %}</p>{% endif %}
+  {% if invoiced %}<p class="small muted" style="margin-top:8px">Already invoiced: {% for m in invoiced %}{{ m.description }} ({{ m.amount_cents|cur(currency) }}, <a href="/invoices/{{ m.invoice_id }}">{{ m.invoice.number }}</a>){{ ', ' if not loop.last }}{% endfor %}</p>{% endif %}
   {% else %}
   {% if matter.milestones %}<p class="small muted">All milestones on this matter have been invoiced. Enter an additional flat amount below if needed.</p>{% else %}<p class="small muted">This matter has no milestones. Enter the flat fee amount to bill now (you can bill the rest later).</p>{% endif %}
   <div class="row">
@@ -57,9 +57,9 @@ unnoticed. Leave them unticked if they were only for your own records.</p>{% end
   {% for t in time_entries %}
   <tr><td><input type="checkbox" name="time_ids" value="{{ t.id }}" data-amt="{{ t.amount_cents }}" class="pick" checked></td>
       <td class="nowrap">{{ t.date|d }}</td><td>{{ t.description }} <span class="small muted">{{ t.user.initials }}</span></td>
-      <td class="num">{{ t.minutes|hours }}</td><td class="num">{{ t.rate_cents|money }}</td><td class="num">{{ t.amount_cents|money }}</td></tr>
+      <td class="num">{{ t.minutes|hours }}</td><td class="num">{{ t.rate_cents|cur(currency) }}</td><td class="num">{{ t.amount_cents|cur(currency) }}</td></tr>
   {% endfor %}
-  <tr><th colspan="5">Unbilled time</th><th class="num">{{ time_total|money }}</th></tr>
+  <tr><th colspan="5">Unbilled time</th><th class="num">{{ time_total|cur(currency) }}</th></tr>
   </table>
   {% else %}<div class="empty">No unbilled billable time. <a href="{{ url_for('time.new', matter_id=matter.id) }}">Log time</a>.</div>{% endif %}
 </div>
@@ -71,9 +71,9 @@ unnoticed. Leave them unticked if they were only for your own records.</p>{% end
   <tr><th><input type="checkbox" checked data-toggle="expense_ids"></th><th>Date</th><th>Category</th><th>Description</th><th class="num">Amount</th></tr>
   {% for e in expenses %}
   <tr><td><input type="checkbox" name="expense_ids" value="{{ e.id }}" data-amt="{{ e.amount_cents }}" class="pick" checked></td>
-      <td class="nowrap">{{ e.date|d }}</td><td>{{ e.category }}</td><td>{{ e.description }}</td><td class="num">{{ e.amount_cents|money }}</td></tr>
+      <td class="nowrap">{{ e.date|d }}</td><td>{{ e.category }}</td><td>{{ e.description }}</td><td class="num">{{ e.amount_cents|cur(currency) }}</td></tr>
   {% endfor %}
-  <tr><th colspan="4">Unbilled expenses</th><th class="num">{{ expense_total|money }}</th></tr>
+  <tr><th colspan="4">Unbilled expenses</th><th class="num">{{ expense_total|cur(currency) }}</th></tr>
   </table>
   {% else %}<div class="empty">No unbilled expenses.</div>{% endif %}
 </div>
@@ -94,7 +94,7 @@ unnoticed. Leave them unticked if they were only for your own records.</p>{% end
 </div>
 <div class="card stat">
   <div class="label">Invoice total</div>
-  <div class="value" id="total">$0.00</div>
+  <div class="value" id="total" data-currency-symbol="{{ currency_symbol }}">{{ currency_symbol }}0.00</div>
   <div class="small muted">Updates as you pick items.</div>
   {% if needs_total_confirm %}
   <label class="small" style="display:block;margin:8px 0"><input type="checkbox" name="confirm_unusual" value="1"> Yes, this amount is correct</label>
@@ -109,8 +109,9 @@ unnoticed. Leave them unticked if they were only for your own records.</p>{% end
 {% block scripts %}
 <script>
 (function(){
+  var symbol=document.getElementById('total').getAttribute('data-currency-symbol')||'$';
   function cents(v){v=(v||'').toString().replace(/[$,\s]/g,'');if(!v)return 0;var n=parseFloat(v);return isNaN(n)?0:Math.round(n*100);}
-  function fmt(c){var neg=c<0;c=Math.abs(c);var s='$'+Math.floor(c/100).toLocaleString()+'.'+('0'+(c%100)).slice(-2);return neg?'('+s+')':s;}
+  function fmt(c){var neg=c<0;c=Math.abs(c);var s=symbol+Math.floor(c/100).toLocaleString()+'.'+('0'+(c%100)).slice(-2);return neg?'('+s+')':s;}
   function total(){var t=0;
     document.querySelectorAll('.pick:checked').forEach(function(b){t+=parseInt(b.getAttribute('data-amt'),10)||0;});
     document.querySelectorAll('.free').forEach(function(i){t+=cents(i.value);});

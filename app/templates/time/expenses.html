@@ -18,13 +18,13 @@
   <td><a href="/matters/{{ e.matter_id }}">{{ e.matter.number }}</a> <span class="small muted">{{ e.matter.name }}</span></td>
   <td>{{ e.category }}</td>
   <td>{{ e.description }}</td>
-  <td class="num">{{ e.amount_cents|money }}</td>
+  <td class="num">{{ e.amount_cents|cur(e.matter.currency_code) }}</td>
   <td>{% if e.receipt_path %}<a href="{{ url_for('time.expense_receipt', id=e.id) }}">receipt</a>{% else %}<span class="muted small">none</span>{% endif %}</td>
   <td>{% if e.invoice_id %}<a href="/invoices/{{ e.invoice_id }}">&#128274; {{ e.invoice.number }}</a>{% elif not e.billable %}<span class="badge">non-billable</span>{% else %}<span class="badge draft">unbilled</span>{% endif %}</td>
   <td class="nowrap"><a href="{{ url_for('time.expense_edit', id=e.id) }}">{{ 'view' if e.invoice_id else 'edit' }}</a></td>
 </tr>
 {% endfor %}
-<tr><th colspan="4">Totals ({{ expenses|length }})</th><th class="num">{{ total|money }}</th><th colspan="3">Unbilled: {{ unbilled|money }}</th></tr>
+<tr><th colspan="4">Totals ({{ expenses|length }})</th><th class="num">{{ total|cur(list_currency) }}</th><th colspan="3">Unbilled: {{ unbilled|cur(list_currency) }}</th></tr>
 </table>
 {% else %}<div class="empty">No expenses yet. <a href="{{ url_for('time.expense_new') }}">Add one</a>.</div>{% endif %}
 </div>

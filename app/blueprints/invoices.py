@@ -16,7 +16,7 @@ from ..extensions import db
 from ..models import (Firm, Matter, Invoice, InvoiceLine, InvoiceEvent, TimeEntry, Expense, FlatFeeMilestone,
                       User, audit, now)
 from ..helpers import (login_required, current_user, parse_money, parse_date, client_ip, cents_to_str,
-                        UNUSUAL_INVOICE_CENTS)
+                        UNUSUAL_INVOICE_CENTS, CURRENCY_SYMBOLS)
 from ..i18n import lang_for
 from ..services.mail import send_email
 from ..services.pdf import DocPDF, save_pdf, enable_unicode, reset_unicode, unicode_on, mark_unsupported
@@ -416,7 +416,8 @@ def _builder_context(matter, user=None):
                 time_total=sum(t.amount_cents for t in time_entries),
                 expense_total=sum(e.amount_cents for e in expenses), user=u,
                 payers=payers, payers_ok=payers_total_ok(payers), payers_total=sum(p.percent or 0 for p in payers),
-                currency=matter.currency_code, needs_approval=_initial_approval(u, firm) == "pending")
+                currency=matter.currency_code, currency_symbol=CURRENCY_SYMBOLS.get(matter.currency_code, matter.currency_code + " "),
+                needs_approval=_initial_approval(u, firm) == "pending")
 
 
 def payers_total_ok(payers):
