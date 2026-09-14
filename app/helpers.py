@@ -171,7 +171,8 @@ def csrf_field():
     return Markup(f'<input type="hidden" name="_csrf" value="{csrf_token()}">')
 
 
-CSRF_EXEMPT_PREFIXES = ("/webhooks/", "/intake/submit", "/track/", "/sign/", "/pay/", "/p/", "/portal/", "/api/v1/")
+CSRF_EXEMPT_PREFIXES = ("/webhooks/", "/intake/submit", "/track/", "/sign/", "/pay/", "/p/", "/portal/", "/api/v1/",
+                        "/mcp")  # bearer-authenticated JSON-RPC, same footing as the API
 
 
 def check_csrf():
