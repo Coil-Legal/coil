@@ -1,5 +1,9 @@
 # Mike: an optional AI workbench beside Coil
 
+> On coil.legal this is offered as **Harfree** (https://coil.legal/harfree): the same
+> software, requested separately, standalone or connected to Coil. This document is the
+> technical side of that page.
+
 [Mike](https://mikeoss.com) (MikeOSS) is an open-source legal AI platform for document
 review, drafting and research. AGPL-3.0, the same license as Coil. Coil does not depend
 on it and does not bundle it. A firm that wants it runs it as its own stack and points
