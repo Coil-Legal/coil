@@ -200,10 +200,23 @@ def client_ip():
     return (xf.split(",")[0].strip() if xf else request.remote_addr) or ""
 
 
+def _mike_url():
+    """Where the optional Mike AI workbench lives, or "" when a firm has not set one up.
+
+    Resolved through the integrations layer so a self-hoster sets MIKE_URL in .env and a
+    hosted firm sets it under Settings, Integrations. Only http(s) is ever rendered into a
+    link, so a stray value cannot become a javascript: href in the navigation.
+    """
+    from .integrations import setting
+    v = (setting("MIKE_URL") or "").strip()
+    return v if v.startswith(("http://", "https://")) else ""
+
+
 def register_template_globals(app):
     app.jinja_env.globals.update(
         money=cents_to_str, csrf=csrf_field, current_user=current_user, portal_contact=portal_contact,
         firm=lambda: Firm.get(), today=date.today, now=utcnow,
+        mike_url=_mike_url,
     )
     app.jinja_env.filters["money"] = cents_to_str
     app.jinja_env.filters["cur"] = fmt_money

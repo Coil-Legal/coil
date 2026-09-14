@@ -34,6 +34,7 @@
     <a class="nav {{ 'active' if _path.startswith('/documents') }}" href="/documents">Documents</a>
     <a class="nav {{ 'active' if _path.startswith('/doctemplates') }}" href="/doctemplates">Document templates</a>
     <a class="nav {{ 'active' if _path.startswith('/ai') }}" href="/ai/search">Ask Coil</a>
+    {% if mike_url() %}<a class="nav" href="{{ mike_url() }}" target="_blank" rel="noopener" title="Mike, the optional AI workbench connected to this Coil">AI workbench ↗</a>{% endif %}
     <a class="nav {{ 'active' if _path.startswith('/research') }}" href="/research">Research</a>
     <a class="nav {{ 'active' if _path.startswith('/pi') }}" href="/pi">Personal injury</a>
     <a class="nav {{ 'active' if _path.startswith('/criminal') }}" href="/criminal">Criminal defense</a>

@@ -8,6 +8,7 @@ import os
 from datetime import datetime, timedelta
 from flask import Blueprint, render_template, request, redirect, url_for, flash, abort, current_app, session, Response
 from sqlalchemy import func
+from ..integrations import setting
 from ..extensions import db
 from ..models import Firm, User, Office, Matter, MatterTemplate, AuditLog, audit, now
 from ..helpers import (login_required, owner_required, permission_required, current_user, parse_money,
@@ -786,6 +787,32 @@ def integrations():
     ]
     for card in cards:
         card["guide"] = guide.get(card["name"])
+    # Mike: an optional, separately-run AI workbench (docs/MIKE.md). A door, not a dependency.
+    mike = (setting("MIKE_URL") or "").strip()
+    guide["AI workbench (Mike)"] = dict(
+        what="Mike is an open-source legal AI platform for document review, drafting and research "
+             "(mikeoss.com, AGPL like Coil). Run beside Coil, it can read your matters, tasks, notes, "
+             "time and document text through Coil's MCP endpoint, under a token whose scopes and "
+             "confidentiality mode you choose. Coil stays the record for money, deadlines and trust.",
+        need="No. Coil's own AI tools work without it. Mike is for a firm that wants a full assistant "
+             "workbench with document editing, and is willing to run a second stack: it is about "
+             "eight containers and its own login.",
+        cost="The software is free. Model usage is on your own key, as with Coil. Hosting it is your "
+             "server's capacity.",
+        steps=["Run Mike from its own repository: github.com/open-legal-products/mike. Put it behind "
+               "your proxy at something like ai.yourfirm.com.",
+               "In Coil, Settings, API tokens: create a token with only the scopes the assistant needs. "
+               "Leave confidentiality on Withhold client details unless you trust Mike's model with names.",
+               "In Mike, Settings, Connectors, Add: the URL is this Coil's address followed by /mcp, "
+               "authentication is a bearer token, paste the token.",
+               "Set MIKE_URL to Mike's address in Coil's environment and an AI workbench link appears "
+               "in the navigation. Leave it unset and nothing appears."])
+    cards.append(dict(name="AI workbench (Mike)", ok=bool(mike),
+                      detail=f"Linked in the navigation to {mike}." if mike
+                      else "MIKE_URL is empty, so no link is shown. Coil does not need Mike to work.",
+                      env="MIKE_URL", guide=guide["AI workbench (Mike)"],
+                      link=(mike, "Open Mike") if mike else None))
+
     return render_template("settings/integrations.html", cards=cards, base=base,
                            guide=guide, hosted=str(c.get("COIL_HOSTING", "")).lower() == "hosted",
                            intake_url=f"{base}/intake/form")
