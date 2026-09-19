@@ -2,6 +2,7 @@
 <div class="topbar"><h1>Trust accounting</h1>
 <div class="actions" style="margin:0">
   <a class="btn small" href="{{ url_for('trust.new') }}">New transaction</a>
+  <a class="btn small secondary" href="{{ url_for('trust.transfer') }}">Move between matters</a>
   <a class="btn small secondary" href="{{ url_for('trust.reconcile') }}">Reconcile</a>
 </div></div>
 {% if negatives %}<div class="flash error"><strong>Negative trust balance.</strong> This should not be possible and needs attention now: {{ negatives|join('; ') }}</div>{% endif %}

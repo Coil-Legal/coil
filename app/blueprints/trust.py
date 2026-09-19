@@ -11,14 +11,20 @@ from ..models import (Contact, Matter, Invoice, InvoiceEvent, Payment, TrustTran
                       TrustReconciliation, Firm, audit)
 from ..helpers import login_required, current_user, parse_money, parse_date, cents_to_str
 from ..services.mail import send_email
+import uuid
+
 from . import _stripe
 
 bp = Blueprint("trust", __name__, url_prefix="/trust")
 
 FORM_TYPES = ("deposit", "disbursement", "refund", "bank_fee", "interest")
-POSITIVE_TYPES = ("deposit", "interest")
+POSITIVE_TYPES = ("deposit", "interest", "transfer_in")
 TYPE_LABELS = {"deposit": "Deposit", "disbursement": "Disbursement", "refund": "Refund to client",
-               "bank_fee": "Bank fee", "interest": "Interest", "to_operating": "Applied to invoice"}
+               "bank_fee": "Bank fee", "interest": "Interest", "to_operating": "Applied to invoice",
+               "transfer_out": "Transferred to another matter", "transfer_in": "Transferred from another matter"}
+# The two legs of a matter-to-matter move. They are not on the New Transaction menu because
+# they are only ever created as a pair, by the transfer form.
+TRANSFER_TYPES = ("transfer_out", "transfer_in")
 
 
 # ==== balance helpers (grouped queries, independent of the model convenience methods) ====
@@ -255,6 +261,96 @@ def new():
         return redirect(url_for("trust.ledger", client_id=client.id))
     return render_template("trust/new.html", clients=clients, matters=matters, form=form, types=FORM_TYPES,
                            labels=TYPE_LABELS)
+
+
+# ==== move funds between two matters of the same client ====
+@bp.route("/transfer", methods=["GET", "POST"])
+@login_required
+def transfer():
+    """Move earmarked trust money from one matter to another for the same client.
+
+    Coil refuses to let one matter's money pay another matter's bills, which is right.
+    Without a transfer the only way round that refusal is a disbursement from the first
+    matter and a deposit to the second. Those are two entries that hit the book balance
+    and will never clear at the bank, so every reconciliation from then on carries two
+    phantom items and the ledger shows a payment the client never received. The absence
+    of this form does not prevent the move, it just makes the record worse.
+
+    So: one action, two linked rows, the client's total provably unchanged, nothing
+    touching the bank. Both legs are marked cleared on creation because no money leaves
+    the account; leaving them uncleared would put them on the outstanding list forever.
+
+    Two rules are enforced rather than advised. The transfer stays inside one client,
+    because moving between clients is the thing no consent can cure. And it records who
+    at the client authorised it, because an unauthorised move between matters is a setoff
+    against the client's money rather than a bookkeeping correction.
+    """
+    clients = Contact.query.filter_by(is_client=True).all()
+    clients.sort(key=lambda c: c.sort_name.lower())
+    form = {"client_id": request.args.get("client_id", ""), "from_matter_id": "", "to_matter_id": "",
+            "date": date.today().isoformat(), "amount": "", "authorized_by": "", "description": ""}
+    client = db.session.get(Contact, int(form["client_id"])) if form["client_id"].isdigit() else None
+
+    if request.method == "POST":
+        form.update({k: (request.form.get(k) or "").strip() for k in form})
+        client = db.session.get(Contact, int(form["client_id"])) if form["client_id"].isdigit() else None
+        src = db.session.get(Matter, int(form["from_matter_id"])) if form["from_matter_id"].isdigit() else None
+        dst = db.session.get(Matter, int(form["to_matter_id"])) if form["to_matter_id"].isdigit() else None
+        when = parse_date(form["date"])
+        amount = parse_money(form["amount"])
+        errors = []
+        if not client:
+            errors.append("Pick a client.")
+        if not src or not dst:
+            errors.append("Pick the matter the money is coming from and the matter it is going to.")
+        elif src.id == dst.id:
+            errors.append("Pick two different matters.")
+        elif client and (src.client_id != client.id or dst.client_id != client.id):
+            # The whole point of the guard. One client's money never funds another's matter,
+            # and no authorisation from either of them makes it permissible.
+            errors.append("Both matters must belong to the selected client. Money cannot move "
+                          "between clients, whoever asks for it.")
+        if not when:
+            errors.append("Enter a date as YYYY-MM-DD.")
+        if amount <= 0:
+            errors.append("Enter a positive amount.")
+        if not form["authorized_by"]:
+            errors.append("Record who authorised the transfer. Moving a client's money between "
+                          "matters needs the client's say-so, and the ledger should show whose.")
+        if not errors:
+            total, per, allocated, unallocated = allocation(client, as_of=when)
+            own = max(0, per.get(src.id, 0))
+            if amount > own:
+                errors.append(f"Rejected: {src.label} holds {cents_to_str(own)} in trust as of "
+                              f"{when.isoformat()}. A transfer of {cents_to_str(amount)} would overdraw it.")
+        locked = _closes_a_reconciled_period(when)
+        if locked:
+            errors.append(locked)
+        if errors:
+            for e in errors:
+                flash(e, "error")
+        else:
+            group = uuid.uuid4().hex[:32]
+            note = form["description"] or f"Transfer between {src.number} and {dst.number}"
+            common = dict(client_id=client.id, date=when, reference="", transfer_group=group,
+                          authorized_by=form["authorized_by"][:200], cleared=True, cleared_on=when,
+                          created_by_id=current_user().id)
+            out = TrustTransaction(matter_id=src.id, type="transfer_out", amount_cents=-amount,
+                                   description=f"{note} (to {dst.number})", payee=dst.number[:200], **common)
+            into = TrustTransaction(matter_id=dst.id, type="transfer_in", amount_cents=amount,
+                                    description=f"{note} (from {src.number})", payee=src.number[:200], **common)
+            db.session.add_all([out, into])
+            db.session.flush()
+            audit("trust_transfer", "trust_transaction", out.id,
+                  f"{client.display_name}: {cents_to_str(amount)} {src.number} -> {dst.number}, "
+                  f"authorised by {form['authorized_by']}", current_user().id)
+            db.session.commit()
+            flash(f"Moved {cents_to_str(amount)} from {src.number} to {dst.number}. "
+                  f"{client.display_name}'s trust total is unchanged.", "ok")
+            return redirect(url_for("trust.ledger", client_id=client.id))
+
+    matters = Matter.query.filter_by(client_id=client.id).order_by(Matter.number).all() if client else []
+    return render_template("trust/transfer.html", clients=clients, matters=matters, form=form, client=client)
 
 
 # ==== apply trust funds to an invoice ====

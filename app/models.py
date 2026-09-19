@@ -641,6 +641,13 @@ class TrustTransaction(db.Model):
     cleared_on = db.Column(db.Date)
     created_by_id = db.Column(db.Integer, db.ForeignKey("users.id"))
     created_at = db.Column(db.DateTime, default=now)
+    # A transfer between two matters of one client is two rows that must live and die
+    # together. Both carry the same group id so the ledger can show the other side and
+    # neither can be left orphaned. Empty on every ordinary transaction.
+    transfer_group = db.Column(db.String(40), default="")
+    # Who at the client approved moving their money, and when they said so. A transfer
+    # without this is an unauthorised setoff, which is the thing the rule forbids.
+    authorized_by = db.Column(db.String(200), default="")
     client = db.relationship("Contact")
     matter = db.relationship("Matter")
     invoice = db.relationship("Invoice")

@@ -1,0 +1,27 @@
+{% extends "base.html" %}{% block title %}Move trust funds between matters{% endblock %}{% block content %}
+<div class="topbar"><h1>Move trust funds between matters</h1><a class="btn small secondary" href="{{ url_for('trust.index') }}">Back</a></div>
+<div class="card" style="max-width:760px">
+<p class="small muted" style="margin-top:0">Moves earmarked money from one of this client's matters to another. The client's trust total does not change and no money leaves the account, so nothing appears on the bank reconciliation. Funds cannot move between clients.</p>
+<form method="post">{{ csrf() }}
+  <div class="row">
+    <div><label>Client</label><select name="client_id" id="x-client" required onchange="this.form.submit()"><option value="">Choose</option>{% for c in clients %}<option value="{{ c.id }}" {% if form.client_id|string == c.id|string %}selected{% endif %}>{{ c.display_name }}</option>{% endfor %}</select></div>
+    <div><label>Date</label><input type="date" name="date" value="{{ form.date }}" required></div>
+    <div><label>Amount</label><input type="text" name="amount" value="{{ form.amount }}" placeholder="1,000.00" required></div>
+  </div>
+  {% if client %}
+  <div class="row">
+    <div><label>From matter</label><select name="from_matter_id" required><option value="">Choose</option>{% for m in matters %}<option value="{{ m.id }}" {% if form.from_matter_id|string == m.id|string %}selected{% endif %}>{{ m.label }}</option>{% endfor %}</select></div>
+    <div><label>To matter</label><select name="to_matter_id" required><option value="">Choose</option>{% for m in matters %}<option value="{{ m.id }}" {% if form.to_matter_id|string == m.id|string %}selected{% endif %}>{{ m.label }}</option>{% endfor %}</select></div>
+  </div>
+  <label>Authorised by</label>
+  <input type="text" name="authorized_by" value="{{ form.authorized_by }}" placeholder="Who at the client approved this, and when they said so" required maxlength="200">
+  <span class="small muted">It is the client's money. Moving it between their matters needs their say-so, and the ledger should show whose. If the fee agreement allows it, say so here.</span>
+  <label>Description</label><input type="text" name="description" value="{{ form.description }}" placeholder="Deposit posted to the wrong matter; remainder applied to the new matter">
+  <div class="actions"><button class="btn">Move the funds</button><a class="btn secondary" href="{{ url_for('trust.index') }}">Cancel</a></div>
+  {% else %}
+  <p class="small muted">Choose a client to see their matters.</p>
+  <div class="actions"><button class="btn secondary">Continue</button></div>
+  {% endif %}
+</form>
+</div>
+{% endblock %}
