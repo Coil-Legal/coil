@@ -8,11 +8,11 @@ Use an isolated checkout for overlapping work. Before integrating, compare again
 
 ## Active work
 
-Updated 2026-09-19 20:24 UTC.
+Updated 2026-09-19 20:27 UTC.
 
 - **Codex: active.** Fixing seven findings from the independent code review. Base commit `0e340ce`. Working copy: `/Users/iandolan/Documents/Codex/2026-09-19/reve/work/coil-fixes`, branch `codex/review-fixes`. Files: `app/helpers.py`, `app/merge_templates.py`, blueprints `payments.py`, `api.py`, `settings.py`, `engagements.py`, `doctemplates.py`, `invoices.py`, `dashboard.py`, `trust.py`, dashboard/API templates, and related tests. Focused regression checks: 24 passed. Full suite in progress. Deployment is not part of this task.
 
-- **Claude Code: active.** Setting up this coordination log. Working directory `/Users/iandolan/General/solo-practice` (the shared checkout), on `main` at `0e340ce`. Files: `COORDINATION.md`, `CLAUDE.md`, `AGENTS.md`. No application code touched in this task. Before this, completed the four product decisions listed under handoffs below. Not holding a lock on any application file; Codex's branch has right of way on the files it lists. Timestamp 2026-09-19 20:24 UTC.
+- **Claude Code: idle, no files held.** Last task was setting up this log, finished and committed as `23aba35` on `main` (`COORDINATION.md`, `CLAUDE.md`, `AGENTS.md`, plus the loop's own instructions outside the repo). No application code touched. Codex's branch has right of way on every file it lists; Claude Code will not edit `app/blueprints/trust.py`, `app/blueprints/invoices.py` or `app/helpers.py` until Codex's handoff lands, and will update this entry first if that changes. Working directory `/Users/iandolan/General/solo-practice`. Timestamp 2026-09-19 20:27 UTC.
 
 - **Autonomous QA loop: running unattended.** This is a fourth participant the draft did not list, and it is the one most likely to surprise the others. launchd job `com.iandolan.coil-grok-check` fires every 10 minutes, runs `~/.claude/scripts/coil-grok-check.sh`, and acts on GitHub issues in `Coil-Legal/coil`. When it finds a reported defect it edits **this shared checkout**, commits to `main`, and deploys to testfirm and demo without asking anyone. It fixed two findings during the afternoon of 2026-09-19 (`bd1589e`, `e239275`). It does not report here on its own. Its instructions are at `~/.claude/scheduled-tasks/coil-grok-handoff-check/SKILL.md`, which now carries the same read-first requirement, but nobody should rely on that alone: **check `git log` immediately before integrating any branch, because `main` can move while you are reading this file.** To stop it for a long integration: `launchctl bootout gui/$(id -u)/com.iandolan.coil-grok-check`, and afterwards `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.iandolan.coil-grok-check.plist`.
 
@@ -31,6 +31,8 @@ Codex's branch and the four changes shipped on 2026-09-19 touch the same three f
 Claude Code will not edit these files until Codex's handoff lands, and will say so here if that changes.
 
 ## Recent handoffs, newest first
+
+- **2026-09-19 20:27 UTC, Claude Code.** Coordination log set up. Commit `23aba35` on `main`: this file, `CLAUDE.md`, `AGENTS.md`. Also added the same read-first requirement to the autonomous loop's instructions at `~/.claude/scheduled-tasks/coil-grok-handoff-check/SKILL.md`, which is outside the repo and therefore not in that commit. Tests: full suite `545 passed`, unchanged, since no application code was touched. Remaining work: none. Deployment status: not deployed and none needed, documentation only.
 
 - **2026-09-19 20:24 UTC, Claude Code.** Four product decisions built and shipped, all on `main`, all deployed.
   - Commits: `9039d96` month and year deadline units, `e007fa9` inter-matter trust transfer, `3e21e95` credit notes, `0e340ce` firm fee type and earned-fee warning.
