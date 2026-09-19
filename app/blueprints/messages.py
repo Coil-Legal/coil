@@ -76,7 +76,12 @@ def thread(contact_id):
     if changed:
         db.session.commit()
     matters = Matter.query.filter_by(client_id=c.id).order_by(Matter.status, Matter.created_at.desc()).all()
+    # Pre-fill the reply subject from the client's last email so the attorney does not retype it.
+    last_email = next((m for m in reversed(msgs) if m.channel == "email" and m.direction == "in"), None)
+    prior = (last_email.subject or "").strip() if last_email else ""
+    reply_subject = prior if prior.lower().startswith("re:") else (f"Re: {prior}" if prior else "")
     return render_template("messages/thread.html", c=c, msgs=msgs, matters=matters,
+                           reply_subject=reply_subject,
                            matter_id=request.args.get("matter_id", type=int))
 
 
@@ -105,6 +110,66 @@ def send():
     elif str(status).startswith("error"):
         flash(f"Twilio would not send this message: {detail} It was stored for the record.", "error")
     return redirect(url_for("messages.thread", contact_id=c.id))
+
+
+@bp.route("/messages/email-send", methods=["POST"])
+@login_required
+def email_send():
+    """Answer a filed client email by email, and keep the answer in the matter file.
+
+    Mail filing pulls the client's email into the matter, and until now the only way
+    to answer it was the attorney's own mail client, which put the answer somewhere
+    Coil could not see. A file that holds one side of a conversation is worse than
+    no file. The reply carries In-Reply-To and References so it lands in the client's
+    existing thread rather than arriving as a fresh email they have to reconcile.
+    """
+    c = db.session.get(Contact, request.form.get("contact_id", type=int) or 0) or abort(404)
+    body = request.form.get("body", "").strip()
+    subject = request.form.get("subject", "").strip()
+    matter_id = request.form.get("matter_id", type=int) or None
+    back = redirect(url_for("messages.thread", contact_id=c.id))
+    if not body:
+        flash("Type a message first.", "error")
+        return back
+    if not c.email:
+        flash(f"{c.display_name} has no email address on file.", "error")
+        return back
+
+    # Thread onto the most recent inbound email from this contact, if there is one.
+    last_in = Message.query.filter_by(contact_id=c.id, channel="email", direction="in") \
+                           .filter(Message.message_id != "") \
+                           .order_by(Message.created_at.desc()).first()
+    if not subject:
+        prior = (last_in.subject or "").strip() if last_in else ""
+        subject = prior if prior.lower().startswith("re:") else (f"Re: {prior}" if prior else "Message from your attorney")
+    headers = {}
+    if last_in and last_in.message_id:
+        headers = {"In-Reply-To": last_in.message_id, "References": last_in.message_id}
+
+    html = "<p>" + "</p><p>".join(escape(p) for p in body.split("\n\n") if p.strip()) + "</p>"
+    firm = Firm.get()
+    sent = False
+    try:
+        sent = send_email(c.email, subject[:300], html, text=body,
+                          reply_to=(firm.email or None) if firm else None, headers=headers)
+    except Exception:
+        # A mail relay problem must not lose the attorney's words. Record and say so.
+        current_app.logger.exception("[MAIL] reply to %s failed", c.email)
+
+    m = Message(contact_id=c.id, matter_id=matter_id, direction="out", channel="email",
+                to_addr=c.email[:200], from_addr=(current_app.config.get("MAIL_FROM") or "")[:200],
+                subject=subject[:300], body=body, status="sent" if sent else "not_sent",
+                user_id=current_user().id)
+    db.session.add(m)
+    db.session.flush()
+    audit("send", "message", m.id, f"email to {c.email} ({m.status})", current_user().id)
+    db.session.commit()
+    if sent:
+        flash(f"Emailed {c.display_name}. The reply is on the thread.", "ok")
+    else:
+        flash("Email is not configured, so the reply was saved to the thread but not sent. "
+              "See Settings > Integrations.", "error")
+    return back
 
 
 @bp.route("/messages/portal-send", methods=["POST"])

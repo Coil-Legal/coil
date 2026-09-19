@@ -7,8 +7,12 @@ from flask import current_app
 log = logging.getLogger("mail")
 
 
-def send_email(to, subject, html, text=None, attachments=None, reply_to=None):
-    """attachments: list of (filename, bytes, mime). Returns True if handed to SMTP, False if logged only."""
+def send_email(to, subject, html, text=None, attachments=None, reply_to=None, headers=None):
+    """attachments: list of (filename, bytes, mime). Returns True if handed to SMTP, False if logged only.
+
+    headers: extra RFC 5322 headers, used for In-Reply-To and References so a reply
+    lands inside the client's existing mail thread instead of starting a new one.
+    """
     # A firm may have supplied SMTP itself; setting() checks env, then the firm, then config.
     cfg = _SmtpView(current_app.config)
     msg = EmailMessage()
@@ -17,6 +21,9 @@ def send_email(to, subject, html, text=None, attachments=None, reply_to=None):
     msg["Subject"] = subject
     if reply_to:
         msg["Reply-To"] = reply_to
+    for k, v in (headers or {}).items():
+        if v:
+            msg[k] = v
     msg.set_content(text or "This message contains HTML content.")
     msg.add_alternative(html, subtype="html")
     for fn, data, mime in (attachments or []):
