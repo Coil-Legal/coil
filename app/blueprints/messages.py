@@ -18,6 +18,20 @@ def _digits(s):
     return re.sub(r"\D", "", s or "")
 
 
+_PHONE_CHARS_RE = re.compile(r"^[\d\s()+.-]+$")
+
+
+def _looks_like_a_phone_number(s):
+    """Twilio's create-message call does not always reject a malformed "To" synchronously - a value
+    with letters can come back "queued" with the real failure only surfacing later on a delivery
+    status callback Coil does not listen for. Catch letters before they ever reach Twilio, rather
+    than let them sit as a permanently misleading "queued". Digit count is left to Twilio's own
+    response (already passed through verbatim, e.g. error 21211 for a too-short number), since a
+    short placeholder like 555-0100 is a normal, deliberately-fake QA fixture."""
+    s = (s or "").strip()
+    return bool(s) and bool(_PHONE_CHARS_RE.match(s)) and bool(_digits(s))
+
+
 def match_contact_by_phone(number):
     """Compare the last 10 digits so +1 prefixes and formatting do not matter."""
     d = _digits(number)[-10:]
@@ -96,6 +110,10 @@ def send():
         return redirect(url_for("messages.thread", contact_id=c.id))
     if not c.phone:
         flash(f"{c.display_name} has no phone number on file.", "error")
+        return redirect(url_for("messages.thread", contact_id=c.id))
+    if not _looks_like_a_phone_number(c.phone):
+        flash(f"{c.phone!r} on file for {c.display_name} is not a valid phone number. "
+              f"Fix it on the contact before sending.", "error")
         return redirect(url_for("messages.thread", contact_id=c.id))
     provider_id, status, detail = send_sms(c.phone, body)
     m = Message(contact_id=c.id, matter_id=matter_id, direction="out", channel="sms", to_addr=c.phone,

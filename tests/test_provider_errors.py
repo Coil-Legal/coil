@@ -131,6 +131,26 @@ def test_a_refusal_with_no_json_still_says_something(app, client, monkeypatch):
     assert "HTTP 502" in r.data.decode()
 
 
+def test_a_phone_with_letters_is_refused_before_it_reaches_twilio(app, client, monkeypatch):
+    """QA #40: Twilio's create-message call does not always reject a malformed "To" synchronously.
+    A value like "832-ABC-1234" can come back HTTP 201 status "queued", so Coil never learns it
+    failed - the real rejection only shows up on an async delivery status callback Coil does not
+    listen for. The number is obviously wrong before Twilio's opinion is needed, so it must never
+    reach the API at all, and no misleadingly-"queued" record should be created."""
+    cid = _contact_with_phone(app, "832-ABC-1234")
+    calls = []
+    monkeypatch.setattr("app.services.sms.requests.post",
+                        lambda *a, **k: calls.append(1) or FakeResponse(201, {"sid": "SM999", "status": "queued"}))
+    r = post(client, "/messages/send", {"contact_id": cid, "body": "letters in the phone"})
+    assert r.status_code == 200
+    assert "not a valid phone number" in r.data.decode()
+    assert not calls, "an obviously invalid number must never reach Twilio"
+    from app.models import Message
+    with app.app_context():
+        m = Message.query.filter_by(contact_id=cid, body="letters in the phone").first()
+        assert m is None, "a refused send must not create a misleadingly-queued record"
+
+
 def test_success_is_unchanged(app, client, monkeypatch):
     cid = _contact_with_phone(app, "+15125550143")
     monkeypatch.setattr("app.services.sms.requests.post",
