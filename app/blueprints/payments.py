@@ -1,7 +1,6 @@
 """Payments: staff list and manual recording, the public pay page (Stripe Checkout with optional card
 surcharge), and the Stripe webhook. Recording from the webhook and from the success page share one
 idempotent helper keyed on the Checkout Session id."""
-import json
 from calendar import monthrange
 from datetime import date
 from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app, abort
@@ -287,19 +286,16 @@ def record_from_session(sess):
 @bp.route("/webhooks/stripe", methods=["POST"])
 def stripe_webhook():
     payload = request.get_data()
-    secret = current_app.config.get("STRIPE_WEBHOOK_SECRET") or ""
-    if secret:
-        try:
-            event = _stripe.construct_event(payload, request.headers.get("Stripe-Signature", ""), secret)
-        except Exception as e:
-            current_app.logger.warning("stripe webhook signature rejected: %s", e)
-            return ("bad signature", 400)
-    else:
-        current_app.logger.warning("STRIPE_WEBHOOK_SECRET is not set; accepting webhook without signature check")
-        try:
-            event = json.loads(payload or b"{}")
-        except ValueError:
-            return ("bad json", 400)
+    from ..integrations import setting
+    secret = setting("STRIPE_WEBHOOK_SECRET")
+    if not secret:
+        current_app.logger.warning("Stripe webhook verification is not configured")
+        return ("webhook verification not configured", 503)
+    try:
+        event = _stripe.construct_event(payload, request.headers.get("Stripe-Signature", ""), secret)
+    except Exception as e:
+        current_app.logger.warning("stripe webhook signature rejected: %s", e)
+        return ("bad signature", 400)
     etype = event.get("type") or ""
     obj = (event.get("data") or {}).get("object") or {}
     if etype == "checkout.session.completed" and (obj.get("mode") or "") == "setup":

@@ -239,7 +239,8 @@ def test_messages_send_and_twilio_inbound(app, staff):
     with app.app_context():
         m = Message.query.filter_by(contact_id=mid, direction="out").order_by(Message.id.desc()).first()
         assert m and m.status == "unconfigured" and m.to_addr == "+15125550111"
-    r = app.test_client().post("/webhooks/twilio", data={"From": "+15125550111", "To": "+15125550100",
+    from tests.helpers import post_twilio_form
+    r = post_twilio_form(app.test_client(), app, {"From": "+15125550111", "To": "+15125550100",
                                                           "Body": "Great, thanks!", "MessageSid": "SMtest0001"})
     assert r.status_code == 200 and r.mimetype == "text/xml" and b"<Response></Response>" in r.data
     with app.app_context():
@@ -309,7 +310,9 @@ def test_exports_headers(staff):
     assert "M-1002" in body and "1.50" in body
 
 
-def test_cli_agenda_and_reminders_idempotent(app):
+def test_cli_agenda_and_reminders_idempotent(app, monkeypatch):
+    from tests.helpers import capture_delivered_mail
+    monkeypatch.setattr("app.cli.send_email", capture_delivered_mail)
     from app.cli import run_agenda, run_reminders
     from app.models import AuditLog, User, Invoice, Engagement, Matter, InvoiceEvent, EngagementEvent
     from app.extensions import db

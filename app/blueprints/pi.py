@@ -14,7 +14,7 @@ from werkzeug.utils import secure_filename
 from ..extensions import db
 from ..models import (PiCase, MedicalProvider, Lien, SettlementWorksheet, Matter, Document, Task,
                       TrustTransaction, Expense, Firm, audit)
-from ..helpers import login_required, current_user, parse_money, parse_date, cents_to_str
+from ..helpers import login_required, current_user, parse_money, parse_date, cents_to_str, permission_required
 from ..services.pdf import DocPDF, money as pdf_money, enable_unicode, reset_unicode, unicode_on, mark_unsupported
 
 bp = Blueprint("pi", __name__, url_prefix="/pi")
@@ -1003,6 +1003,7 @@ def worksheet_approve(matter_id, wid):
 
 @bp.route("/<int:matter_id>/worksheet/<int:wid>/disburse", methods=["POST"])
 @login_required
+@permission_required("trust")
 def worksheet_disburse(matter_id, wid):
     m, c, ws = _ws(matter_id, wid)
     back = redirect(url_for("pi.case", matter_id=m.id) + "#settlement")
@@ -1032,22 +1033,12 @@ def worksheet_disburse(matter_id, wid):
     if ws.net_to_client_cents:
         rows.append(("disbursement", -ws.net_to_client_cents, f"Net settlement to client, {m.number}",
                      client.display_name))
-    # Validate the whole run against the trust rules before writing anything.
-    running_c = client.trust_balance_cents()
-    running_m = m.trust_balance_cents()
-    for ttype, delta, desc, payee in rows:
-        if delta < 0:
-            if running_c + delta < 0:
-                flash(f"Refused: {client.display_name} holds {cents_to_str(running_c)} in trust at that point and "
-                      f"the {desc.lower()} of {cents_to_str(-delta)} would overdraw the client. Tick 'record the "
-                      f"settlement deposit' or deposit the funds on the trust page first.", "error")
-                return back
-            if running_m + delta < 0:
-                flash(f"Refused: {m.label} holds {cents_to_str(running_m)} in trust at that point and the "
-                      f"{desc.lower()} of {cents_to_str(-delta)} would overdraw the matter.", "error")
-                return back
-        running_c += delta
-        running_m += delta
+    from .trust import _closes_a_reconciled_period, validate_running_balances
+    problem = _closes_a_reconciled_period(today) or validate_running_balances(
+        client.id, today, [(m.id, delta) for _, delta, _, _ in rows])
+    if problem:
+        flash("Refused: " + problem, "error")
+        return back
     for ttype, delta, desc, payee in rows:
         t = TrustTransaction(client_id=client.id, matter_id=m.id, date=today, type=ttype, amount_cents=delta,
                              description=desc, payee=payee or "", reference=ref, cleared=False, created_by_id=uid)

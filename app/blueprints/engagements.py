@@ -7,7 +7,8 @@ import hashlib
 import io
 from datetime import date, datetime, timedelta
 from flask import Blueprint, render_template, request, redirect, url_for, flash, abort, current_app, send_file, Response
-from jinja2 import Environment, TemplateSyntaxError
+from jinja2 import TemplateError
+from ..merge_templates import MergeEnvironment
 from markupsafe import Markup, escape
 from ..extensions import db
 from ..models import (Firm, Matter, LetterTemplate, Engagement, EngagementEvent, new_token, audit, now)
@@ -45,11 +46,11 @@ VIEW_DEDUPE_SECONDS = 60
 # Rendering
 # ---------------------------------------------------------------------------
 def _html_env():
-    return Environment(autoescape=True)
+    return MergeEnvironment(autoescape=True)
 
 
 def _text_env():
-    return Environment(autoescape=False)
+    return MergeEnvironment(autoescape=False)
 
 
 def _nl2br(s):
@@ -308,8 +309,10 @@ def new():
     subject, body = "", ""
     try:
         subject, body = render_letter(template, matter, scope, u)
-    except TemplateSyntaxError as ex:
+    except TemplateError as ex:
         flash(f"Template error: {ex}", "error")
+        return render_template("engagements/new.html", matter=matter, templates=templates, template=template,
+                               scope=scope, subject="", body="", matters=None)
     if request.method == "POST" and action in ("draft", "send"):
         e = build_engagement(matter, template, scope, user=u)
         custom_body = request.form.get("body_html", "")
@@ -437,7 +440,7 @@ def _validate_template(t):
     try:
         _html_env().from_string(t.body_html or "")
         _text_env().from_string(t.subject or "")
-    except TemplateSyntaxError as ex:
+    except TemplateError as ex:
         return f"Template syntax error: {ex}"
     return None
 

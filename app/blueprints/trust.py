@@ -181,10 +181,58 @@ def _closes_a_reconciled_period(when):
     the date, so the fix is to reconcile again rather than to hunt.
     """
     through = _reconciled_through()
-    if through and when <= through:
+    if through and when and when <= through:
         return (f"Trust was reconciled through {through:%b %-d, %Y}. An entry dated "
                 f"{when:%b %-d, %Y} would change a period that has already been signed off. "
                 f"Date it after {through:%b %-d, %Y}, or reconcile again first.")
+    return None
+
+
+def validate_history(rows):
+    """Check one client's ordered (date, matter_id, cents) rows, including unallocated funds."""
+    from collections import defaultdict
+    balances = defaultdict(int)
+    for when, matter_id, cents in rows:
+        balances[matter_id] += cents
+        if any(value < 0 for value in balances.values()):
+            return (f"Refused: the client's trust funds or a matter allocation would be negative "
+                    f"on {when.isoformat()}. Add the opening balance first or correct the transaction.")
+    return None
+
+
+def validate_running_balances(client_id, when, changes):
+    """Reject a debit that makes any subsequent client allocation negative.
+
+    New rows sort after existing rows on the same date. Both transfer legs are applied
+    together. The caller must validate and write in the same database transaction.
+    """
+    from collections import defaultdict
+    balances = defaultdict(int)
+    rows = TrustTransaction.query.filter_by(client_id=client_id).order_by(
+        TrustTransaction.date, TrustTransaction.id).all()
+    later = []
+    for row in rows:
+        if row.date <= when:
+            balances[row.matter_id] += row.amount_cents
+        else:
+            later.append(row)
+    for matter_id, delta in changes:
+        balances[matter_id] += delta
+
+    def error(on):
+        if any(value < 0 for value in balances.values()):
+            return (f"Rejected: this entry would overdraw the client's trust funds or a matter allocation "
+                    f"on {on.isoformat()}. Later transactions have already used those funds.")
+        return None
+
+    problem = error(when)
+    if problem:
+        return problem
+    for row in later:
+        balances[row.matter_id] += row.amount_cents
+        problem = error(row.date)
+        if problem:
+            return problem
     return None
 
 
@@ -246,6 +294,10 @@ def new():
         locked = _closes_a_reconciled_period(when)
         if locked:
             errors.append(locked)
+        if not errors and delta < 0:
+            problem = validate_running_balances(client.id, when, [(matter.id if matter else None, delta)])
+            if problem:
+                errors.append(problem)
 
         # Paying yourself out of a client's trust account is the transaction that ends
         # careers, and it is the one Coil could previously not tell apart from a payment
@@ -362,6 +414,10 @@ def transfer():
         locked = _closes_a_reconciled_period(when)
         if locked:
             errors.append(locked)
+        if not errors:
+            problem = validate_running_balances(client.id, when, [(src.id, -amount), (dst.id, amount)])
+            if problem:
+                errors.append(problem)
         if errors:
             for e in errors:
                 flash(e, "error")
@@ -423,6 +479,11 @@ def apply():
     from_matter = min(amount, own) if inv.matter_id else 0
     from_unallocated = amount - from_matter
     parts = [(inv.matter_id, from_matter), (None, from_unallocated)]
+    problem = _closes_a_reconciled_period(date.today()) or validate_running_balances(
+        inv.client_id, date.today(), [(mid, -part) for mid, part in parts if part > 0])
+    if problem:
+        flash(problem, "error")
+        return back
     source = inv.matter.label if inv.matter else inv.client.display_name
     if from_matter and from_unallocated:
         source = f"{inv.matter.label} {cents_to_str(from_matter)} + unallocated {cents_to_str(from_unallocated)}"

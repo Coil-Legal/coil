@@ -71,15 +71,19 @@ def index():
         q = q.filter(TimeEntry.date >= d_from)
     if d_to:
         q = q.filter(TimeEntry.date <= d_to)
-    # Totals over every matching row, in SQL, before the list is cut to a page. Summing the
+    # Totals over every matching row before the list is cut to a page. Summing the
     # page instead is how the API came to understate a firm's hours by everything past row 200.
-    amount = TimeEntry.minutes * TimeEntry.rate_cents / 60
     total_count = q.count()
     total_minutes = int(q.with_entities(func.coalesce(func.sum(TimeEntry.minutes), 0)).scalar() or 0)
-    total_amount = int(q.filter(TimeEntry.billable == True)  # noqa: E712
-                        .with_entities(func.coalesce(func.sum(amount), 0)).scalar() or 0)
-    unbilled_amount = int(q.filter(TimeEntry.billable == True, TimeEntry.invoice_id == None)  # noqa: E712,E711
-                           .with_entities(func.coalesce(func.sum(amount), 0)).scalar() or 0)
+    # Match TimeEntry.amount_cents: round each entry before summing, including ties.
+    amounts = q.filter(TimeEntry.billable == True).with_entities(  # noqa: E712
+        TimeEntry.minutes, TimeEntry.rate_cents, TimeEntry.invoice_id).all()
+    total_amount = unbilled_amount = 0
+    for minutes, rate, invoice_id in amounts:
+        cents = int(round(minutes * rate / 60.0))
+        total_amount += cents
+        if invoice_id is None:
+            unbilled_amount += cents
     page = max(1, request.args.get("page", 1, type=int))
     pages = max(1, (total_count + PAGE_SIZE - 1) // PAGE_SIZE)
     page = min(page, pages)

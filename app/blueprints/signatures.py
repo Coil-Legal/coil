@@ -83,24 +83,27 @@ def send_signature(s, user=None):
     data = _file_bytes(s.document)
     if data is None:
         return "The file for this document is missing on disk."
-    s.document_hash = hashlib.sha256(data).hexdigest()
-    s.status = "sent"
-    s.sent_at = now()
-    s.sent_to = (s.contact.email or "").strip()
+    sent_to = (s.contact.email or "").strip()
     f = Firm.get()
     lang = lang_for(s.contact)
     title = _display_title(s)
-    detail = f"to {s.sent_to}" if s.sent_to else "no email on file, link not emailed"
-    if s.sent_to:
+    detail = f"to {sent_to}" if sent_to else "no email on file, link not emailed"
+    if sent_to:
         paragraphs = [t("email.hello", lang, name=s.contact.first_name or s.contact.display_name),
                       t("email.sig_request.body", lang, firm=f.name, title=title)]
         if (s.message or "").strip():
             paragraphs.append(t("email.sig_request.message_from", lang, firm=f.name))
             paragraphs.append(s.message.strip())
         subj = t("email.sig_request.subject", lang, title=title)
-        send_email(s.sent_to, subj, _email_html(subj, paragraphs, t("email.sig_request.button", lang), sign_url(s),
+        delivered = send_email(sent_to, subj, _email_html(subj, paragraphs, t("email.sig_request.button", lang), sign_url(s),
                                                 lang=lang, pixel=pixel_url(s)),
                    text=t("email.sig_request.text", lang, title=title, url=sign_url(s)), reply_to=f.email or None)
+        if not delivered:
+            return "Email delivery failed. The signature request remains a draft; check mail settings and try again."
+    s.document_hash = hashlib.sha256(data).hexdigest()
+    s.status = "sent"
+    s.sent_at = now()
+    s.sent_to = sent_to
     db.session.add(DocumentSignatureEvent(signature_id=s.id, event="sent", detail=detail))
     audit("send", "document_signature", s.id, f"{title} {detail}", user.id if user else None)
     return None
@@ -113,10 +116,14 @@ def send_signature_reminder(s, user=None, detail="reminder"):
     to = s.sent_to or (s.contact.email or "")
     if to:
         subj = t("email.sig_reminder.subject", lang, title=title)
-        send_email(to, subj, _email_html(subj, [t("email.hello", lang, name=s.contact.first_name or s.contact.display_name),
+        delivered = send_email(to, subj, _email_html(subj, [t("email.hello", lang, name=s.contact.first_name or s.contact.display_name),
                                                 t("email.sig_reminder.body", lang, title=title, firm=f.name)],
                                          t("email.sig_request.button", lang), sign_url(s), lang=lang, pixel=pixel_url(s)),
                    text=t("email.sig_request.text", lang, title=title, url=sign_url(s)), reply_to=f.email or None)
+        if not delivered:
+            return "Email delivery failed. The reminder can be retried."
+    else:
+        return "No signer email address is on file."
     db.session.add(DocumentSignatureEvent(signature_id=s.id, event="reminder",
                                           detail=f"{detail} to {to}" if to else "no email"))
     audit("remind", "document_signature", s.id, detail, user.id if user else None)
@@ -324,9 +331,13 @@ def send(id):
         db.session.commit()
         flash(f"Sent to {s.sent_to or 'nobody (no email on file)'}.", "ok")
     else:
-        send_signature_reminder(s, current_user(), detail="resent by staff")
-        db.session.commit()
-        flash("Sign link re-sent.", "ok")
+        err = send_signature_reminder(s, current_user(), detail="resent by staff")
+        if err:
+            db.session.rollback()
+            flash(err, "error")
+        else:
+            db.session.commit()
+            flash("Sign link re-sent.", "ok")
     return redirect(url_for("signatures.detail", id=s.id))
 
 
@@ -337,9 +348,13 @@ def remind(id):
     if s.status not in ("sent", "viewed"):
         flash("Only sent requests can be reminded.", "error")
         return redirect(url_for("signatures.detail", id=s.id))
-    send_signature_reminder(s, current_user(), detail="manual reminder")
-    db.session.commit()
-    flash("Reminder sent.", "ok")
+    err = send_signature_reminder(s, current_user(), detail="manual reminder")
+    if err:
+        db.session.rollback()
+        flash(err, "error")
+    else:
+        db.session.commit()
+        flash("Reminder sent.", "ok")
     return redirect(url_for("signatures.detail", id=s.id))
 
 

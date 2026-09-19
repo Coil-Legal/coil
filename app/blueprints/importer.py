@@ -115,7 +115,7 @@ class Ctx:
         self.source, self.entity, self.user, self.mapping, self.options, self.dry = source, entity, user, mapping, options, dry
         self.pending = {}          # (entity, external_id) -> True in dry mode
         self.seen = set()          # in-file dedupe keys in dry mode
-        self.balances = {}         # ("c", client_id) / ("m", matter_id) -> running trust balance
+        self.trust_proposals = {}  # Valid preview rows, keyed by external id; never used during commit
         self.warnings_users = set()
         self.warnings = []         # [{"row": n, "message": "..."}] things the firm must see but that are not errors
 
@@ -740,10 +740,43 @@ def apply_bills(ctx, rec):
     return inv.id, created
 
 
-def _bal(ctx, key, fetch):
-    if key not in ctx.balances:
-        ctx.balances[key] = fetch()
-    return ctx.balances[key]
+def _trust_problem(ctx, rec, existing=None):
+    from .trust import _closes_a_reconciled_period, validate_history
+    when = date.fromisoformat(rec["date"])
+    problem = _closes_a_reconciled_period(when)
+    if existing:
+        problem = problem or _closes_a_reconciled_period(existing.date)
+        if existing.transfer_group:
+            problem = "A linked trust transfer cannot be changed by importing one of its legs."
+    if problem:
+        return problem
+    proposals = dict(ctx.trust_proposals) if ctx.dry else {}
+    rec = dict(rec, _existing_id=existing.id if existing else None)
+    # A second occurrence in a preview replaces its first proposed value.
+    if rec["external_id"] in proposals:
+        rec["_existing_id"] = proposals[rec["external_id"]]["_existing_id"]
+    proposals[rec["external_id"]] = rec
+    replaced = {r["_existing_id"] for r in proposals.values() if r["_existing_id"] is not None}
+    clients = {r["client_id"] for r in proposals.values()}
+    if replaced:
+        clients.update(cid for cid, in db.session.query(TrustTransaction.client_id).filter(
+            TrustTransaction.id.in_(replaced)).all())
+    rows = TrustTransaction.query.filter(TrustTransaction.client_id.in_(clients))
+    if replaced:
+        rows = rows.filter(~TrustTransaction.id.in_(replaced))
+    history = [(t.date, t.id, 0, t.client_id, t.matter_id, t.amount_cents) for t in rows.all()]
+    for n, r in enumerate(proposals.values(), 1):
+        history.append((date.fromisoformat(r["date"]), r["_existing_id"] or float("inf"), n,
+                        r["client_id"], r["matter_id"], r["amount_cents"]))
+    history.sort(key=lambda r: r[:3])
+    for cid in clients:
+        problem = validate_history((d, mid, cents) for d, _, _, client, mid, cents in history if client == cid)
+        if problem:
+            client = db.session.get(Contact, cid)
+            return f"{client.display_name if client else cid}: {problem}"
+    if ctx.dry:
+        ctx.trust_proposals = proposals
+    return None
 
 
 def prep_trust(ctx, v, raw):
@@ -779,37 +812,27 @@ def prep_trust(ctx, v, raw):
     ext = v["external_id"] or _hash_key(when.isoformat(), client.id, signed, v["description"], v["reference"])
     existing_id = ctx.ref_get("trust", ext)
     existing = ctx.get(TrustTransaction, existing_id) if existing_id and existing_id > 0 else None
-    delta = signed - (existing.amount_cents if existing else 0)
-    cbal = _bal(ctx, ("c", client.id), client.trust_balance_cents)
-    if cbal + delta < 0:
-        return "error", [f"Refused: {client.display_name} would go to {cents_to_str(cbal + delta)} in trust on "
-                         f"{when.isoformat()} (balance {cents_to_str(cbal)} before this row). Add the opening "
-                         f"balance first, then re-upload the failed rows."], None
-    if matter:
-        mbal = _bal(ctx, ("m", matter.id), matter.trust_balance_cents)
-        if mbal + delta < 0:
-            return "error", [f"Refused: {matter.label} would go to {cents_to_str(mbal + delta)} in trust on "
-                             f"{when.isoformat()}. Add the matter's opening balance first."], None
-        ctx.balances[("m", matter.id)] = mbal + delta
-    ctx.balances[("c", client.id)] = cbal + delta
-    if ctx.dry:
-        ctx.ref_set("trust", ext, -1)
+    if existing_id and ctx.options.get("duplicates") == "skip":
+        return "skip", ["Already imported, skipped."], None
     rec = {"external_id": ext, "client_id": client.id, "matter_id": matter.id if matter else None,
            "date": when.isoformat(), "type": ttype, "amount_cents": signed, "description": v["description"][:300],
            "payee": v["payee"][:200], "reference": v["reference"][:120],
            "cleared": M.parse_bool(v["cleared"]) if v["cleared"] else False,
            "cleared_on": (M.parse_any_date(v["cleared"]) or when).isoformat() if v["cleared"] and M.parse_bool(v["cleared"], True) else None}
-    msgs.insert(0, f"{client.display_name}{' / ' + matter.label if matter else ''}: {ttype} {cents_to_str(signed)}, "
-                   f"balance after {cents_to_str(ctx.balances[('c', client.id)])}.")
-    if existing_id:
-        if ctx.options.get("duplicates") == "skip":
-            return "skip", msgs + ["Already imported, skipped."], rec
-        return "update", msgs + ["Already imported, updated."], rec
-    return "create", msgs, rec
+    problem = _trust_problem(ctx, rec, existing)
+    if problem:
+        return "error", [problem], None
+    if ctx.dry:
+        ctx.ref_set("trust", ext, existing_id or -1)
+    msgs.append(f"{client.display_name}{' / ' + matter.label if matter else ''}: {ttype} {cents_to_str(signed)}.")
+    return ("update" if existing_id else "create"), msgs, rec
 
 
 def apply_trust(ctx, rec):
     t = ctx.get(TrustTransaction, ctx.ref_get("trust", rec["external_id"]))
+    problem = _trust_problem(ctx, rec, t)
+    if problem:
+        raise ValueError(problem)
     created = t is None
     if created:
         t = TrustTransaction(client_id=rec["client_id"], type=rec["type"], amount_cents=rec["amount_cents"],
@@ -1364,6 +1387,11 @@ def trust_opening():
         return redirect(url_for("importer.index"))
     if matter and matter.client_id != client.id:
         flash("That matter does not belong to the selected client.", "error")
+        return redirect(url_for("importer.index"))
+    from .trust import _closes_a_reconciled_period
+    problem = _closes_a_reconciled_period(when)
+    if problem:
+        flash(problem, "error")
         return redirect(url_for("importer.index"))
     t = TrustTransaction(client_id=client.id, matter_id=matter.id if matter else None, date=when, type="deposit",
                          amount_cents=amount, description="Opening balance carried over from previous system",

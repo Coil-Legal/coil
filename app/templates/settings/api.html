@@ -14,8 +14,8 @@
         {% for r in resources %}
         <tr>
           <td class="small">{{ resource_labels[r] }}</td>
-          <td><input type="checkbox" name="scopes" value="{{ r }}:read"{% if r == 'matters' %} checked{% endif %}></td>
-          <td><input type="checkbox" name="scopes" value="{{ r }}:write"></td>
+          <td>{% if r ~ ':read' in allowed_scopes %}<input type="checkbox" name="scopes" value="{{ r }}:read"{% if r == 'matters' %} checked{% endif %}>{% endif %}</td>
+          <td>{% if r ~ ':write' in allowed_scopes %}<input type="checkbox" name="scopes" value="{{ r }}:write">{% endif %}</td>
         </tr>
         {% endfor %}
       </table>

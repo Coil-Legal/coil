@@ -12,6 +12,7 @@ from ..extensions import db
 from ..models import (Matter, Invoice, Task, TimeEntry, IntakeLead, Engagement, TrustTransaction, Timer,
                       DocumentSignature, Message)
 from ..helpers import login_required, current_user
+from ..permissions import has_permission
 
 bp = Blueprint("dashboard", __name__)
 
@@ -41,6 +42,19 @@ DEFAULT_CARDS = ["open_matters", "ar", "wip", "trust", "tasks", "deadlines", "le
 
 OPEN_INVOICE = ("sent", "viewed", "partial")
 
+CARD_PERMISSIONS = {
+    "open_matters": "matters_view", "ar": "billing_view", "wip": "billing_view",
+    "trust": "trust_view", "my_hours_week": "time_view", "pending_approvals": "billing_view",
+    "tasks": "matters_view", "deadlines": "matters_view", "leads": "matters_view",
+    "engagements": "matters_view", "overdue": "billing_view", "evergreen": "trust_view",
+    "unsigned_documents": "documents_view", "portal_messages": "messages_view",
+    "recent_matters": "matters_view", "case_audit": "matters_view",
+}
+
+
+def permitted_cards(u):
+    return {key for key, permission in CARD_PERMISSIONS.items() if has_permission(u, permission)}
+
 
 def parse_cards(raw):
     """User.dashboard_json -> ordered list of known keys. Anything unusable falls back to the defaults."""
@@ -59,7 +73,7 @@ def parse_cards(raw):
 
 
 def user_cards(u):
-    return parse_cards(u.dashboard_json if u else "")
+    return [k for k in parse_cards(u.dashboard_json if u else "") if k in permitted_cards(u)]
 
 
 # ---- loaders: one per card so only the cards on screen are queried ----
@@ -98,6 +112,7 @@ def _evergreen():
 
 def load_card_data(keys, u, today):
     ctx = {}
+    keys = [k for k in keys if k in permitted_cards(u)]
     week_ago = today - timedelta(days=7)
     for k in keys:
         if k == "open_matters":
@@ -152,7 +167,13 @@ def load_card_data(keys, u, today):
             recent = (Matter.query.options(joinedload(Matter.client))
                       .order_by(Matter.created_at.desc()).limit(8).all())
             ctx["recent_matters"] = recent
-            ctx["recent_money"] = money_for(recent)
+            billing = has_permission(u, "billing_view")
+            trust = has_permission(u, "trust_view")
+            amounts = money_for(recent) if billing or trust else {}
+            ctx["recent_money"] = {
+                mid: {**({"unbilled": values.unbilled} if billing else {}),
+                      **({"trust": values.trust} if trust else {})}
+                for mid, values in amounts.items()}
         elif k == "case_audit":
             from ..models import CaseAuditFinding
             ctx["case_audit_high"] = CaseAuditFinding.query.filter_by(status="open", severity="high").count()
@@ -171,13 +192,16 @@ def index():
     ctx = load_card_data(keys, u, today)
     timer = Timer.query.filter_by(user_id=u.id).first()
     return render_template("dashboard.html", cards=keys, card_defs=CARDS, timer=timer, today=today,
-                           customized=bool(u.dashboard_json), **ctx)
+                           customized=bool(u.dashboard_json),
+                           show_billing=has_permission(u, "billing_view"),
+                           show_trust=has_permission(u, "trust_view"), **ctx)
 
 
 @bp.route("/dashboard/customize", methods=["GET", "POST"])
 @login_required
 def customize():
     u = current_user()
+    allowed = permitted_cards(u)
     if request.method == "POST":
         if request.form.get("reset"):
             u.dashboard_json = ""
@@ -186,7 +210,7 @@ def customize():
             return redirect(url_for("dashboard.index"))
         picked = []
         for i, key in enumerate(CARDS):
-            if request.form.get(f"card_{key}"):
+            if key in allowed and request.form.get(f"card_{key}"):
                 raw = (request.form.get(f"order_{key}") or "").strip()
                 try:
                     pos = int(raw)
@@ -207,9 +231,11 @@ def customize():
     nxt = len(current) + 1
     rows = []
     for key, (label, kind, desc) in CARDS.items():
+        if key not in allowed:
+            continue
         on = key in order
         rows.append({"key": key, "label": label, "kind": kind, "desc": desc, "on": on,
                      "order": order.get(key, nxt + list(CARDS).index(key))})
     rows.sort(key=lambda r: (0 if r["on"] else 1, r["order"]))
     return render_template("dashboard_customize.html", rows=rows, customized=bool(u.dashboard_json),
-                           default_keys=DEFAULT_CARDS)
+                           default_keys=[k for k in DEFAULT_CARDS if k in allowed])

@@ -23,6 +23,12 @@ PDF_DIR = os.path.join(ROOT, "data", "pdf", "test_phase2_d")
 from tests.helpers import login  # noqa: E402
 
 
+@pytest.fixture(autouse=True)
+def delivered_signature_mail(monkeypatch):
+    from tests.helpers import capture_delivered_mail
+    monkeypatch.setattr("app.blueprints.signatures.send_email", capture_delivered_mail)
+
+
 @pytest.fixture(scope="module")
 def app():
     for p in (DB_PATH,):

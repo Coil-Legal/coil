@@ -147,8 +147,7 @@ if [ "$PINNED" -eq 1 ]; then
     log "HOLDING the channel still points at the build that failed. Staying on the pinned one."
     exit 0
   fi
-  log "RECOVER a new build is out; unpinning and trying it"
-  rm -f "$OVERRIDE"
+  log "RECOVER a new build is out; keeping the pin until backup succeeds"
 elif [ -n "$before" ] && [ "$before" = "$after" ]; then
   log "UP-TO-DATE nothing to do"
   exit 0
@@ -166,7 +165,12 @@ fi
 rm -f "$OVERRIDE"
 
 log "RESTART bringing Coil up on $after"
-docker compose up -d >>"$LOG" 2>&1
+if ! docker compose up -d >>"$LOG" 2>&1; then
+  log "RESTART FAILED restoring the previous build"
+  printf '%s\n' "$after" > "$BADSTATE"
+  roll_back_to "$before"
+  exit 1
+fi
 
 if wait_for_health; then
   rm -f "$BADSTATE"

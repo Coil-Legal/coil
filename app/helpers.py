@@ -98,10 +98,14 @@ def parse_minutes(s):
 
 # ---- auth ----
 def current_user():
-    if "user" in g:
-        return g.user
-    uid = session.get("user_id")
-    g.user = db.session.get(User, uid) if uid else None
+    if "user" not in g:
+        uid = session.get("user_id")
+        g.user = db.session.get(User, uid) if uid else None
+    if g.user is not None and not g.user.is_active:
+        session.pop("user_id", None)
+        session.pop("_new_api_token", None)
+        session.pop("_csrf", None)
+        g.user = None
     return g.user
 
 

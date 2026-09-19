@@ -91,6 +91,16 @@ def normalise_scopes(raw):
 CONFIDENTIALITY = ("redacted", "full")
 
 
+def allowed_scopes(user):
+    """Token scopes cannot exceed the owner's current role."""
+    from ..permissions import has_permission
+    areas = {"matters": "matters", "contacts": "matters", "time": "time",
+             "invoices": "billing", "tasks": "matters", "documents": "documents",
+             "calendar": "calendar", "notes": "matters", "leads": "matters", "voice": "matters"}
+    return {f"{resource}:{access}" for resource, area in areas.items() for access in ACCESS
+            if has_permission(user, area + ("_view" if access == "read" else ""))}
+
+
 def create_token(user, name, scopes="read", confidentiality="redacted"):
     """-> (ApiToken, raw). The raw value is never stored; show it once.
 
@@ -98,14 +108,19 @@ def create_token(user, name, scopes="read", confidentiality="redacted"):
     """
     raw = new_raw_token()
     mode = confidentiality if confidentiality in CONFIDENTIALITY else "redacted"
+    picked = [s for s in normalise_scopes(scopes) if s in allowed_scopes(user)]
+    if not picked:
+        raise ValueError("Your role cannot use the selected API scopes.")
     t = ApiToken(user_id=user.id, name=(name or "API token")[:120], token_hash=hash_token(raw), prefix=raw[:12],
-                 scopes=",".join(normalise_scopes(scopes)), confidentiality=mode)
+                 scopes=",".join(picked), confidentiality=mode)
     db.session.add(t)
     return t, raw
 
 
 def token_scopes(t):
-    return set(normalise_scopes(t.scopes if t is not None else ""))
+    if t is None or not t.scopes or not t.user or not t.user.is_active:
+        return set()
+    return set(normalise_scopes(t.scopes)) & allowed_scopes(t.user)
 
 
 # ---------------------------------------------------------------- plumbing

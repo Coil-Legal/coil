@@ -15,7 +15,6 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from markupsafe import escape
 from jinja2.sandbox import SandboxedEnvironment
 from jinja2 import TemplateError
-from rapidfuzz import fuzz
 from ..extensions import db
 from ..models import (Firm, User, Contact, Matter, MatterParty, FlatFeeMilestone, ConflictCheck, IntakeLead,
                       LetterTemplate, FollowUpSequence, LeadSequence, Message, audit, now)
@@ -64,44 +63,11 @@ def age_str(dt):
 
 
 # ---------------------------------------------------------------------------
-# Fuzzy conflict preview (small local copy of what the conflicts module does)
+# Conflict preview uses the same sources and matching rules as the full checker
 # ---------------------------------------------------------------------------
-def _candidates(exclude_contact_id=None):
-    out = []
-    for c in Contact.query.all():
-        if exclude_contact_id and c.id == exclude_contact_id:
-            continue
-        names = [c.display_name] + [a.strip() for a in (c.aliases or "").splitlines() if a.strip()]
-        for n in names:
-            out.append(dict(name=n, kind="contact", id=c.id, url=f"/contacts/{c.id}",
-                            label=f"{c.display_name}" + (" (client)" if c.is_client else "")))
-    for p in MatterParty.query.all():
-        out.append(dict(name=p.name, kind="party", id=p.matter_id, url=f"/matters/{p.matter_id}",
-                        label=f"{p.role} on {p.matter.label if p.matter else 'matter'}"))
-    for m in Matter.query.all():
-        out.append(dict(name=m.name, kind="matter", id=m.id, url=f"/matters/{m.id}", label=m.label))
-    return out
-
-
-def fuzzy_hits(names, exclude_contact_id=None):
-    names = [n.strip() for n in names if n and n.strip()]
-    if not names:
-        return []
-    cands = _candidates(exclude_contact_id)
-    hits = []
-    seen = set()
-    for q in names:
-        for c in cands:
-            score = fuzz.token_set_ratio(q.lower(), (c["name"] or "").lower())
-            if score >= FUZZ_THRESHOLD:
-                key = (q, c["kind"], c["id"], c["name"])
-                if key in seen:
-                    continue
-                seen.add(key)
-                hits.append(dict(query=q, match=c["name"], kind=c["kind"], id=c["id"], url=c["url"],
-                                 label=c["label"], score=int(score)))
-    hits.sort(key=lambda h: -h["score"])
-    return hits
+def fuzzy_hits(names, exclude_contact_id=None, exclude_lead_id=None):
+    from .conflicts import search_hits
+    return search_hits(names, exclude_contact_id, exclude_lead_id)
 
 
 # ---------------------------------------------------------------------------
@@ -461,7 +427,9 @@ def sequence_start(id):
     except Exception as e:  # noqa: BLE001
         current_app.logger.warning("day-0 sequence step failed for lead %s: %s", lead.id, e)
     db.session.commit()
-    if sent:
+    if getattr(ls, "delivery_failed", False):
+        flash("Email delivery failed. The sequence is waiting at this step; its draft can be retried.", "error")
+    elif sent:
         flash(f"Started {seq.name} and sent the day-0 step. Later steps go out on their own days. "
               f"Turn off automatic sending in Settings if you would rather review each one first.", "ok")
     elif drafted:
@@ -499,6 +467,7 @@ def process_lead_sequence(ls, today, auto_send):
 
     Idempotent: next_step only moves forward and each step's Message carries a unique provider_id key.
     """
+    ls.delivery_failed = False
     lead = ls.lead
     steps = sorted(ls.sequence.steps if ls.sequence else [], key=lambda s: int(s.get("day", 0) or 0))
     if ls.status != "active":
@@ -520,21 +489,32 @@ def process_lead_sequence(ls, today, auto_send):
             audit("stop", "lead_sequence", ls.id, "lead has no email")
             break
         key = _step_key(ls, ls.next_step)
-        if not Message.query.filter_by(provider_id=key).first():
+        msg = Message.query.filter_by(provider_id=key).first()
+        if msg is None:
             subject, body = render_step(lead, step)
             msg = Message(contact_id=lead.contact_id, matter_id=lead.matter_id, direction="out", channel="email",
                           to_addr=lead.email, from_addr=firm.email or current_app.config["MAIL_FROM"],
                           subject=subject, body=body, provider_id=key, status="draft")
             db.session.add(msg)
             db.session.flush()
-            if auto_send:
-                send_email(lead.email, subject, _body_html(body), text=body, reply_to=firm.email or None)
-                msg.status = "sent"
-                audit("send", "message", msg.id, f"sequence step {ls.next_step} to {lead.email} (auto-send on)")
-                sent += 1
-            else:
+            if not auto_send:
                 audit("draft", "message", msg.id, f"sequence step {ls.next_step} drafted for {lead.email}")
                 drafted += 1
+        if auto_send and msg.status != "sent":
+            try:
+                delivered = send_email(lead.email, msg.subject, _body_html(msg.body), text=msg.body,
+                                       reply_to=firm.email or None)
+            except Exception:
+                current_app.logger.exception("Sequence email delivery failed for message %s", msg.id)
+                delivered = False
+            if not delivered:
+                audit("delivery_failed", "message", msg.id, f"sequence step {ls.next_step} remains a draft")
+                ls.delivery_failed = True
+                db.session.commit()
+                break
+            msg.status = "sent"
+            audit("send", "message", msg.id, f"sequence step {ls.next_step} to {lead.email} (auto-send on)")
+            sent += 1
         ls.next_step += 1
         db.session.commit()
     if ls.status == "active" and ls.next_step >= len(steps):
@@ -584,8 +564,18 @@ def draft_send(id):
         flash("No recipient address.", "error")
         return redirect(url_for("intake.drafts"))
     firm = Firm.get()
-    send_email(to, subject, _body_html(body), text=body, reply_to=firm.email or None)
-    msg.subject, msg.body, msg.to_addr, msg.status = subject, body, to, "sent"
+    try:
+        delivered = send_email(to, subject, _body_html(body), text=body, reply_to=firm.email or None)
+    except Exception:
+        current_app.logger.exception("Draft email delivery failed for message %s", msg.id)
+        delivered = False
+    msg.subject, msg.body, msg.to_addr = subject, body, to
+    if not delivered:
+        audit("delivery_failed", "message", msg.id, "Draft retained for retry", current_user().id)
+        db.session.commit()
+        flash("Email delivery failed. The message remains a draft; check mail settings and try again.", "error")
+        return redirect(url_for("intake.drafts"))
+    msg.status = "sent"
     msg.created_at = now()
     audit("send", "message", msg.id, f"draft sent to {to}", current_user().id)
     db.session.commit()
@@ -638,7 +628,12 @@ def detail(id):
     # out, a lead whose own name never fuzzy-matched anything could hit a conflict on convert yet
     # redisplay with no hits at all, so the ack checkbox never renders and the lead is stuck.
     names = [lead.name, lead.adverse_party] + ([email_match.display_name] if email_match else [])
-    hits = fuzzy_hits(names, exclude_contact_id=email_match.id if email_match else None)
+    try:
+        hits = fuzzy_hits(names, exclude_contact_id=email_match.id if email_match else None,
+                          exclude_lead_id=lead.id)
+    except ValueError as exc:
+        hits = []
+        flash(str(exc), "error")
     users = User.query.filter_by(is_active=True).order_by(User.name).all()
     templates = LetterTemplate.query.filter_by(kind="engagement").order_by(LetterTemplate.is_default.desc(),
                                                                           LetterTemplate.name).all()
@@ -698,7 +693,12 @@ def convert(id):
     # 2. conflict search, before the new matter and party exist
     adverse = f.get("adverse_party", lead.adverse_party).strip()
     query_names = [lead.name, contact.display_name, adverse]
-    hits = fuzzy_hits(query_names, exclude_contact_id=contact.id)
+    try:
+        hits = fuzzy_hits(query_names, exclude_contact_id=contact.id, exclude_lead_id=lead.id)
+    except ValueError as exc:
+        db.session.rollback()
+        flash(str(exc), "error")
+        return redirect(url_for("intake.detail", id=lead.id) + "#conflict")
 
     # 2a. A conflict search that finds something has to be answered by a person before a
     # matter exists. Opening one over an unresolved conflict is the kind of thing that ends
@@ -714,6 +714,11 @@ def convert(id):
                 "ticked and a reason, which is recorded against your name.", "error")
         return redirect(url_for("intake.detail", id=lead.id) + "#conflict")
     waiver_reason = (f.get("conflict_reason") or "").strip()[:500] if hits else ""
+
+    if hits and not waiver_reason:
+        db.session.rollback()
+        flash("Enter a reason for the conflict waiver. Nothing was created.", "error")
+        return redirect(url_for("intake.detail", id=lead.id) + "#conflict")
 
     # 3. matter
     number = _next_matter_number()

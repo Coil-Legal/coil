@@ -422,6 +422,8 @@ class _FakeDate(date):
 
 
 def test_sequences_drafts_then_send_idempotent_and_day3(app, client, monkeypatch):
+    from tests.helpers import capture_delivered_mail
+    monkeypatch.setattr("app.blueprints.intake.send_email", capture_delivered_mail)
     from app import cli
     from app.services.mail import dev_outbox, _dev_outbox
     db, M = _models()

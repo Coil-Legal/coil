@@ -243,7 +243,7 @@ def test_readonly_user_cannot_write_even_with_a_write_scope(app):
     payload, is_error = tool_payload(rpc(app.test_client(), h, "tools/call",
                                          {"name": "add_note", "arguments": {"matter_id": mid, "body": "should not land"}}))
     assert is_error
-    assert "Read-only" in payload["error"]
+    assert "not allowed" in payload["error"]
 
 
 # --- transport edges -------------------------------------------------------------------------

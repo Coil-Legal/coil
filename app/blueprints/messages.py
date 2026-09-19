@@ -237,6 +237,16 @@ def _email_new_message_notice(c, matter, firm):
 
 @bp.route("/webhooks/twilio", methods=["POST"])
 def twilio_inbound():
+    from ..integrations import setting
+    from ..services.twilio_verify import valid_signature
+    token = setting("TWILIO_AUTH_TOKEN")
+    if not token:
+        return "Twilio webhook verification is not configured", 503
+    url = current_app.config["BASE_URL"].rstrip("/") + request.path
+    if request.query_string:
+        url += "?" + request.query_string.decode("ascii", errors="replace")
+    if not valid_signature(token, url, request.form, request.headers.get("X-Twilio-Signature", "")):
+        return "Invalid Twilio signature", 403
     frm = request.form.get("From", "")
     body = request.form.get("Body", "")
     sid = request.form.get("MessageSid", "")

@@ -679,7 +679,8 @@ def template_delete(id):
 @login_required
 @permission_required("settings_view")
 def integrations():
-    c = current_app.config
+    from ..integrations import FIRM_SETTABLE, setting
+    c = {**current_app.config, **{key: setting(key) for key in FIRM_SETTABLE}}
     base = c["BASE_URL"]
     # Plain-English guidance for each integration. Written for a solo attorney rather than
     # an operator: what it is, whether they actually need it, what it costs, and what
@@ -766,7 +767,7 @@ def integrations():
              link=("/dev/outbox", "Open dev outbox") if current_user().role == "owner" and not c.get("SMTP_HOST") else None),
         dict(name="Stripe (card and ACH payments)", ok=bool(c.get("STRIPE_SECRET_KEY")),
              detail=("Secret key set. " + ("Webhook secret set." if c.get("STRIPE_WEBHOOK_SECRET") else
-                                          "STRIPE_WEBHOOK_SECRET is empty, so webhook signatures are not verified."))
+                                          "The webhook signing secret is missing. Payment notifications are refused until it is set."))
              if c.get("STRIPE_SECRET_KEY") else "STRIPE_SECRET_KEY is empty. Pay links show mailing instructions instead.",
              env="STRIPE_SECRET_KEY, STRIPE_PUBLISHABLE_KEY, STRIPE_WEBHOOK_SECRET",
              webhook=f"{base}/webhooks/stripe", webhook_note="Stripe Dashboard > Developers > Webhooks. Event: checkout.session.completed"),
@@ -840,7 +841,11 @@ def api_tokens():
             return redirect(url_for("settings.api_tokens"))
         # Checkboxes give a list; the old radio posted a single legacy value. Both work.
         picked = request.form.getlist("scopes") or (request.form.get("scopes") or "read")
-        t, raw = create_token(u, name, picked, request.form.get("confidentiality") or "redacted")
+        try:
+            t, raw = create_token(u, name, picked, request.form.get("confidentiality") or "redacted")
+        except ValueError as exc:
+            flash(str(exc), "error")
+            return redirect(url_for("settings.api_tokens"))
         db.session.flush()
         audit("api_token_create", "api_token", t.id,
               f"{name} [{t.confidentiality}] ({t.scopes})", u.id)
@@ -849,9 +854,9 @@ def api_tokens():
         return redirect(url_for("settings.api_tokens"))
     new_token = session.pop("_new_api_token", None)
     rows = ApiToken.query.order_by(ApiToken.revoked_at.isnot(None), ApiToken.created_at.desc()).all()
-    from .api import RESOURCES, RESOURCE_LABELS
+    from .api import RESOURCES, RESOURCE_LABELS, allowed_scopes
     return render_template("settings/api.html", rows=rows, new_token=new_token, base=current_app.config["BASE_URL"],
-                           resources=RESOURCES, resource_labels=RESOURCE_LABELS,
+                           resources=RESOURCES, resource_labels=RESOURCE_LABELS, allowed_scopes=allowed_scopes(u),
                            rate_limit=current_app.config.get("API_RATE_LIMIT", RATE_LIMIT))
 
 

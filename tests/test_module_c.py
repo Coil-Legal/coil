@@ -9,7 +9,7 @@ import pytest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
-from tests.helpers import login  # noqa: E402
+from tests.helpers import login, post_stripe_event  # noqa: E402
 
 
 @pytest.fixture(scope="module")
@@ -178,13 +178,13 @@ def test_module_c_flow(app, client):
     r = anon.get("/pay/deposit/success")
     assert r.status_code == 200
 
-    # 8. Stripe webhook (no secret): idempotent on the checkout session id.
+    # 8. Signed Stripe webhook: idempotent on the checkout session id.
     event = {"type": "checkout.session.completed", "data": {"object": {
         "id": "cs_test_modc_1", "object": "checkout.session", "payment_status": "paid",
         "payment_intent": "pi_test_modc_1", "amount_total": 103000, "payment_method_types": ["card"],
         "metadata": {"kind": "invoice", "invoice_id": str(inv2_id), "surcharge_cents": "3000", "method": "card"}}}}
     for _ in range(2):
-        r = anon.post("/webhooks/stripe", data=json.dumps(event), content_type="application/json")
+        r = post_stripe_event(anon, app, event)
         assert r.status_code == 200
     with app.app_context():
         ps = Payment.query.filter_by(stripe_checkout_session="cs_test_modc_1").all()
@@ -200,14 +200,14 @@ def test_module_c_flow(app, client):
         "id": "cs_test_modc_dep", "payment_status": "unpaid", "payment_intent": "pi_test_modc_dep",
         "amount_total": 20000, "payment_method_types": ["us_bank_account"],
         "metadata": {"kind": "trust_deposit", "client_id": str(maria_id), "matter_id": "", "amount_cents": "20000"}}}}
-    r = anon.post("/webhooks/stripe", data=json.dumps(dep), content_type="application/json")
+    r = post_stripe_event(anon, app, dep)
     assert r.status_code == 200
     with app.app_context():
         assert db.session.get(Contact, maria_id).trust_balance_cents() == 75000
     dep["type"] = "checkout.session.async_payment_succeeded"
     dep["data"]["object"]["payment_status"] = "paid"
     for _ in range(2):
-        r = anon.post("/webhooks/stripe", data=json.dumps(dep), content_type="application/json")
+        r = post_stripe_event(anon, app, dep)
         assert r.status_code == 200
     with app.app_context():
         assert db.session.get(Contact, maria_id).trust_balance_cents() == 95000

@@ -10,7 +10,7 @@ Use an isolated checkout for overlapping work. Before integrating, compare again
 
 Updated 2026-09-19 20:27 UTC.
 
-- **Codex: active.** Fixing seven findings from the independent code review. Base commit `0e340ce`. Working copy: `/Users/iandolan/Documents/Codex/2026-09-19/reve/work/coil-fixes`, branch `codex/review-fixes`. Files: `app/helpers.py`, `app/merge_templates.py`, blueprints `payments.py`, `api.py`, `settings.py`, `engagements.py`, `doctemplates.py`, `invoices.py`, `dashboard.py`, `trust.py`, dashboard/API templates, and related tests. Focused regression checks: 24 passed. Full suite in progress. Deployment is not part of this task.
+- **Codex: active deployment to testfirm only.** Ian authorized deployment of all 19 review fixes. The shared code matches the tested copy: 628 tests passed. Creating the release commit, backing up testfirm and rebuilding it with a recorded commit. Claiming release files, `COORDINATION.md` and the testfirm deployment until verification finishes. Grok checklist: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5746158366. No demo deployment requested. Timestamp 2026-09-19 23:48 UTC.
 
 - **Claude Code: idle, no files held.** Last task was setting up this log, finished and committed as `23aba35` on `main` (`COORDINATION.md`, `CLAUDE.md`, `AGENTS.md`, plus the loop's own instructions outside the repo). No application code touched. Codex's branch has right of way on every file it lists; Claude Code will not edit `app/blueprints/trust.py`, `app/blueprints/invoices.py` or `app/helpers.py` until Codex's handoff lands, and will update this entry first if that changes. Working directory `/Users/iandolan/General/solo-practice`. Timestamp 2026-09-19 20:27 UTC.
 
@@ -31,6 +31,8 @@ Codex's branch and the four changes shipped on 2026-09-19 touch the same three f
 Claude Code will not edit these files until Codex's handoff lands, and will say so here if that changes.
 
 ## Recent handoffs, newest first
+
+- **2026-09-19 23:26 UTC, Codex.** Completed all seven original fixes and 12 Phase 1 fixes. Combined patch and file list are in `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-all-fixes-handoff.md`. Full suite: 628 passed. Application, updater and regression tests are integrated into the shared checkout, uncommitted. Every integrated file matched the tested copy. No schema changes, new dependencies, commits or deployment. Do not apply the older seven-fix patch separately.
 
 - **2026-09-19 20:27 UTC, Claude Code.** Coordination log set up. Commit `23aba35` on `main`: this file, `CLAUDE.md`, `AGENTS.md`. Also added the same read-first requirement to the autonomous loop's instructions at `~/.claude/scheduled-tasks/coil-grok-handoff-check/SKILL.md`, which is outside the repo and therefore not in that commit. Tests: full suite `545 passed`, unchanged, since no application code was touched. Remaining work: none. Deployment status: not deployed and none needed, documentation only.
 

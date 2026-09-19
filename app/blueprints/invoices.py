@@ -1312,10 +1312,6 @@ def _send_invoice_email(inv, reminder=False):
         current_app.logger.exception("invoice pdf failed for invoice %s", inv.id)
         return (f"The invoice PDF could not be built, so invoice {inv.number} was not sent: {e}. "
                 f"The invoice is unchanged. Fix the problem and send it again.")
-    if inv.status == "draft":
-        inv.status = "sent"
-    inv.sent_at = now()
-    inv.sent_to = to
     link = public_url(inv)
     pixel = f"{_base_url()}/track/invoice/{inv.public_token}.gif"
     subject = (f"Reminder: invoice {inv.number} from {firm.name}" if reminder
@@ -1361,11 +1357,18 @@ def _send_invoice_email(inv, reminder=False):
             f"Due: {inv.due_on.isoformat() if inv.due_on else 'on receipt'}\n\nView and pay: {link}\n")
     attachments = [(f"{inv.number}.pdf", pdf_data, "application/pdf")]
     try:
-        send_email(to, subject, html, text=text, attachments=attachments, reply_to=firm.email or None)
+        delivered = send_email(to, subject, html, text=text, attachments=attachments, reply_to=firm.email or None)
+        if not delivered:
+            return (f"The email to {to} could not be delivered. Invoice {inv.number} is unchanged. "
+                    "Check the firm's email settings and try again.")
     except Exception as e:
         current_app.logger.exception("invoice email failed for invoice %s", inv.id)
         return (f"The email to {to} could not be sent: {e}. Invoice {inv.number} is unchanged and can be "
                 f"sent again.")
+    if inv.status == "draft":
+        inv.status = "sent"
+    inv.sent_at = now()
+    inv.sent_to = to
     return None
 
 

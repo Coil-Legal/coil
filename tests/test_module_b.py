@@ -15,6 +15,14 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 from tests.helpers import login  # noqa: E402
 
+
+@pytest.fixture(scope="module", autouse=True)
+def invoice_delivery():
+    from tests.helpers import capture_delivered_mail
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr("app.blueprints.invoices.send_email", capture_delivered_mail)
+        yield
+
 TEST_DB = os.path.join(ROOT, "data", "test_module_b.db")
 S = {}
 

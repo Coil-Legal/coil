@@ -65,6 +65,12 @@ terminates HTTPS and forwards to port 8000 works. Set `BASE_URL` to the public a
 in emails resolve. Point the Stripe webhook at `BASE_URL/webhooks/stripe` and the Twilio inbound
 webhook at `BASE_URL/webhooks/twilio`.
 
+Incoming webhooks require signature verification. Configure `STRIPE_WEBHOOK_SECRET` and
+`TWILIO_AUTH_TOKEN` in the environment or the firm integration settings. For Twilio,
+`BASE_URL` must exactly match the public scheme and host used by Twilio, including any
+port. Requests with missing or invalid signatures are rejected; unconfigured endpoints
+return HTTP 503.
+
 Scheduled jobs (cron on the host):
 
 ```

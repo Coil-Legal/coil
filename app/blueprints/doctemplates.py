@@ -7,6 +7,7 @@ import zipfile
 from datetime import date
 from flask import Blueprint, render_template, request, redirect, url_for, flash, abort, current_app, send_file
 from jinja2 import Environment, TemplateSyntaxError, meta
+from ..merge_templates import MergeEnvironment
 from markupsafe import escape
 from werkzeug.utils import secure_filename
 from ..extensions import db
@@ -306,7 +307,7 @@ def _fill(t, form, files):
         return None
     body = form.get("body_html", "")
     try:
-        Environment(autoescape=True).from_string(body)
+        MergeEnvironment(autoescape=True).from_string(body)
     except TemplateSyntaxError as e:
         return f"Template syntax problem on line {e.lineno}: {e.message}"
     t.kind = "html"
@@ -437,7 +438,7 @@ def render_docx(t, ctx):
     plain = plain_field_names(ctx.keys())
     data, _ = docx_with_plain_fields(abs_path(t.path), plain)
     doc = DocxTemplate(io.BytesIO(data))
-    doc.render(ctx, autoescape=True)
+    doc.render(ctx, jinja_env=MergeEnvironment(autoescape=True), autoescape=True)
     buf = io.BytesIO()
     doc.save(buf)
     out = buf.getvalue()
@@ -451,7 +452,7 @@ def render_html_pdf(t, ctx, title):
     {{ or {% cannot turn into template code, and CSS braces never reach the substitution at all.
     """
     from ..services.pdf import DocPDF, html_to_pdf_body
-    html = Environment(autoescape=True).from_string(t.body_html or "").render(**ctx)
+    html = MergeEnvironment(autoescape=True).from_string(t.body_html or "").render(**ctx)
     plain = {n: ctx[n] for n in plain_field_names(ctx.keys())}
     html = fill_plain_fields(html, plain)
     pdf = DocPDF(Firm.get(), title=title)

@@ -20,7 +20,7 @@ def normalise(s):
     Non-Latin scripts (Greek, Cyrillic, CJK) have no ASCII decomposition and are unaffected."""
     s = unicodedata.normalize("NFKD", (s or "").lower())
     s = "".join(ch for ch in s if not unicodedata.combining(ch))
-    s = re.sub(r"[^a-z0-9]+", " ", s)
+    s = "".join(ch if ch.isalnum() else " " for ch in s.casefold())
     return " ".join(s.split())
 
 
@@ -39,10 +39,12 @@ def _score(query, text):
     return int(s) if s >= FUZZY_MIN else None
 
 
-def _index():
+def _index(exclude_contact_id=None, exclude_lead_id=None):
     """Everything we search, as (text, source, label, url, role)."""
     rows = []
     for c in Contact.query.all():
+        if c.id == exclude_contact_id:
+            continue
         role = "client" if c.is_client else "contact"
         url = f"/contacts/{c.id}"
         names = {c.display_name, f"{c.first_name} {c.last_name}".strip(), c.company_name or ""}
@@ -76,6 +78,8 @@ def _index():
         if d.extracted_text:
             rows.append((d.extracted_text, "document", f"{label} (contents)", url, "file contents"))
     for l in IntakeLead.query.all():
+        if l.id == exclude_lead_id:
+            continue
         rows.append((l.name, "lead", l.name, f"/intake/{l.id}", "lead"))
         if l.email:
             rows.append((l.email, "lead", f"{l.name} <{l.email}>", f"/intake/{l.id}", "lead email"))
@@ -88,20 +92,30 @@ def _index():
     return rows
 
 
-def run_check(names, matter_id=None, contact_id=None, user_id=None):
-    """Run a check and store it. Returns the ConflictCheck (already committed)."""
-    queries = [n.strip() for n in names.splitlines() if n.strip()]
-    index = _index()
+def search_hits(names, exclude_contact_id=None, exclude_lead_id=None):
+    """Shared read-only search for the checker and intake conversion."""
+    queries = [n.strip() for n in names if n and n.strip()]
+    if not queries or any(not normalise(q) for q in queries):
+        raise ValueError("Enter a name containing letters or numbers before running the conflict check.")
+    index = _index(exclude_contact_id, exclude_lead_id)
     hits = {}
     for q in queries:
         for text, source, label, url, role in index:
-            s = _score(q, text)
-            if s is None:
+            score = _score(q, text)
+            if score is None:
                 continue
             key = (q, source, url, label)
-            if key not in hits or hits[key]["score"] < s:
-                hits[key] = {"query": q, "source": source, "label": label, "score": s, "url": url, "role": role}
-    results = sorted(hits.values(), key=lambda r: (-r["score"], r["query"], r["source"]))
+            if key not in hits or hits[key]["score"] < score:
+                hits[key] = {"query": q, "source": source, "label": label, "score": score,
+                             "url": url, "role": role, "match": text, "kind": source}
+    return sorted(hits.values(), key=lambda r: (-r["score"], r["query"], r["source"]))
+
+
+def run_check(names, matter_id=None, contact_id=None, user_id=None):
+    """Run a check and store it. Returns the committed ConflictCheck."""
+    queries = [n.strip() for n in names.splitlines() if n.strip()]
+    results = [{k: v for k, v in hit.items() if k not in ("match", "kind")}
+               for hit in search_hits(queries)]
     chk = ConflictCheck(run_by_id=user_id, query="\n".join(queries), results_json=json.dumps(results),
                         matter_id=matter_id, contact_id=contact_id,
                         outcome="unresolved" if results else "clear")
@@ -145,8 +159,12 @@ def run():
     if not names.strip():
         flash("Enter at least one name to search.", "error")
         return redirect(url_for("conflicts.index"))
-    chk = run_check(names, matter_id=_int(request.form.get("matter_id")),
-                    contact_id=_int(request.form.get("contact_id")), user_id=current_user().id)
+    try:
+        chk = run_check(names, matter_id=_int(request.form.get("matter_id")),
+                        contact_id=_int(request.form.get("contact_id")), user_id=current_user().id)
+    except ValueError as exc:
+        flash(str(exc), "error")
+        return redirect(url_for("conflicts.index"))
     return redirect(url_for("conflicts.detail", id=chk.id))
 
 
@@ -166,8 +184,12 @@ def resolve(id):
     if outcome not in OUTCOMES:
         flash("Pick an outcome.", "error")
         return redirect(url_for("conflicts.detail", id=id))
+    notes = request.form.get("notes", "").strip()
+    if outcome == "waived" and not notes:
+        flash("Enter a reason before waiving a conflict.", "error")
+        return redirect(url_for("conflicts.detail", id=id))
     chk.outcome = outcome
-    chk.notes = request.form.get("notes", "").strip()
+    chk.notes = notes
     audit("resolve", "conflict_check", chk.id, outcome, current_user().id)
     if chk.matter_id:
         audit("conflict_check", "matter", chk.matter_id, f"check #{chk.id} marked {outcome}", current_user().id)

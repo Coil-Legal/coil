@@ -1,6 +1,6 @@
 import os
 import logging
-from flask import Flask, render_template
+from flask import Flask, render_template, request
 from .config import ProductionConfig, DATA_DIR
 from .extensions import db
 from .helpers import register_template_globals, check_csrf
@@ -28,6 +28,10 @@ def create_app(config=None):
     def add_security_headers(response):
         for header, value in ProductionConfig.SECURITY_HEADERS.items():
             response.headers[header] = value
+        if request.endpoint in ("intake.form", "intake.submit"):
+            # The public lead form is intentionally embedded on a firm's own website.
+            response.headers.pop("X-Frame-Options", None)
+            response.headers["Content-Security-Policy"] += " frame-ancestors *;"
         return response
 
     if app.config.get("COIL_QA_HEADERS"):

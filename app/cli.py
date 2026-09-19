@@ -143,9 +143,9 @@ def send_invoice_reminder(inv, days_past):
             f"<p style='font-size:12px;color:#666'>Link: {url}</p>"
             f"<p style='font-size:13px;color:#666'>{escape(firm.name or '')}<br>{escape(firm.phone or '')}</p>"
             f"<img src='{pixel}' width='1' height='1' alt=''></div>")
-    if to:
-        send_email(to, subject, html, text=f"Invoice {inv.number} is past due. View and pay: {url}",
-                   reply_to=firm.email or None)
+    if not to or not send_email(to, subject, html, text=f"Invoice {inv.number} is past due. View and pay: {url}",
+                               reply_to=firm.email or None):
+        return None
     db.session.add(InvoiceEvent(invoice_id=inv.id, event="reminder", detail=f"{days_past} days past due, to {to or 'no email'}"))
     return to
 
@@ -165,7 +165,8 @@ def run_reminders():
         for inv in Invoice.query.filter(Invoice.status.in_(["sent", "viewed", "partial"]), Invoice.due_on == due).all():
             if _already_reminded("invoice", inv.id, today_iso):
                 continue
-            send_invoice_reminder(inv, days)
+            if not send_invoice_reminder(inv, days):
+                continue
             audit("reminder_sent", "invoice", inv.id, today_iso)
             db.session.commit()
             inv_count += 1

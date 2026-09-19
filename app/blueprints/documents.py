@@ -171,7 +171,9 @@ def _extension_lies(ext, data):
     if not want:
         return None                      # nothing reliable to check this extension against
     actual = _sniff(data)
-    if actual is None or actual in want:
+    if actual is None:
+        return f"This file is named .{ext} but has no recognized {ext.upper()} file header. Re-save it and upload again."
+    if actual in want:
         return _office_mismatch(ext, data) if actual == "zip" else None
     return (f"This file is named .{ext} but its contents are {_TYPE_NAMES.get(actual, actual)}. "
             f"Rename it to match what it really is, or upload the right file.")

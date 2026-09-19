@@ -15,7 +15,7 @@ import pytest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
-from tests.helpers import login  # noqa: E402
+from tests.helpers import login, post_stripe_event  # noqa: E402
 
 TEST_DB = os.path.join(ROOT, "data", "test_phase6_p.db")
 UPLOAD_DIR = os.path.join(ROOT, "data", "test_phase6_p_uploads")
@@ -263,7 +263,7 @@ def test_setup_completion_stores_card(app, client, stripe_on):
         "metadata": {"kind": "card_setup", "contact_id": str(S["pat_id"]), "token": token}}}}
     anon = app.test_client()
     for _ in range(2):  # idempotent
-        r = anon.post("/webhooks/stripe", data=json.dumps(event), content_type="application/json")
+        r = post_stripe_event(anon, app, event)
         assert r.status_code == 200
     with app.app_context():
         c = db.session.get(Contact, S["pat_id"])
