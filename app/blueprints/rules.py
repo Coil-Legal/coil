@@ -3,6 +3,7 @@
 Mounted without a url_prefix so the settings pages sit at /settings/rules and /settings/holidays (owner gate via
 app.permissions) while the apply flow sits at /rules/matters/<id>/apply (any signed-in user).
 """
+import calendar
 import json
 from datetime import date, timedelta
 from flask import Blueprint, render_template, request, redirect, url_for, flash, abort, Response
@@ -13,8 +14,12 @@ from ..helpers import login_required, owner_required, current_user, parse_date
 bp = Blueprint("rules", __name__)
 
 # "nextmonday": count calendar days, then move to the Monday next after that day (TRCP 99 style answer date).
+# "month"/"year": the corresponding date in the later month or year, which is how rules written in months read.
 DAY_TYPES = [("calendar", "calendar days"), ("court", "court days (skip weekends and holidays)"),
-             ("nextmonday", "calendar days, then the Monday next after")]
+             ("nextmonday", "calendar days, then the Monday next after"),
+             ("month", "months"), ("year", "years")]
+# Units counted as whole months rather than days. offset_days holds the count for these.
+MONTH_UNITS = {"month": 1, "year": 12}
 DIRECTIONS = ["after", "before"]
 RULE_KINDS = ["deadline", "court_date", "task"]
 GENERIC_NOTE = ("Generic starting point only. Check the current rule text and the local rules of the court before "
@@ -43,12 +48,85 @@ def _roll(d, step, holidays):
     return d
 
 
+def add_months(d, n):
+    """The corresponding date n months later (or earlier), clamped to the end of the month.
+
+    "Within six months" means the same date six months on. When that date does not exist,
+    the majority rule lands on the last day of the target month rather than spilling into
+    the next one: New York General Construction Law s 30 and Texas Government Code
+    s 311.014(c) both say the period ends with the last day when "there are not that many
+    days", and Oregon does the same for a leap-day start.
+
+    Always computed from the trigger, never by repeated addition. Month arithmetic is not
+    associative: one month twice from January 31 is March 28, but two months is March 31.
+    """
+    total = (d.year * 12 + d.month - 1) + n
+    y, m = divmod(total, 12)
+    m += 1
+    return date(y, m, min(d.day, calendar.monthrange(y, m)[1]))
+
+
+def _overflow_months(d, n):
+    """What the same arithmetic gives if you let the day spill into the next month instead.
+
+    This is the date we did not use. Plain JavaScript and Go both produce it, so it is a
+    real reading rather than a hypothetical, and a court could reach it too.
+    """
+    total = (d.year * 12 + d.month - 1) + n
+    y, m = divmod(total, 12)
+    m += 1
+    last = calendar.monthrange(y, m)[1]
+    return date(y, m, last) + timedelta(days=d.day - last) if d.day > last else None
+
+
+def construction_note(trigger_date, rule):
+    """Say so when month arithmetic had to make a choice, and name the date we did not use.
+
+    Silent for trigger days 1 through 28, where nothing is ambiguous. That is the point:
+    a warning on every deadline is a warning nobody reads. Two cases actually bite.
+
+    The day does not exist in the target month (January 31 plus one month). We clamp to the
+    last day; letting it spill gives a later date.
+
+    The trigger is the last day of its month (February 28 plus one month). We keep the day
+    number, so March 28. But 29 CFR 4000.43 runs last day to last day and would say March
+    31. This is the case nobody sees coming, and every mainstream date library gets it
+    "wrong" against that regulation.
+
+    We take the earlier date in both cases. Filing early is survivable; filing late is not.
+    """
+    day_type = getattr(rule, "day_type", "calendar") or "calendar"
+    if day_type not in MONTH_UNITS:
+        return ""
+    n = int(getattr(rule, "offset_days", 0) or 0) * MONTH_UNITS[day_type]
+    if getattr(rule, "direction", "after") == "before":
+        n = -n
+    if not n:
+        return ""
+    ours = add_months(trigger_date, n)
+    spill = _overflow_months(trigger_date, n)
+    if spill:
+        return (f"{trigger_date.isoformat()} has no matching day in that month, so this date is the "
+                f"last day of the month ({ours.isoformat()}). Read the other way it would be "
+                f"{spill.isoformat()}. Coil takes the earlier date. Check the rule.")
+    if trigger_date.day == calendar.monthrange(trigger_date.year, trigger_date.month)[1]:
+        y, m = divmod((trigger_date.year * 12 + trigger_date.month - 1) + n, 12)
+        m += 1
+        last = date(y, m, calendar.monthrange(y, m)[1])
+        if last != ours:
+            return (f"{trigger_date.isoformat()} is the last day of its month. This date keeps the same "
+                    f"day number ({ours.isoformat()}). A last-day-to-last-day reading gives "
+                    f"{last.isoformat()}. Coil takes the earlier date. Check the rule.")
+    return ""
+
+
 def compute_deadline(trigger_date, rule, holidays=()):
     """Due date for `rule` counted from `trigger_date`.
 
-    rule needs: offset_days, day_type (calendar | court | nextmonday), direction (after | before), roll (bool).
+    rule needs: offset_days, day_type (calendar | court | nextmonday | month | year), direction, roll (bool).
     Court days skip weekends and holidays. Calendar days count every day and, when the result lands on a weekend or
     holiday and roll is on, move to the next court day (forward for "after", backward for "before").
+    Months and years land on the corresponding date, clamped to month end; see add_months and construction_note.
     """
     hol = _holiday_set(holidays)
     offset = int(getattr(rule, "offset_days", 0) or 0)
@@ -56,6 +134,12 @@ def compute_deadline(trigger_date, rule, holidays=()):
     direction = getattr(rule, "direction", "after") or "after"
     roll = bool(getattr(rule, "roll", True))
     step = -1 if direction == "before" else 1
+    if day_type in MONTH_UNITS:
+        # Clamp first, then roll. The other order gives different answers.
+        d = add_months(trigger_date, step * offset * MONTH_UNITS[day_type])
+        if roll and not is_court_day(d, hol):
+            d = _roll(d, step, hol)
+        return d
     if day_type == "court":
         d, counted = trigger_date, 0
         while counted < offset:
@@ -206,6 +290,7 @@ def _fill_rule(r, form):
 
 def ruleset_to_dict(rs):
     return {"name": rs.name, "jurisdiction": rs.jurisdiction, "description": rs.description,
+            "format": 2,  # 2 adds the month and year units; a build that only knows 1 must refuse those rules
             "rules": [{"trigger": r.trigger, "title": r.title, "offset_days": r.offset_days, "day_type": r.day_type,
                        "direction": r.direction, "roll": bool(r.roll), "kind": r.kind, "notes": r.notes,
                        "sort": r.sort} for r in rs.rules]}
@@ -223,12 +308,20 @@ def ruleset_from_dict(data):
         if not isinstance(item, dict) or not item.get("trigger") or not item.get("title"):
             raise ValueError(f"Rule {i + 1} needs a trigger and a title.")
         dt = item.get("day_type", "calendar")
+        if dt not in dict(DAY_TYPES):
+            # Refuse the whole file rather than coerce or skip. A rule set written by a newer
+            # Coil can carry a unit this build does not know, and reading "6 months" as
+            # "6 calendar days" moves a deadline five months earlier without saying anything.
+            # A rule set with one deadline quietly missing is worse than no rule set.
+            raise ValueError(
+                f"Rule {i + 1} ({item.get('title') or 'untitled'}) uses the unit \"{dt}\", which this "
+                f"version of Coil does not know. Nothing was imported. Update Coil, or edit the file.")
         direction = item.get("direction", "after")
         kind = item.get("kind", "deadline")
         rs.rules.append(CourtRule(
             trigger=str(item["trigger"])[:120], title=str(item["title"])[:300],
             offset_days=abs(_int(item.get("offset_days")) or 0),
-            day_type=dt if dt in dict(DAY_TYPES) else "calendar",
+            day_type=dt,
             direction=direction if direction in DIRECTIONS else "after",
             roll=bool(item.get("roll", True)), kind=kind if kind in RULE_KINDS else "deadline",
             notes=str(item.get("notes", "")), sort=_int(item.get("sort")) if _int(item.get("sort")) is not None else i))
@@ -462,9 +555,11 @@ def apply_rules(matter, ruleset, trigger, trigger_date, user=None):
         if Task.query.filter_by(matter_id=matter.id, rule_id=r.id, trigger_date=trigger_date).first():
             skipped.append(r)
             continue
+        # A construction warning belongs on the task, not only on the preview the user already left.
+        note = "\n\n".join(x for x in ((r.notes or "").strip(), construction_note(trigger_date, r)) if x)
         t = Task(matter_id=matter.id, title=r.title, kind=r.kind if r.kind in ("task", "deadline", "court_date")
                  else "deadline", due_on=compute_deadline(trigger_date, r, hol), priority="normal",
-                 assignee_id=matter.responsible_user_id, notes=r.notes or "", rule_id=r.id,
+                 assignee_id=matter.responsible_user_id, notes=note, rule_id=r.id,
                  trigger_date=trigger_date, rule_trigger=r.trigger)
         db.session.add(t)
         created.append(t)
@@ -510,7 +605,8 @@ def apply(id):
         for r in rs.rules:
             if r.trigger == trigger:
                 exists = Task.query.filter_by(matter_id=m.id, rule_id=r.id, trigger_date=trigger_date).first()
-                preview.append((r, compute_deadline(trigger_date, r, hol), exists))
+                preview.append((r, compute_deadline(trigger_date, r, hol), exists,
+                                construction_note(trigger_date, r)))
     existing = Task.query.filter(Task.matter_id == m.id, Task.rule_id.isnot(None)).order_by(Task.due_on).all()
     return render_template("rules/apply.html", m=m, sets=sets, rs=rs, triggers=triggers, trigger=trigger,
                            trigger_date=trigger_date, preview=preview, existing=existing,

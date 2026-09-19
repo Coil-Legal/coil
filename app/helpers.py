@@ -212,11 +212,21 @@ def _mike_url():
     return v if v.startswith(("http://", "https://")) else ""
 
 
+def _day_type_label(key):
+    """One source for the court-rule unit labels.
+
+    The task detail page used to carry its own copy of this mapping, so a unit added to
+    the rules blueprint rendered there as the raw key. Import it instead.
+    """
+    from .blueprints.rules import DAY_TYPES
+    return dict(DAY_TYPES).get(key, key)
+
+
 def register_template_globals(app):
     app.jinja_env.globals.update(
         money=cents_to_str, csrf=csrf_field, current_user=current_user, portal_contact=portal_contact,
         firm=lambda: Firm.get(), today=date.today, now=utcnow,
-        mike_url=_mike_url,
+        mike_url=_mike_url, day_type_label=_day_type_label,
     )
     app.jinja_env.filters["money"] = cents_to_str
     app.jinja_env.filters["cur"] = fmt_money

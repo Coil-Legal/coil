@@ -7,7 +7,8 @@
   </div>
   <div class="row">
     <div><label>Days</label><input type="number" name="offset_days" value="{{ r.offset_days }}" min="0"></div>
-    <div><label>Counted as</label><select name="day_type">{% for k, label in day_types %}<option value="{{ k }}" {{ 'selected' if k == r.day_type }}>{{ label }}</option>{% endfor %}</select></div>
+    <div><label>Counted as</label><select name="day_type">{% for k, label in day_types %}<option value="{{ k }}" {{ 'selected' if k == r.day_type }}>{{ label }}</option>{% endfor %}</select>
+      <span class="small muted">Months and years land on the same date later, so "6 months" from Jun 15 is Dec 15. When that date does not exist, such as Jan 31 plus a month, Coil uses the last day of the month and says so on the deadline.</span></div>
     <div><label>Direction</label><select name="direction">{% for d in directions %}<option value="{{ d }}" {{ 'selected' if d == r.direction }}>{{ d }} the trigger</option>{% endfor %}</select></div>
     <div><label>Creates a</label><select name="kind">{% for k in kinds %}<option value="{{ k }}" {{ 'selected' if k == r.kind }}>{{ k.replace('_', ' ') }}</option>{% endfor %}</select></div>
   </div>
