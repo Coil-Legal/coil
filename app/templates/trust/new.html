@@ -12,6 +12,13 @@
     <div><label>Matter (optional)</label><select name="matter_id" id="t-matter"><option value="">None</option>{% for m in matters %}<option value="{{ m.id }}" data-client="{{ m.client_id }}" {% if form.matter_id|string == m.id|string %}selected{% endif %}>{{ m.label }}</option>{% endfor %}</select></div>
   </div>
   <label>Description</label><input type="text" name="description" value="{{ form.description }}" placeholder="Retainer deposit, filing fee, refund of unused funds">
+  {% if needs_fee_reason %}
+  <div style="border-left:3px solid #a15c00;padding:8px 12px;margin:10px 0;background:#fff8ee">
+    <label>How is this fee earned?</label>
+    <input type="text" name="fee_reason" value="{{ form.fee_reason }}" placeholder="Flat fee earned on filing, per the engagement letter of 3 March" required maxlength="300">
+    <span class="small muted">More is billed or recorded on some matters than on others, and a fee can be earned without an invoice behind it. Whatever you write here goes on the ledger entry, where it is the answer to the question an auditor would ask.</span>
+  </div>
+  {% endif %}
   <div class="row">
     <div><label>Payee (for disbursements)</label><input type="text" name="payee" value="{{ form.payee }}"></div>
     <div><label>Reference (check number, wire ref)</label><input type="text" name="reference" value="{{ form.reference }}"></div>

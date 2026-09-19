@@ -11,17 +11,19 @@ from ..models import (Contact, Matter, Invoice, InvoiceEvent, Payment, TrustTran
                       TrustReconciliation, Firm, audit)
 from ..helpers import login_required, current_user, parse_money, parse_date, cents_to_str
 from ..services.mail import send_email
+from ..aggregates import matter_money, MatterMoney
 import uuid
 
 from . import _stripe
 
 bp = Blueprint("trust", __name__, url_prefix="/trust")
 
-FORM_TYPES = ("deposit", "disbursement", "refund", "bank_fee", "interest")
+FORM_TYPES = ("deposit", "disbursement", "firm_fee", "refund", "bank_fee", "interest")
 POSITIVE_TYPES = ("deposit", "interest", "transfer_in")
 TYPE_LABELS = {"deposit": "Deposit", "disbursement": "Disbursement", "refund": "Refund to client",
                "bank_fee": "Bank fee", "interest": "Interest", "to_operating": "Applied to invoice",
-               "transfer_out": "Transferred to another matter", "transfer_in": "Transferred from another matter"}
+               "transfer_out": "Transferred to another matter", "transfer_in": "Transferred from another matter",
+               "firm_fee": "Fee paid to the firm"}
 # The two legs of a matter-to-matter move. They are not on the New Transaction menu because
 # they are only ever created as a pair, by the transfer form.
 TRANSFER_TYPES = ("transfer_out", "transfer_in")
@@ -194,7 +196,7 @@ def new():
     matters = Matter.query.order_by(Matter.number).all()
     form = {"type": request.args.get("type", "deposit"), "client_id": request.args.get("client_id", ""),
             "matter_id": request.args.get("matter_id", ""), "date": date.today().isoformat(), "amount": "",
-            "description": "", "payee": "", "reference": ""}
+            "description": "", "payee": "", "reference": "", "fee_reason": ""}
     if request.method == "POST":
         form.update({k: (request.form.get(k) or "").strip() for k in form})
         ttype = form["type"]
@@ -244,23 +246,57 @@ def new():
         locked = _closes_a_reconciled_period(when)
         if locked:
             errors.append(locked)
-        if errors:
+
+        # Paying yourself out of a client's trust account is the transaction that ends
+        # careers, and it is the one Coil could previously not tell apart from a payment
+        # to a court reporter. Now that the type exists, say what the file shows and make
+        # the answer part of the record. A refusal would be wrong: too many legitimate fee
+        # structures have nothing billed behind them, and an attorney blocked at 7pm files
+        # it as a disbursement to "office" instead, which loses the signal entirely.
+        needs_reason = False
+        if not errors and ttype == "firm_fee" and matter:
+            earned = fees_in_sight(matter)
+            if amount > earned and not (form.get("fee_reason") or "").strip():
+                needs_reason = True
+                flash(f"{matter.label} shows {cents_to_str(earned)} in fees billed or recorded, and this "
+                      f"takes {cents_to_str(amount)}. That is fine if the fee is earned some other way, "
+                      f"a flat fee at a milestone, a true retainer, a share of a recovery. Say which, "
+                      f"and the ledger will carry the answer.", "error")
+        if errors or needs_reason:
             for e in errors:
                 flash(e, "error")
             return render_template("trust/new.html", clients=clients, matters=matters, form=form, types=FORM_TYPES,
-                                   labels=TYPE_LABELS)
+                                   labels=TYPE_LABELS, needs_fee_reason=needs_reason)
+        desc = form["description"]
+        reason = (form.get("fee_reason") or "").strip()
+        if ttype == "firm_fee" and reason:
+            desc = (desc + " | " if desc else "") + f"Fee basis: {reason}"
         t = TrustTransaction(client_id=client.id, matter_id=matter.id if matter else None, date=when, type=ttype,
-                             amount_cents=delta, description=form["description"], payee=form["payee"],
+                             amount_cents=delta, description=desc,
+                             payee=form["payee"] or (Firm.get().name or "")[:200],
                              reference=form["reference"], cleared=False, created_by_id=current_user().id)
         db.session.add(t)
         db.session.flush()
         audit("trust_" + ttype, "trust_transaction", t.id,
-              f"{client.display_name} {cents_to_str(delta)} {form['description']}", current_user().id)
+              f"{client.display_name} {cents_to_str(delta)} {desc}", current_user().id)
         db.session.commit()
         flash(f"{TYPE_LABELS[ttype]} of {cents_to_str(amount)} recorded for {client.display_name}.", "ok")
         return redirect(url_for("trust.ledger", client_id=client.id))
     return render_template("trust/new.html", clients=clients, matters=matters, form=form, types=FORM_TYPES,
                            labels=TYPE_LABELS)
+
+
+def fees_in_sight(matter):
+    """Fees Coil can see on this matter: billed but unpaid, plus recorded but not yet billed.
+
+    This is a floor, not the truth. A flat fee earned at a milestone, a true retainer
+    earned on receipt, and a contingency share of a recovery are all properly earned with
+    no time entry and no invoice behind them, and a fee agreement is allowed to define
+    when a fee is earned. So this number is the basis for a question, never for a refusal.
+    """
+    bulk = matter_money([matter.id])
+    money = MatterMoney(matter.id, bulk)
+    return money.outstanding + money.unbilled_time
 
 
 # ==== move funds between two matters of the same client ====
