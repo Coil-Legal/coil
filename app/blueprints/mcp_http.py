@@ -199,13 +199,20 @@ def _internal(method, path, params=None, body=None):
 
 
 def _me():
-    """Who is calling, from the token. None when the token is missing or bad."""
+    """Who is calling, from the token.
+
+    Returns (status, me-dict-or-None). status is what /api/v1/me itself answered:
+    401 for a missing or bad token, 429 if the token's own rate limit was already spent
+    finding that out, 200 with the token/user/firm otherwise. The caller needs the real
+    status because a 429 must reach the client as a 429, not get folded into a generic
+    401 that tells someone to send a token they already sent.
+    """
     if not request.headers.get("Authorization", "").startswith("Bearer "):
-        return None
+        return 401, None
     status, me = _internal("GET", "/me")
     if status != 200 or "token" not in me:
-        return None
-    return me
+        return status, None
+    return status, me
 
 
 def _instructions(me):
@@ -310,8 +317,13 @@ def _handle(msg, me):
 @bp.route("", methods=["POST"])
 @bp.route("/", methods=["POST"])
 def rpc():
-    me = _me()
+    status, me = _me()
     if me is None:
+        if status == 429:
+            resp = jsonify(_err(None, -32000, "Rate limit reached on this token. Wait and retry."))
+            resp.status_code = 429
+            resp.headers["Retry-After"] = "60"
+            return resp
         resp = jsonify(_err(None, -32001, "Send an Authorization: Bearer <Coil API token> header. "
                                           "Create one in Coil at Settings, API tokens."))
         resp.status_code = 401

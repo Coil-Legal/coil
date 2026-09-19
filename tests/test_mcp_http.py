@@ -93,6 +93,34 @@ def test_a_revoked_or_made_up_token_is_refused_the_same_way(app):
     assert r.status_code == 401
 
 
+def test_rate_limited_token_gets_429_not_401(app):
+    """A valid token that has already spent its budget must not be told to send a token.
+
+    _me() calls /api/v1/me to authenticate the MCP request itself; if that internal call
+    comes back 429 because the token's own rate limit is already spent, the MCP layer once
+    folded every non-200 status into a generic 401 "send an Authorization header", which is
+    both the wrong status for a retryable condition and actively misleading (the token was
+    fine, it was just out of budget).
+    """
+    import time
+    from collections import deque
+    from app.blueprints.api import _rate, _rate_lock, _effective_limit, hash_token
+    from app.models import ApiToken
+    h = _token(app, ["matters:read"])
+    raw = h["Authorization"].split(" ", 1)[1]
+    with app.app_context():
+        tid = ApiToken.query.filter_by(token_hash=hash_token(raw)).first().id
+        limit = _effective_limit()
+    with _rate_lock:
+        dq = _rate.setdefault(tid, deque())
+        for _ in range(limit):
+            dq.append(time.monotonic())
+    r = app.test_client().post("/mcp", json={"jsonrpc": "2.0", "id": 1, "method": "ping"}, headers=h)
+    assert r.status_code == 429
+    assert r.headers.get("Retry-After") == "60"
+    assert "error" in r.get_json()
+
+
 def test_initialize_announces_tools_and_tells_the_model_which_mode_it_is_in(app):
     h = _token(app, ["matters:read"], "redacted")
     res = result(rpc(app.test_client(), h, "initialize",

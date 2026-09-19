@@ -258,9 +258,11 @@ The demo documents contain deliberate traps. These matter more than the happy pa
       MCP response. Then repeat with a full token and confirm it does. Absence alone
       proves nothing.
 - [x] `/api/v1/documents` returns metadata only, never file bytes or the filesystem path.
-- [x] Rate limit returns 429 with Retry-After. Note the counter is per worker: with
+- [ ] Rate limit returns 429 with Retry-After. Note the counter is per worker: with
       WEB_CONCURRENCY=2 the advertised 120 a minute is enforced as 60 per worker, so
       sequential calls over a slow link may never trip it. Hammer it from one connection.
+      Holds for the REST API; the `/mcp` HTTP transport folded a 429 from its own
+      internal auth check into a generic 401 (#36).
 - [x] Full walkthrough in `mcp/TESTING.md`.
 
 ## Exports, import, webhooks
