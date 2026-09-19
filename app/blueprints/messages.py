@@ -92,7 +92,7 @@ def send():
     if not c.phone:
         flash(f"{c.display_name} has no phone number on file.", "error")
         return redirect(url_for("messages.thread", contact_id=c.id))
-    provider_id, status = send_sms(c.phone, body)
+    provider_id, status, detail = send_sms(c.phone, body)
     m = Message(contact_id=c.id, matter_id=matter_id, direction="out", channel="sms", to_addr=c.phone,
                 from_addr=current_app.config.get("TWILIO_FROM_NUMBER", "") or "", body=body,
                 provider_id=provider_id or "", status=status or "queued")
@@ -103,7 +103,7 @@ def send():
     if status == "unconfigured":
         flash("Twilio is not configured, so the message was stored but not delivered. See Settings > Integrations.", "")
     elif str(status).startswith("error"):
-        flash(f"Twilio rejected the message ({status}). It was stored for the record.", "error")
+        flash(f"Twilio would not send this message: {detail} It was stored for the record.", "error")
     return redirect(url_for("messages.thread", contact_id=c.id))
 
 

@@ -686,19 +686,26 @@ def _twiml(text):
 
 
 def place_call(to, text):
-    """Twilio REST Calls with inline TwiML (no callback URL). -> (sid, status). Unconfigured -> ('', 'unconfigured')."""
+    """Twilio REST Calls with inline TwiML (no callback URL). -> (sid, status, detail).
+
+    detail is empty on success and carries Twilio's own wording on failure, for the
+    same reason as send_sms: "error:400" is not something a person can act on.
+    Unconfigured -> ('', 'unconfigured', '').
+    """
     if not smssvc.configured():
         current_app.logger.info("[VOICE-DEV] would call %s and say: %s", to, text)
-        return "", "unconfigured"
+        return "", "unconfigured", ""
     c = current_app.config
     r = requests.post(
         f"https://api.twilio.com/2010-04-01/Accounts/{c['TWILIO_ACCOUNT_SID']}/Calls.json",
         auth=(c["TWILIO_ACCOUNT_SID"], c["TWILIO_AUTH_TOKEN"]),
         data={"To": to, "From": c["TWILIO_FROM_NUMBER"], "Twiml": _twiml(text)}, timeout=20)
     if r.status_code >= 300:
-        return "", f"error:{r.status_code}"
+        status, reason = smssvc.provider_error(r)
+        current_app.logger.warning("[VOICE] call to=%s rejected: %s %s", to, status, reason)
+        return "", status, reason
     j = r.json()
-    return j.get("sid", ""), j.get("status", "queued")
+    return j.get("sid", ""), j.get("status", "queued"), ""
 
 
 def reminder_text(firm, title, when_text, is_task=False):
@@ -778,7 +785,7 @@ def run_voice_reminders(today=None):
             current_app.logger.info("[VOICE-DEV] would call %s (%s) and say: %s", client.phone, client.display_name, text)
             result["would"].append((client.phone, text))
             continue
-        sid, status = place_call(client.phone, text)
+        sid, status, _detail = place_call(client.phone, text)
         vc = _record_reminder(firm, entity, entity_id, detail, matter, client, text, sid, status)
         db.session.commit()
         result["placed"].append(vc)
@@ -823,7 +830,7 @@ def reminders_test():
         return redirect(url_for("voice.settings_page"))
     text = (f"Hello. This is a test call from {greeting_name(f)}. Reminder calls from the office are working. "
             f"Thank you, goodbye.")
-    sid, status = place_call(to, text)
+    sid, status, detail = place_call(to, text)
     if status == "unconfigured":
         flash(f"Twilio is not configured, so no call was placed. It would have said: {text}", "error")
         return redirect(url_for("voice.settings_page"))
@@ -833,7 +840,10 @@ def reminders_test():
     db.session.add(vc)
     audit("voice_test_call", "voice_call", None, f"to {to}: {status}", current_user().id)
     db.session.commit()
-    flash(f"Test call placed to {to} ({status}).", "ok" if sid else "error")
+    if sid:
+        flash(f"Test call placed to {to} ({status}).", "ok")
+    else:
+        flash(f"Twilio would not place this call: {detail}", "error")
     return redirect(url_for("voice.settings_page"))
 
 
