@@ -339,7 +339,9 @@ def test_paid_invoice_says_why_void_is_unavailable(app, client):
 
     r = client.get(f"/invoices/{inv_id}")
     assert b"cannot be voided" in r.data
-    assert b"issue a credit" in r.data
+    # The page must not stop at "no". It has to name the instrument that does work, and
+    # that instrument now exists, so it is named exactly rather than hinted at.
+    assert b"credit note" in r.data
 
 
 def test_unpaid_invoice_still_offers_void(app, client):

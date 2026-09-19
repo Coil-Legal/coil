@@ -13,8 +13,8 @@ from fpdf.fonts import FontFace
 from werkzeug.datastructures import MultiDict
 from sqlalchemy.orm import joinedload
 from ..extensions import db
-from ..models import (Firm, Matter, Invoice, InvoiceLine, InvoiceEvent, TimeEntry, Expense, FlatFeeMilestone,
-                      User, audit, now)
+from ..models import (Firm, Matter, Invoice, InvoiceLine, InvoiceEvent, CreditNote, TimeEntry, Expense,
+                      FlatFeeMilestone, User, audit, now)
 from ..helpers import (login_required, current_user, parse_money, parse_date, client_ip, cents_to_str,
                         UNUSUAL_INVOICE_CENTS, CURRENCY_SYMBOLS)
 from ..i18n import lang_for
@@ -84,6 +84,23 @@ def _initial_approval(user, firm):
     if firm.require_invoice_approval and not can_approve(user):
         return "pending"
     return "none"
+
+
+CREDIT_REASONS = [
+    ("billing_error", "Billing error"),
+    ("courtesy", "Courtesy reduction"),
+    ("fee_dispute", "Fee dispute resolved"),
+    ("duplicate", "Duplicate charge"),
+    ("uncollectible", "Written off as uncollectible"),
+    ("other", "Other"),
+]
+
+
+def _next_credit_number(firm):
+    """Credit notes run on their own sequence, so the invoice numbers stay unbroken."""
+    n = firm.next_credit_note_number or 1001
+    firm.next_credit_note_number = n + 1
+    return f"{firm.credit_note_prefix or 'CN-'}{n}"
 
 
 def _next_number(firm):
@@ -760,6 +777,7 @@ def detail(id):
                            apply_default=apply_default, public_url=public_url(inv), today=date.today(),
                            viewed_events=viewed_events, dollars=_dollars, siblings=group_siblings(inv),
                            format_quantity=format_quantity,
+                           credit_reasons=dict(CREDIT_REASONS), credit_reason_list=CREDIT_REASONS,
                            firm_settings=firm, can_approve=can_approve(u),
                            interest_ready=interest_due(inv, firm, date.today()) > 0,
                            send_block=send_blocked_reason(inv, u))
@@ -983,6 +1001,83 @@ def _void_one(inv, uid):
         m.invoice_id = None
     inv.status = "void"
     audit("void", "invoice", inv.id, inv.number, uid)
+
+
+@bp.route("/invoices/<int:id>/credit", methods=["POST"])
+@login_required
+def credit(id):
+    """Reduce what the client owes, with a document that says who decided and why.
+
+    The alternative people reach for is editing the invoice, which quietly rewrites a
+    record the firm is required to keep and leaves the client holding a copy that no
+    longer matches. A credit note leaves both documents intact and readable together,
+    which is what matters if the fee is ever disputed.
+    """
+    inv = db.session.get(Invoice, id) or abort(404)
+    back = redirect(url_for("invoices.detail", id=id))
+    if inv.status in ("draft", "void"):
+        flash("A draft can be edited directly, and a void invoice is owed by nobody. "
+              "Credit notes are for invoices already sent.", "error")
+        return back
+    amount = parse_money(request.form.get("amount", ""))
+    reason = request.form.get("reason", "other")
+    note = (request.form.get("note") or "").strip()
+    if amount <= 0:
+        flash("Enter a positive amount to credit.", "error")
+        return back
+    if (inv.paid_cents or 0) >= (inv.total_cents or 0):
+        # Crediting money that already arrived is a promise to send it back. That is a
+        # refund: it moves cash and reverses posted income. Coil has no operating-account
+        # refund yet, and pretending otherwise would leave the books claiming a reduction
+        # the client never received.
+        flash(f"{inv.number} is paid in full. Reducing it now means refunding "
+              f"{cents_to_str(inv.paid_cents)}, which moves real money, so Coil will not do it "
+              f"with a credit note. Record the refund through the account it was paid into.", "error")
+        return back
+    if amount > inv.balance_cents:
+        flash(f"{inv.number} has {cents_to_str(inv.balance_cents)} outstanding. A credit of "
+              f"{cents_to_str(amount)} would take it below zero, which would leave the client "
+              f"holding a credit balance. Credit the balance, or refund the difference.", "error")
+        return back
+    if reason not in dict(CREDIT_REASONS):
+        reason = "other"
+    firm = Firm.get()
+    cn = CreditNote(number=_next_credit_number(firm), invoice_id=inv.id, matter_id=inv.matter_id,
+                    client_id=inv.client_id, issued_on=date.today(), total_cents=amount,
+                    reason=reason, note=note, status="issued", created_by_id=current_user().id)
+    db.session.add(cn)
+    db.session.flush()
+    # The backref is loaded eagerly, so the invoice is still holding the list from before
+    # this credit existed. Drop it or recalc will not see the money come off.
+    db.session.expire(inv, ["credit_notes"])
+    inv.recalc()
+    audit("credit_note", "invoice", inv.id,
+          f"{cn.number}: {cents_to_str(amount)} against {inv.number} ({dict(CREDIT_REASONS)[reason]})"
+          + (f" - {note}" if note else ""), current_user().id)
+    db.session.commit()
+    flash(f"{cn.number} issued. {inv.number} now shows {cents_to_str(inv.balance_cents)} outstanding.", "ok")
+    return back
+
+
+@bp.route("/invoices/credit/<int:cid>/void", methods=["POST"])
+@login_required
+def void_credit(cid):
+    """Undo a credit that was wrong, without deleting the fact that it happened."""
+    cn = db.session.get(CreditNote, cid) or abort(404)
+    inv = cn.invoice
+    if cn.status == "void":
+        flash("That credit note is already void.", "error")
+        return redirect(url_for("invoices.detail", id=inv.id))
+    cn.status = "void"
+    cn.voided_at = now()
+    cn.voided_by_id = current_user().id
+    db.session.expire(inv, ["credit_notes"])
+    inv.recalc()
+    audit("credit_note_void", "invoice", inv.id,
+          f"{cn.number} voided, {cents_to_str(cn.total_cents)} back onto {inv.number}", current_user().id)
+    db.session.commit()
+    flash(f"{cn.number} voided. {cents_to_str(cn.total_cents)} is owed again on {inv.number}.", "ok")
+    return redirect(url_for("invoices.detail", id=inv.id))
 
 
 @bp.route("/invoices/<int:id>/void", methods=["POST"])

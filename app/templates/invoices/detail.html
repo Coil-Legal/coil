@@ -16,7 +16,7 @@
     {% elif inv.status != 'void' %}
       {# Someone comes looking for Void, finds nothing, and has no idea why. Say it. Voiding an
          invoice money has already been paid against would erase the record of a real payment. #}
-      <span class="small muted" title="Voiding would erase the record of money that has already changed hands">{{ inv.paid_cents|money }} has been paid against this invoice, so it cannot be voided. Refund the payment first, or issue a credit.</span>
+      <span class="small muted" title="Voiding would erase the record of money that has already changed hands">{{ inv.paid_cents|money }} has been paid against this invoice, so it cannot be voided. Refund the payment first, or reduce the remaining balance with a credit note.</span>
     {% endif %}
   </div>
 </div>
@@ -59,9 +59,42 @@
       {% if inv.interest_cents %}<dt>Interest so far</dt><dd>{{ inv.interest_cents|cur(cc) }}{% if inv.last_interest_on %} <span class="small muted">last {{ inv.last_interest_on|d }}</span>{% endif %}</dd>{% endif %}
       <dt>Total</dt><dd><strong>{{ inv.total_cents|cur(cc) }}</strong></dd>
       <dt>Paid</dt><dd>{{ inv.paid_cents|cur(cc) }}</dd>
+      {% if inv.credited_cents %}<dt>Credited</dt><dd>{{ inv.credited_cents|cur(cc) }} <span class="small muted">not collected</span></dd>{% endif %}
       <dt>Balance</dt><dd><strong style="font-size:1.2rem">{{ inv.balance_cents|cur(cc) }}</strong></dd>
     </dl>
   </div>
+{% set issued_credits = inv.credit_notes|selectattr('status', 'equalto', 'issued')|list %}
+{% if inv.credit_notes %}
+<div class="card">
+  <h2 style="font-size:1rem">Credit notes</h2>
+  <table class="table"><tr><th>Number</th><th>Date</th><th>Reason</th><th class="num">Amount</th><th></th></tr>
+  {% for cn in inv.credit_notes|sort(attribute='id') %}
+  <tr{% if cn.status == 'void' %} class="muted"{% endif %}>
+    <td><strong>{{ cn.number }}</strong>{% if cn.status == 'void' %} <span class="badge void">void</span>{% endif %}</td>
+    <td class="nowrap">{{ cn.issued_on|d }}</td>
+    <td>{{ credit_reasons.get(cn.reason, cn.reason) }}{% if cn.note %}<br><span class="small muted">{{ cn.note }}</span>{% endif %}</td>
+    <td class="num">{{ cn.total_cents|cur(cc) }}</td>
+    <td class="nowrap">{% if cn.status == 'issued' %}<form method="post" action="{{ url_for('invoices.void_credit', cid=cn.id) }}" class="inline">{{ csrf() }}<button class="btn danger small" data-confirm="Void {{ cn.number }}? {{ cn.total_cents|cur(cc) }} will be owed again.">Void</button></form>{% endif %}</td>
+  </tr>{% endfor %}
+  </table>
+</div>
+{% endif %}
+
+{% if inv.status not in ('draft', 'void') and inv.balance_cents > 0 %}
+<div class="card">
+  <h2 style="font-size:1rem">Reduce the balance</h2>
+  <p class="small muted" style="margin-top:0">A credit note lowers what the client owes without changing the invoice they already have. Both documents stay on the file and are read together, which is what you want if the fee is ever questioned.</p>
+  <form method="post" action="{{ url_for('invoices.credit', id=inv.id) }}">{{ csrf() }}
+    <div class="row">
+      <div><label>Amount</label><input type="text" name="amount" placeholder="{{ inv.balance_cents|money }}" required></div>
+      <div><label>Reason</label><select name="reason">{% for k, label in credit_reason_list %}<option value="{{ k }}">{{ label }}</option>{% endfor %}</select></div>
+    </div>
+    <label>Note for the client</label><input type="text" name="note" maxlength="300" placeholder="Duplicate entry on 14 May removed">
+    <div class="actions"><button class="btn secondary" data-confirm="Issue a credit note against {{ inv.number }}?">Issue credit note</button></div>
+  </form>
+</div>
+{% endif %}
+
   <div class="card">
     <dl class="kv">
       <dt>Sent</dt><dd>{% if inv.sent_at %}{{ inv.sent_at|dt }} to {{ inv.sent_to }}{% else %}<span class="muted">not yet</span>{% endif %}</dd>

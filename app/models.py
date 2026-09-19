@@ -64,6 +64,10 @@ class Firm(db.Model):
     invoice_terms_days = db.Column(db.Integer, default=30)
     invoice_prefix = db.Column(db.String(10), default="INV-")
     next_invoice_number = db.Column(db.Integer, default=1001)
+    # Credit notes get their own run of numbers. Sharing the invoice sequence leaves gaps
+    # in it, which is the first thing anyone auditing a set of books asks about.
+    credit_note_prefix = db.Column(db.String(10), default="CN-")
+    next_credit_note_number = db.Column(db.Integer, default=1001)
     matter_prefix = db.Column(db.String(10), default="M-")
     next_matter_number = db.Column(db.Integer, default=1001)
     invoice_footer = db.Column(db.Text, default="Thank you for your business.")
@@ -551,7 +555,17 @@ class Invoice(db.Model):
         # receivables saw money that does not exist and a client could be asked for it.
         if self.status == "void":
             return 0
-        return max(0, (self.total_cents or 0) - (self.paid_cents or 0))
+        return max(0, (self.total_cents or 0) - (self.paid_cents or 0) - self.credited_cents)
+
+    @property
+    def credited_cents(self):
+        """Money the client no longer owes because we said so, not because they paid.
+
+        Kept apart from paid_cents on purpose. They cancel the same debt but they are not
+        the same fact, and a report that adds them together will tell a firm it collected
+        money that never arrived.
+        """
+        return sum(c.total_cents for c in self.credit_notes if c.status == "issued")
 
     def recalc(self):
         self.subtotal_cents = sum(l.amount_cents for l in self.lines)
@@ -559,7 +573,11 @@ class Invoice(db.Model):
         self.paid_cents = sum(p.amount_cents for p in self.payments)
         if self.status in ("void", "draft"):
             return
-        if self.paid_cents >= self.total_cents and self.total_cents > 0:
+        settled = (self.paid_cents or 0) + self.credited_cents
+        if settled >= self.total_cents and self.total_cents > 0:
+            # "paid" is the settled state the rest of the app already understands. What
+            # separates a credited invoice from a collected one is paid_cents, which the
+            # revenue and realization reports read, not this label.
             self.status = "paid"
         elif self.paid_cents > 0:
             self.status = "partial"
@@ -569,6 +587,42 @@ class Invoice(db.Model):
     @property
     def is_overdue(self):
         return self.status in ("sent", "viewed", "partial") and self.due_on and self.due_on < date.today()
+
+
+class CreditNote(db.Model):
+    """A dated document that reduces what a client owes on an invoice already sent.
+
+    Not an edit to the invoice and not a payment. Editing a sent invoice destroys the
+    record the bar rules require a firm to keep, and recording a courtesy reduction as a
+    payment tells the revenue report money arrived that never did. So the reduction gets
+    its own document, with its own number, sitting beside the invoice rather than inside
+    it. The pair is what the client, an auditor and a fee arbitrator all need to read.
+
+    Capped at the invoice's current balance, and refused on a paid invoice. Crediting
+    money that has already arrived is a promise to give it back, which is a refund and
+    moves real money; that is a different instrument and Coil does not have it yet.
+    Saying so is better than half-doing it.
+    """
+    __tablename__ = "credit_notes"
+    id = db.Column(db.Integer, primary_key=True)
+    number = db.Column(db.String(30), unique=True)
+    invoice_id = db.Column(db.Integer, db.ForeignKey("invoices.id"), nullable=False)
+    matter_id = db.Column(db.Integer, db.ForeignKey("matters.id"))
+    client_id = db.Column(db.Integer, db.ForeignKey("contacts.id"))
+    issued_on = db.Column(db.Date, default=date.today, nullable=False)
+    total_cents = db.Column(db.Integer, default=0, nullable=False)
+    reason = db.Column(db.String(30), default="other")
+    note = db.Column(db.Text, default="")          # prints on the client's copy
+    status = db.Column(db.String(10), default="issued")  # issued | void
+    voided_at = db.Column(db.DateTime)
+    voided_by_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    created_by_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    created_at = db.Column(db.DateTime, default=now)
+
+    invoice = db.relationship("Invoice", backref=db.backref("credit_notes", lazy="selectin"))
+    matter = db.relationship("Matter")
+    client = db.relationship("Contact")
+
 
 
 class InvoiceLine(db.Model):
