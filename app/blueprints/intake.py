@@ -787,7 +787,7 @@ def convert(id):
         db.session.expire(matter, ["milestones", "client", "responsible"])
         template = db.session.get(LetterTemplate, f.get("template_id", type=int) or 0)
         engagement = build_engagement(matter, template, scope=f.get("scope", "").strip(), user=u)
-        send_engagement(engagement, u)
+        engagement = send_engagement(engagement, u)
 
     db.session.commit()
 
@@ -799,7 +799,10 @@ def convert(id):
         bits.append(f"adverse party {adverse}")
     bits.append("conflict check " + ("found %d possible hit(s), review it" % len(hits) if hits else "clear"))
     if engagement:
-        bits.append("engagement letter sent to " + (engagement.sent_to or "nobody (no email)"))
+        if engagement.delivery_failed:
+            bits.append(f"engagement letter saved but could not be emailed to {engagement.sent_to}")
+        else:
+            bits.append("engagement letter sent to " + (engagement.sent_to or "nobody (no email)"))
     flash(". ".join(bits) + ".", "ok" if not hits else "")
     return redirect(f"/matters/{matter.id}")
 

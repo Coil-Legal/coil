@@ -161,17 +161,24 @@ def send_engagement(engagement, user=None):
     e.sent_at = now()
     e.sent_to = (e.contact.email or "").strip()
     f = Firm.get()
-    detail = f"to {e.sent_to}" if e.sent_to else "no email on file, link not emailed"
+    delivered = True
     if e.sent_to:
         html = _email_html(e.subject or "Engagement letter",
                            [f"Hello {e.contact.first_name or e.contact.display_name},",
                             f"{f.name} has prepared an engagement letter for {e.matter.name}. "
                             f"Please review it and sign electronically using the button below."],
                            "Review and sign", _sign_url(e), pixel=_pixel_url(e))
-        send_email(e.sent_to, e.subject or "Engagement letter", html,
+        delivered = send_email(e.sent_to, e.subject or "Engagement letter", html,
                    text=f"Please review and sign your engagement letter: {_sign_url(e)}", reply_to=f.email or None)
+    if not e.sent_to:
+        detail = "no email on file, link not emailed"
+    elif delivered:
+        detail = f"to {e.sent_to}"
+    else:
+        detail = f"to {e.sent_to}, email delivery failed, sign link still active"
     db.session.add(EngagementEvent(engagement_id=e.id, event="sent", detail=detail))
     audit("send", "engagement", e.id, detail, user.id if user else None)
+    e.delivery_failed = bool(e.sent_to) and not delivered  # transient, not a column; read by the caller's flash only
     return e
 
 
@@ -312,9 +319,13 @@ def new():
         if custom_subject:
             e.subject = custom_subject
         if action == "send":
-            send_engagement(e, u)
+            e = send_engagement(e, u)
             db.session.commit()
-            flash(f"Engagement letter sent to {e.sent_to or 'nobody (no email on file)'}.", "ok")
+            if e.delivery_failed:
+                flash(f"Saved, but the email to {e.sent_to} could not be delivered. "
+                      f"The sign link is still active; check the firm's email settings and resend.", "error")
+            else:
+                flash(f"Engagement letter sent to {e.sent_to or 'nobody (no email on file)'}.", "ok")
         else:
             db.session.commit()
             flash("Draft saved.", "ok")
@@ -343,9 +354,13 @@ def send(id):
         flash(f"Cannot send a letter with status {e.status}.", "error")
         return redirect(url_for("engagements.detail", id=e.id))
     if e.status == "draft":
-        send_engagement(e, current_user())
+        e = send_engagement(e, current_user())
         db.session.commit()
-        flash(f"Sent to {e.sent_to or 'nobody (no email on file)'}.", "ok")
+        if e.delivery_failed:
+            flash(f"Saved, but the email to {e.sent_to} could not be delivered. "
+                  f"The sign link is still active; check the firm's email settings and resend.", "error")
+        else:
+            flash(f"Sent to {e.sent_to or 'nobody (no email on file)'}.", "ok")
     else:
         send_engagement_reminder(e, current_user(), detail="resent by staff")
         db.session.commit()

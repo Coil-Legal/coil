@@ -498,6 +498,48 @@ def test_deposition_multi_volume_citations_include_volume(app, client, monkeypat
     assert b"Vol. I, Depo. Tr. 1:1" in r.data and b"Vol. II, Depo. Tr. 1:1" in r.data
 
 
+def test_deposition_multi_volume_within_a_single_chunk_still_splits_by_volume(app, client, monkeypatch):
+    """QA #25, reopened after 4ea1205: that fix tagged every item in a chunk with the LAST volume label
+    found anywhere in the chunk, which happened to work only because the fix's own test forced one volume
+    per chunk. A short real transcript fits in a single real chunk with both volume markers in it, and Grok's
+    re-verify caught it: every citation came back "Vol. II", none "Vol. I". Uses the real chunk_transcript,
+    not a mocked one, so this exercises the actual single-chunk path."""
+    from app.extensions import db
+    from app.models import DepositionSummary, User
+    from app.blueprints.documents import store_bytes
+    from app import llm
+    full_text = "VOLUME I\nPage 1 1:1 The witness described the warehouse.\n" \
+               "VOLUME II\nPage 1 1:1 The witness described the office."
+    with app.app_context():
+        u = User.query.first()
+        doc, err = store_bytes(S["mid"], "two volume one chunk.txt", full_text.encode(), user_id=u.id)
+        assert err is None
+        db.session.commit()
+        doc_id = doc.id
+
+    def fake(prompt, **kw):
+        return json.dumps({"summary": "Both volumes in one part.",
+                           "key_testimony": [
+                               {"page": 1, "line": 1, "quote": "The witness described the warehouse.",
+                                "topic": "Location"},
+                               {"page": 1, "line": 1, "quote": "The witness described the office.",
+                                "topic": "Location"},
+                           ],
+                           "contradictions": []})
+    monkeypatch.setattr(llm, "complete", fake)
+    r = client.post(f"/discovery/depositions/new?matter_id={S['mid']}", data={
+        "_csrf": S["tok"], "document_id": doc_id, "deponent": "One Chunk Two Volumes"})
+    assert r.status_code == 302, r.data[:300]
+    did = int(r.headers["Location"].rstrip("/").rsplit("/", 1)[1])
+    with app.app_context():
+        dep = DepositionSummary.query.get(did)
+        key = json.loads(dep.key_testimony_json)
+        assert [k.get("volume") for k in key] == ["I", "II"], key
+    r = client.get(f"/discovery/depositions/{did}")
+    assert r.status_code == 200
+    assert b"Vol. I, Depo. Tr. 1:1" in r.data and b"Vol. II, Depo. Tr. 1:1" in r.data
+
+
 def test_deposition_single_volume_citations_omit_volume_prefix(app, client, monkeypatch):
     """A transcript that never names a volume, or names only one, keeps the plain "Depo. Tr. p:l" citation, since
     there is nothing for a volume label to disambiguate."""

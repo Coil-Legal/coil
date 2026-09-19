@@ -839,6 +839,21 @@ def _volume_labels(text):
     return [m.upper() for m in _VOLUME_RE.findall(text or "")]
 
 
+def _volume_at(text, pos):
+    """The volume label in force at character position pos, or None before any volume marker.
+
+    A single chunk can itself span a volume break (a short transcript may fit in one chunk with
+    both "VOLUME I" and "VOLUME II" in it), so the volume active at a quote's own position is not
+    the same as the last volume label anywhere in the chunk.
+    """
+    label = None
+    for m in re.finditer(_VOLUME_RE, text or ""):
+        if m.start() > pos:
+            break
+        label = m.group(1).upper()
+    return label
+
+
 def _is_multi_volume(text):
     """True when the transcript itself names more than one volume, which is the only case where page numbers
     restarting from one volume to the next can make two different passages collide on the same citation."""
@@ -916,11 +931,18 @@ def summarize_transcript(dep, text):
         if data.get("summary"):
             summaries.append(str(data["summary"]).strip())
         for k in data.get("key_testimony") or []:
-            if isinstance(k, dict) and (k.get("quote") or "").strip():
+            quote = str(k.get("quote") or "").strip()
+            if isinstance(k, dict) and quote:
                 item = {"page": _int(k.get("page")) or 0, "line": _int(k.get("line")) or 0,
-                        "quote": str(k.get("quote")).strip(), "topic": str(k.get("topic") or "").strip()}
-                if multi_volume and volume:
-                    item["volume"] = volume
+                        "quote": quote, "topic": str(k.get("topic") or "").strip()}
+                if multi_volume:
+                    # A quote's own position in the chunk tells its volume; a chunk can itself span a
+                    # volume break, so the chunk's last-seen label (`volume`) is only a fallback for a
+                    # quote the model paraphrased enough that it can't be found verbatim.
+                    pos = chunk.find(quote)
+                    item_volume = _volume_at(chunk, pos) if pos >= 0 else None
+                    if item_volume or volume:
+                        item["volume"] = item_volume or volume
                 key.append(item)
         for c in data.get("contradictions") or []:
             if isinstance(c, dict) and (c.get("testimony") or "").strip():

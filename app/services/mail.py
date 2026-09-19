@@ -34,11 +34,17 @@ def send_email(to, subject, html, text=None, attachments=None, reply_to=None, he
         current_app.logger.info("[MAIL-DEV] to=%s subject=%s", to, subject)
         _dev_outbox.append({"to": to, "subject": subject, "html": html})
         return False
-    with smtplib.SMTP(cfg["SMTP_HOST"], cfg["SMTP_PORT"], timeout=20) as s:
-        s.starttls()
-        if cfg.get("SMTP_USER"):
-            s.login(cfg["SMTP_USER"], cfg["SMTP_PASS"])
-        s.send_message(msg)
+    try:
+        with smtplib.SMTP(cfg["SMTP_HOST"], cfg["SMTP_PORT"], timeout=20) as s:
+            s.starttls()
+            if cfg.get("SMTP_USER"):
+                s.login(cfg["SMTP_USER"], cfg["SMTP_PASS"])
+            s.send_message(msg)
+    except (smtplib.SMTPException, OSError):
+        # Bad credentials, a relay that's down, a timeout: an external mail problem,
+        # not a bug in the caller. Every caller relies on a bool return, not a raise.
+        log.exception("SMTP delivery to %s failed", to)
+        return False
     return True
 
 
