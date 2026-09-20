@@ -24,7 +24,7 @@ from sqlalchemy import func
 from ..extensions import db
 from ..models import (Contact, Matter, TimeEntry, Expense, Invoice, InvoiceLine, Payment, TrustTransaction, Task,
                       CalendarEvent, Document, Note, User, Firm, ImportJob, ExternalRef, audit, now)
-from ..helpers import login_required, owner_required, current_user, cents_to_str, csv_safe
+from ..helpers import login_required, owner_required, current_user, cents_to_str, csv_safe, LOCK_RETRIES, is_lock_error
 from . import _importmap as M
 
 bp = Blueprint("importer", __name__, url_prefix="/import")
@@ -33,8 +33,6 @@ MAX_CSV_BYTES = 20 * 1024 * 1024
 MAX_ZIP_BYTES = 200 * 1024 * 1024
 BATCH = 500
 SAMPLE = 20
-LOCK_RETRIES = 5
-_LOCK_SQLITE_CODES = {5, 6, 517}  # SQLITE_BUSY, SQLITE_LOCKED, SQLITE_BUSY_SNAPSHOT
 
 
 # ---------------------------------------------------------------- storage for the two-step flow
@@ -1009,17 +1007,6 @@ def _ordered_rows(entity, rows, mapping):
     return sorted(rows, key=key)
 
 
-def _is_lock_error(e):
-    """SQLite reporting that this connection's write collided with another process's, either plain contention
-    (SQLITE_BUSY) or a snapshot a concurrent commit made stale (SQLITE_BUSY_SNAPSHOT, WAL-specific). Both are
-    transient: the same row usually goes in cleanly on the very next attempt once it gets a fresh transaction."""
-    orig = getattr(e, "orig", None)
-    if getattr(orig, "sqlite_errorcode", None) in _LOCK_SQLITE_CODES:
-        return True
-    msg = str(e).lower()
-    return "database is locked" in msg or "database table is locked" in msg
-
-
 def run_import(data, mapping, options, user, dry):
     """Returns {"counts", "rows" (sample), "errors", "warnings", "id_map"}.
 
@@ -1056,7 +1043,7 @@ def run_import(data, mapping, options, user, dry):
                     break
                 except Exception as e:  # noqa: BLE001 - roll back and either retry or move on
                     db.session.rollback()
-                    if _is_lock_error(e) and attempt < LOCK_RETRIES - 1:
+                    if is_lock_error(e) and attempt < LOCK_RETRIES - 1:
                         time.sleep(0.05 * (attempt + 1))
                         continue
                     action, msgs = "error", msgs + [f"Failed to save: {e}"]

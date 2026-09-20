@@ -204,6 +204,24 @@ def client_ip():
     return (xf.split(",")[0].strip() if xf else request.remote_addr) or ""
 
 
+# ---- SQLite write contention ----
+# Two requests committing at nearly the same moment can collide in SQLite even in WAL mode:
+# plain contention (SQLITE_BUSY, SQLITE_LOCKED) or a snapshot a concurrent commit made stale
+# mid-transaction (SQLITE_BUSY_SNAPSHOT). All three are transient and normally clear on the very
+# next attempt with a fresh transaction, so they are worth a few quick retries rather than an
+# unhandled 500 for whichever request loses the race.
+LOCK_RETRIES = 5
+_LOCK_SQLITE_CODES = {5, 6, 517}  # SQLITE_BUSY, SQLITE_LOCKED, SQLITE_BUSY_SNAPSHOT
+
+
+def is_lock_error(e):
+    orig = getattr(e, "orig", None)
+    if getattr(orig, "sqlite_errorcode", None) in _LOCK_SQLITE_CODES:
+        return True
+    msg = str(e).lower()
+    return "database is locked" in msg or "database table is locked" in msg
+
+
 def _mike_url():
     """Where the optional Mike AI workbench lives, or "" when a firm has not set one up.
 

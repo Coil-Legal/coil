@@ -2,6 +2,7 @@
 three-way reconciliation, and online deposit requests. Every write is one transaction and is validated
 before anything is added to the session."""
 import json
+import time
 from datetime import date
 from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app, abort
 from sqlalchemy import func, or_, and_
@@ -9,7 +10,7 @@ from sqlalchemy.orm import selectinload
 from ..extensions import db
 from ..models import (Contact, Matter, Invoice, InvoiceEvent, Payment, TrustTransaction,
                       TrustReconciliation, Firm, audit)
-from ..helpers import login_required, current_user, parse_money, parse_date, cents_to_str
+from ..helpers import login_required, current_user, parse_money, parse_date, cents_to_str, LOCK_RETRIES, is_lock_error
 from ..services.mail import send_email
 from ..aggregates import matter_money, MatterMoney
 import uuid
@@ -323,15 +324,31 @@ def new():
         reason = (form.get("fee_reason") or "").strip()
         if ttype == "firm_fee" and reason:
             desc = (desc + " | " if desc else "") + f"Fee basis: {reason}"
-        t = TrustTransaction(client_id=client.id, matter_id=matter.id if matter else None, date=when, type=ttype,
-                             amount_cents=delta, description=desc,
-                             payee=form["payee"] or (Firm.get().name or "")[:200],
-                             reference=form["reference"], cleared=False, created_by_id=current_user().id)
-        db.session.add(t)
-        db.session.flush()
-        audit("trust_" + ttype, "trust_transaction", t.id,
-              f"{client.display_name} {cents_to_str(delta)} {desc}", current_user().id)
-        db.session.commit()
+        # A second owner (or a second tab) can be saving a trust entry for the same client at the same
+        # instant. SQLite can refuse either one with a transient lock error even though nothing here
+        # actually conflicts, so a few quick retries turn that into a normal success instead of a 500
+        # for whichever request lost the race.
+        for attempt in range(LOCK_RETRIES):
+            try:
+                t = TrustTransaction(client_id=client.id, matter_id=matter.id if matter else None, date=when,
+                                     type=ttype, amount_cents=delta, description=desc,
+                                     payee=form["payee"] or (Firm.get().name or "")[:200],
+                                     reference=form["reference"], cleared=False, created_by_id=current_user().id)
+                db.session.add(t)
+                db.session.flush()
+                audit("trust_" + ttype, "trust_transaction", t.id,
+                      f"{client.display_name} {cents_to_str(delta)} {desc}", current_user().id)
+                db.session.commit()
+                break
+            except Exception as e:
+                db.session.rollback()
+                if is_lock_error(e) and attempt < LOCK_RETRIES - 1:
+                    time.sleep(0.05 * (attempt + 1))
+                    continue
+                flash("Another trust entry for this client was being saved at the same moment. "
+                      "Please try again.", "error")
+                return render_template("trust/new.html", clients=clients, matters=matters, form=form,
+                                       types=FORM_TYPES, labels=TYPE_LABELS)
         flash(f"{TYPE_LABELS[ttype]} of {cents_to_str(amount)} recorded for {client.display_name}.", "ok")
         return redirect(url_for("trust.ledger", client_id=client.id))
     return render_template("trust/new.html", clients=clients, matters=matters, form=form, types=FORM_TYPES,
