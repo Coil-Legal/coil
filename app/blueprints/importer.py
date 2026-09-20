@@ -19,7 +19,7 @@ import zipfile
 from datetime import datetime, date, timedelta
 
 from flask import Blueprint, render_template, request, redirect, url_for, flash, abort, current_app, Response, session
-from sqlalchemy import func
+from sqlalchemy import func, text
 
 from ..extensions import db
 from ..models import (Contact, Matter, TimeEntry, Expense, Invoice, InvoiceLine, Payment, TrustTransaction, Task,
@@ -1034,6 +1034,10 @@ def run_import(data, mapping, options, user, dry):
         if action in ("create", "update") and not dry:
             for attempt in range(LOCK_RETRIES):
                 try:
+                    # Start the row with the writer reserved. Retrying a read snapshot
+                    # can keep losing to another writer until every retry is exhausted.
+                    db.session.rollback()
+                    db.session.execute(text('UPDATE external_refs SET coil_id = coil_id WHERE 0'))
                     with db.session.begin_nested():
                         coil_id, created = apply(ctx, rec)
                     db.session.commit()
