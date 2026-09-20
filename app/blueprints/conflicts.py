@@ -24,16 +24,21 @@ def normalise(s):
     return " ".join(s.split())
 
 
-def _score(query, text):
+CONTENT_ROLES = {"note", "message", "file contents", "lead description"}
+
+
+def _score(query, text, content=False):
     """Exact substring wins; otherwise token_set_ratio at or above the threshold.
-    Long texts (messages, file contents) only match on substring: fuzzy scoring a whole document
-    against a name is slow and matches on common words."""
+    Free text (notes, messages, file contents, lead descriptions) only matches on substring:
+    fuzzy scoring a whole document against a name matches on a single shared common word, and
+    a short or failed extraction (a two-character "QA" placeholder, say) then looks like an
+    "exact" hit against every query that happens to share that word, regardless of length."""
     nq, nt = normalise(query), normalise(text)
     if not nq or not nt:
         return None
     if len(nq) >= 3 and nq in nt:
         return 100
-    if len(nt) > 200:
+    if content:
         return None
     s = fuzz.token_set_ratio(nq, nt)
     return int(s) if s >= FUZZY_MIN else None
@@ -101,7 +106,7 @@ def search_hits(names, exclude_contact_id=None, exclude_lead_id=None):
     hits = {}
     for q in queries:
         for text, source, label, url, role in index:
-            score = _score(q, text)
+            score = _score(q, text, content=role in CONTENT_ROLES)
             if score is None:
                 continue
             key = (q, source, url, label)

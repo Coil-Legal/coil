@@ -10,7 +10,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from sqlalchemy import func
 from ..integrations import setting
 from ..extensions import db
-from ..models import Firm, User, Office, Matter, MatterTemplate, AuditLog, audit, now
+from ..models import Firm, User, Office, Matter, MatterTemplate, AuditLog, ApiToken, audit, now
 from ..helpers import (login_required, owner_required, permission_required, current_user, parse_money,
                       parse_date, CURRENCIES, csv_safe)
 from ..permissions import ROLES, ROLE_DESCRIPTIONS, canonical_role
@@ -311,6 +311,7 @@ def user_edit(id):
     self_only = me.role != "owner"
     if self_only and u.id != me.id:
         abort(403)
+    old_role = u.role
     if request.method == "POST":
         err = _fill_user(u, request.form, False, self_only=self_only)
         if not err and u.id == me.id and not self_only and (not u.is_active or u.role != "owner"):
@@ -322,6 +323,16 @@ def user_edit(id):
             db.session.rollback()
             flash(err, "error")
             return render_template("settings/user_form.html", **_user_form_context(db.session.get(User, id), False, self_only))
+        # A role change can widen or narrow what a token's scopes actually reach (scope_required
+        # checks the user's live role, but the scope grid itself was chosen under the old role), so
+        # a role change revokes existing tokens rather than leaving them to ride on the new role.
+        if not self_only and u.role != old_role:
+            revoked = ApiToken.query.filter_by(user_id=u.id, revoked_at=None).all()
+            for t in revoked:
+                t.revoked_at = now()
+            if revoked:
+                audit("api_token_revoke", "user", u.id,
+                      f"role changed {old_role} -> {u.role}: revoked {len(revoked)} token(s)", me.id)
         audit("update", "user", u.id, u.email + (" (own account)" if self_only else ""), me.id)
         db.session.commit()
         flash("User saved.", "ok")
