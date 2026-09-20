@@ -491,7 +491,11 @@ def charge(invoice_id):
         flash(NOT_CONFIGURED, "error")
         return back
     raw_amount = (request.form.get("amount") or "").strip()
-    amount = parse_money(raw_amount) if raw_amount else inv.balance_cents
+    try:
+        amount = parse_money(raw_amount) if raw_amount else inv.balance_cents
+    except ValueError:
+        flash("Enter a valid payment amount.", "error")
+        return back
     p, err = charge_card(inv, amount, user_id=current_user().id)
     if err:
         db.session.rollback()
