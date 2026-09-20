@@ -931,6 +931,7 @@ class PortalToken(db.Model):
     used_at = db.Column(db.DateTime)
     created_at = db.Column(db.DateTime, default=now)
     contact = db.relationship("Contact")
+    purpose = db.Column(db.String(20), default="portal")
 
 
 class Message(db.Model):
@@ -1558,6 +1559,43 @@ class PaymentPlan(db.Model):
     created_at = db.Column(db.DateTime, default=now)
     invoice = db.relationship("Invoice")
     contact = db.relationship("Contact")
+    installment_due_on = db.Column(db.Date)
+
+
+class CardChargeAttempt(db.Model):
+    """Durable reservation and provider identity for one saved-card collection."""
+    __tablename__ = "card_charge_attempts"
+    id = db.Column(db.Integer, primary_key=True)
+    invoice_id = db.Column(db.Integer, db.ForeignKey("invoices.id"), nullable=False)
+    active_invoice_id = db.Column(db.Integer, unique=True)
+    plan_id = db.Column(db.Integer, db.ForeignKey("payment_plans.id"))
+    installment = db.Column(db.Integer)
+    due_on = db.Column(db.Date)
+    charge_on = db.Column(db.Date, default=date.today)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    amount_cents = db.Column(db.Integer, nullable=False)
+    surcharge_cents = db.Column(db.Integer, default=0)
+    customer_id = db.Column(db.String(120), nullable=False)
+    method_id = db.Column(db.String(120), nullable=False)
+    description = db.Column(db.String(300), default="")
+    note = db.Column(db.String(300), default="")
+    idempotency_key = db.Column(db.String(80), unique=True, default=new_token)
+    state = db.Column(db.String(20), default="processing")
+    payment_id = db.Column(db.Integer, db.ForeignKey("payments.id"), unique=True)
+    stripe_payment_intent = db.Column(db.String(120), unique=True, nullable=True)
+    created_at = db.Column(db.DateTime, default=now)
+    claimed_at = db.Column(db.DateTime, default=now)
+
+
+class PlanInstallmentReceipt(db.Model):
+    """One progress update per installment, independently of webhook delivery count."""
+    __tablename__ = "plan_installment_receipts"
+    __table_args__ = (db.UniqueConstraint("plan_id", "number"),)
+    id = db.Column(db.Integer, primary_key=True)
+    plan_id = db.Column(db.Integer, db.ForeignKey("payment_plans.id"), nullable=False)
+    number = db.Column(db.Integer, nullable=False)
+    payment_id = db.Column(db.Integer, db.ForeignKey("payments.id"), unique=True, nullable=False)
+    due_on = db.Column(db.Date)
 
 
 class DocketWatch(db.Model):

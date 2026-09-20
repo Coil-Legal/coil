@@ -265,14 +265,14 @@ def surcharge_cents(amount_cents, firm=None):
 
 
 def new_card_token(contact):
-    tok = PortalToken(contact_id=contact.id, expires_at=now() + timedelta(days=CARD_TOKEN_DAYS))
+    tok = PortalToken(contact_id=contact.id, purpose="card", expires_at=now() + timedelta(days=CARD_TOKEN_DAYS))
     db.session.add(tok)
     db.session.flush()
     return tok
 
 
 def _card_token(token):
-    tok = PortalToken.query.filter_by(token=token).first() or abort(404)
+    tok = PortalToken.query.filter_by(token=token, purpose="card").first() or abort(404)
     if tok.used_at or tok.expires_at < now():
         return tok, False
     return tok, True
@@ -395,7 +395,7 @@ def card_page(token):
 
 @bp.route("/pay/card/<token>/success")
 def card_success(token):
-    tok = PortalToken.query.filter_by(token=token).first() or abort(404)
+    tok = PortalToken.query.filter_by(token=token, purpose="card").first() or abort(404)
     c = tok.contact
     sid = request.args.get("session_id", "")
     saved = False
@@ -412,7 +412,7 @@ def card_success(token):
 
 @bp.route("/pay/card/<token>/cancel")
 def card_cancel(token):
-    tok = PortalToken.query.filter_by(token=token).first() or abort(404)
+    tok = PortalToken.query.filter_by(token=token, purpose="card").first() or abort(404)
     return render_template("money/card_cancel.html", c=tok.contact, f=Firm.get(), token=token)
 
 
@@ -431,6 +431,11 @@ def store_card_from_session(sess):
     if (sess.get("mode") or "setup") != "setup":
         return None
     meta = sess.get("metadata") or {}
+    if meta.get("kind") != "card_setup":
+        return None
+    tok = PortalToken.query.filter_by(token=meta.get("token"), purpose="card").first()
+    if not tok or str(tok.contact_id) != str(meta.get("contact_id")):
+        return None
     cid = meta.get("contact_id") if hasattr(meta, "get") else getattr(meta, "contact_id", None)
     c = db.session.get(Contact, int(cid)) if cid and str(cid).isdigit() else None
     if not c:
@@ -454,7 +459,7 @@ def store_card_from_session(sess):
     c.card_authorised_on = date.today()
     token = meta.get("token") if hasattr(meta, "get") else None
     if token:
-        tok = PortalToken.query.filter_by(token=token).first()
+        tok = PortalToken.query.filter_by(token=token, purpose="card").first()
         if tok and not tok.used_at:
             tok.used_at = now()
     audit("card_saved", "contact", c.id, f"{card_label(c)} via session {sess.get('id')}")
@@ -465,56 +470,12 @@ def store_card_from_session(sess):
 # ---------------------------------------------------------------------------
 # Charge card on file
 # ---------------------------------------------------------------------------
-def charge_card(inv, amount, user_id=None, note="Charged card on file", firm=None, plan=None):
-    """Charge the invoice client's saved card for `amount` cents plus the firm surcharge, record the Payment and
-    recalc the invoice. Returns (payment, error). On any failure nothing is written. Caller commits on success."""
-    firm = firm or Firm.get()
-    c = inv.client
-    if not _stripe.configured():
-        return None, NOT_CONFIGURED
-    if not has_card(c):
-        return None, f"{c.display_name} has no card on file."
-    if inv.status not in OPEN_INVOICE:
-        return None, f"Invoice {inv.number} is {inv.status}; only sent, viewed or partial invoices can be charged."
-    amount = int(amount)
-    if amount <= 0:
-        return None, "Enter a positive amount."
-    if amount > inv.balance_cents:
-        return None, f"That is more than the balance of {cents_to_str(inv.balance_cents)}."
-    sc = surcharge_cents(amount, firm)
-    total = amount + sc
-    desc = f"Invoice {inv.number}" + (f" (payment plan {plan.id})" if plan else "")
-    try:
-        pi = _stripe.charge_payment_method(
-            c.stripe_customer_id, c.stripe_payment_method_id, total, description=desc,
-            metadata={"kind": "invoice", "invoice_id": str(inv.id), "surcharge_cents": str(sc), "method": "card",
-                      "plan_id": str(plan.id) if plan else ""})
-    except _stripe.StripeNotConfigured as e:
-        return None, str(e)
-    except Exception as e:
-        current_app.logger.warning("card charge failed for invoice %s: %s", inv.id, e)
-        msg = getattr(e, "user_message", None) or str(e) or e.__class__.__name__
-        return None, f"The card was not charged: {msg}"
-    status = pi.get("status") if hasattr(pi, "get") else getattr(pi, "status", "")
-    if status != "succeeded":
-        return None, f"The card was not charged (Stripe status: {status or 'unknown'})."
-    pi_id = _obj_id(pi)
-    fee = None
-    try:
-        fee = _stripe.fee_cents_for_payment_intent(pi_id)
-    except Exception:
-        fee = None
-    p = Payment(invoice_id=inv.id, matter_id=inv.matter_id, client_id=inv.client_id, amount_cents=amount,
-                surcharge_cents=sc, stripe_fee_cents=fee or 0, method="card", account="operating",
-                stripe_payment_intent=pi_id, received_on=date.today(), reference=pi_id, note=note[:300])
-    inv.payments.append(p)
-    db.session.flush()
-    inv.recalc()
-    db.session.add(InvoiceEvent(invoice_id=inv.id, event="paid",
-                                detail=f"{cents_to_str(amount)} charged to {card_label(c)}"
-                                + (f" plus {cents_to_str(sc)} surcharge" if sc else "")))
-    audit("card_charged", "invoice", inv.id, f"{cents_to_str(amount)} + {cents_to_str(sc)} surcharge, {pi_id}", user_id)
-    return p, None
+def charge_card(inv, amount, user_id=None, note="Charged card on file", firm=None, plan=None, charge_on=None):
+    """Reserve, collect and durably record one saved-card payment."""
+    from .collection_attempts import collect
+    return collect(inv.id, amount, user_id=user_id, note=note,
+                   plan_id=plan.id if plan else None, charge_on=charge_on,
+                   expected_paid=inv.paid_cents)
 
 
 @bp.route("/money/charge/<int:invoice_id>", methods=["POST"])
@@ -522,10 +483,15 @@ def charge_card(inv, amount, user_id=None, note="Charged card on file", firm=Non
 def charge(invoice_id):
     inv = db.session.get(Invoice, invoice_id) or abort(404)
     back = redirect(f"/invoices/{inv.id}")
+    shown_paid = request.form.get("paid_cents", type=int)
+    if shown_paid is not None and shown_paid != inv.paid_cents:
+        flash("Another payment changed this invoice. Reload it before charging again.", "error")
+        return back
     if not _stripe.configured():
         flash(NOT_CONFIGURED, "error")
         return back
-    amount = parse_money(request.form.get("amount")) or inv.balance_cents
+    raw_amount = (request.form.get("amount") or "").strip()
+    amount = parse_money(raw_amount) if raw_amount else inv.balance_cents
     p, err = charge_card(inv, amount, user_id=current_user().id)
     if err:
         db.session.rollback()
@@ -652,6 +618,9 @@ def plan_new():
         flash("Pick the date of the first charge.", "error")
         return back
     auto = bool(request.form.get("auto_charge"))
+    if auto and (inv.currency or "USD").upper() != "USD":
+        flash("Automatic card payments support USD invoices only.", "error")
+        return back
     if auto and not has_card(inv.client):
         flash("Automatic charging needs a card on file. Request one from the contact page first.", "error")
         return back
@@ -661,7 +630,7 @@ def plan_new():
     balance = inv.balance_cents
     per = int(math.ceil(balance / n))
     plan = PaymentPlan(invoice_id=inv.id, contact_id=inv.client_id, installment_cents=per, installments=n,
-                       paid_installments=0, frequency=freq, next_charge_on=first, auto_charge=auto, status="active",
+                       paid_installments=0, frequency=freq, next_charge_on=first, installment_due_on=first, auto_charge=auto, status="active",
                        created_by_id=current_user().id)
     db.session.add(plan)
     db.session.flush()
@@ -791,17 +760,13 @@ def charge_installment(plan, user_id=None, force=False, today=None):
         return False, "The plan is already complete."
     amount = next_installment_cents(plan)
     k = (plan.paid_installments or 0) + 1
-    p, err = charge_card(inv, amount, user_id=user_id, plan=plan,
+    p, err = charge_card(inv, amount, user_id=user_id, plan=plan, charge_on=today,
                          note=f"Payment plan {plan.id}: installment {k} of {plan.installments}")
     if err:
         return False, err
-    plan.paid_installments = k
-    plan.next_charge_on = advance_date(plan.next_charge_on or today, plan.frequency)
-    plan.last_error = ""
     if plan.status in ("paused", "failed") and force:
         plan.status = "active"
     _complete_if_done(plan)
-    audit("plan_charged", "payment_plan", plan.id, today.isoformat(), user_id)
     return True, None
 
 
@@ -922,11 +887,14 @@ def run_payment_plans(today=None):
 # ---------------------------------------------------------------------------
 @bp.route("/pay/plan/<int:plan_id>/<token>", methods=["GET", "POST"])
 def plan_pay(plan_id, token):
+    from .collection_attempts import installment_due
     plan = db.session.get(PaymentPlan, plan_id) or abort(404)
     inv = plan.invoice
     if not inv or inv.public_token != token:
         abort(404)
     firm = Firm.get()
+    if (inv.currency or "USD").upper() != "USD":
+        return render_template("payments/pay_unconfigured.html", inv=inv, f=firm, reason="currency")
     method = (request.args.get("method") or "card").lower()
     if method not in ("card", "ach"):
         method = "card"
@@ -956,7 +924,8 @@ def plan_pay(plan_id, token):
         payment_method_types=["card"] if method == "card" else ["us_bank_account"],
         line_items=line_items,
         metadata={"kind": "invoice", "invoice_id": str(inv.id), "surcharge_cents": str(sc), "method": method,
-                  "plan_id": str(plan.id)},
+                  "plan_id": str(plan.id), "installment": str(k),
+                  "installment_due_on": installment_due(plan).isoformat()},
         success_url=f"{_base()}/pay/{token}/success?session_id={{CHECKOUT_SESSION_ID}}",
         cancel_url=f"{_base()}/pay/plan/{plan.id}/{token}",
     )

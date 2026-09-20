@@ -82,7 +82,7 @@ def login():
 
 @bp.route("/auth/<token>")
 def auth(token):
-    tok = PortalToken.query.filter_by(token=token).first()
+    tok = PortalToken.query.filter_by(token=token, purpose="portal").first()
     if not tok or tok.used_at or tok.expires_at < now():
         return render_template("portal/expired.html", lang=lang_for(tok.contact if tok else None), t=t), 410
     tok.used_at = now()

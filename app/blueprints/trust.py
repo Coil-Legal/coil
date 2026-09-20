@@ -330,6 +330,17 @@ def new():
         # for whichever request lost the race.
         for attempt in range(LOCK_RETRIES):
             try:
+                # Rollback starts a new snapshot. Recheck every ledger invariant before
+                # retrying a debit, since the winning writer may have spent these funds.
+                problem = _closes_a_reconciled_period(when)
+                if not problem and matter and matter.client_id != client.id:
+                    problem = "The matter no longer belongs to this client. Reload the form before trying again."
+                if not problem and delta < 0:
+                    problem = validate_running_balances(client.id, when, [(matter.id if matter else None, delta)])
+                if problem:
+                    flash(problem, "error")
+                    return render_template("trust/new.html", clients=clients, matters=matters, form=form,
+                                           types=FORM_TYPES, labels=TYPE_LABELS)
                 t = TrustTransaction(client_id=client.id, matter_id=matter.id if matter else None, date=when,
                                      type=ttype, amount_cents=delta, description=desc,
                                      payee=form["payee"] or (Firm.get().name or "")[:200],

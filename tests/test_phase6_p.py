@@ -106,9 +106,10 @@ def _charge_recorder(monkeypatch, _stripe, fail=False):
 
     def fake(customer_id, payment_method_id, amount_cents, description="", metadata=None, idempotency_key=None):
         if fail:
-            raise RuntimeError("Your card was declined.")
+            import stripe
+            raise stripe.CardError("Your card was declined.", "payment_method", "card_declined")
         calls.append({"customer": customer_id, "pm": payment_method_id, "amount": amount_cents, "meta": metadata})
-        return {"id": f"pi_p6_{len(calls)}", "status": "succeeded", "object": "payment_intent"}
+        return {"id": f"pi_p6_{metadata['invoice_id']}_{len(calls)}", "status": "succeeded", "object": "payment_intent"}
 
     monkeypatch.setattr(_stripe, "charge_payment_method", fake)
     return calls
@@ -327,7 +328,7 @@ def test_charge_card_on_file(app, client, stripe_on, monkeypatch):
         assert inv.status == "paid" and inv.paid_cents == 100000
         p = Payment.query.filter_by(invoice_id=inv_id).one()
         assert p.method == "card" and p.account == "operating" and p.amount_cents == 100000
-        assert p.surcharge_cents == 3000 and p.stripe_fee_cents == 30 and p.stripe_payment_intent == "pi_p6_1"
+        assert p.surcharge_cents == 3000 and p.stripe_fee_cents == 30 and p.stripe_payment_intent == f"pi_p6_{inv_id}_1"
         assert AuditLog.query.filter_by(action="card_charged", entity="invoice", entity_id=inv_id).count() == 1
 
     # Surcharge off: the card is charged for exactly the amount.

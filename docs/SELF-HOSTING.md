@@ -136,7 +136,8 @@ Your data folder is untouched by updates.
 
 Create a Stripe account, paste the secret and publishable keys into `.env`, and point a Stripe
 webhook at `BASE_URL/webhooks/stripe` for `checkout.session.completed` and
-`checkout.session.async_payment_succeeded`. Restart the container after editing `.env`.
+`checkout.session.async_payment_succeeded`, plus `payment_intent.succeeded` for saved-card
+payment recovery. Restart the container after editing `.env`.
 
 ## Scheduled jobs
 

@@ -35,10 +35,21 @@ def _sql_default(col):
 def add_missing_columns():
     """Return the list of 'table.column' names added."""
     engine = db.engine
-    insp = inspect(engine)
-    existing_tables = set(insp.get_table_names())
+    preflight = inspect(engine)
+    present = set(preflight.get_table_names())
+    missing = any(set(table.columns.keys()) - {c["name"] for c in preflight.get_columns(table.name)}
+                  for table in db.metadata.sorted_tables if table.name in present)
+    if not missing:
+        return []
     added = []
     with engine.begin() as conn:
+        if engine.dialect.name == "sqlite":
+            # Serialize workers before inspecting; a second worker must see the
+            # first worker's committed columns rather than retry a stale snapshot.
+            conn.exec_driver_sql('UPDATE "firm" SET id = id WHERE 0')
+        # Inspect on the DDL connection so it cannot use an older cached schema.
+        insp = inspect(conn)
+        existing_tables = set(insp.get_table_names())
         for table in db.metadata.sorted_tables:
             if table.name not in existing_tables:
                 continue  # create_all handles brand-new tables
@@ -48,6 +59,10 @@ def add_missing_columns():
                     continue
                 ddl = f'ALTER TABLE "{table.name}" ADD COLUMN "{col.name}" {col.type.compile(engine.dialect)}'
                 default = _sql_default(col)
+                # Existing rows mixed portal login and seven-day card links. Their
+                # purpose cannot be recovered reliably; require a fresh link.
+                if table.name == "portal_tokens" and col.name == "purpose":
+                    default = "'legacy'"
                 if default is not None:
                     ddl += f" DEFAULT {default}"
                 try:

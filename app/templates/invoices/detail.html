@@ -169,6 +169,7 @@
 <h3 style="margin-top:14px">Charge card on file</h3>
 <p class="small muted">{{ money_card_label(inv.client) }}{% if inv.client.card_authorised_on %}, authorised {{ inv.client.card_authorised_on|d }}{% endif %}.{% if sc %} A {{ '%g' % (firm_settings.surcharge_bps / 100) }}% card surcharge is added.{% endif %}{% if not money_stripe_ok() %} Online payments are not configured, so nothing can be charged until STRIPE_SECRET_KEY is set.{% endif %}</p>
 <form method="post" action="/money/charge/{{ inv.id }}">{{ csrf() }}
+  <input type="hidden" name="paid_cents" value="{{ inv.paid_cents }}">
   <div class="row">
     <div><label>Amount</label><input type="text" name="amount" value="{{ dollars(inv.balance_cents) }}" inputmode="decimal" required></div>
     <div><label>&nbsp;</label><button class="btn small" data-confirm="Charge {{ inv.balance_cents|money }}{% if sc %} plus a {{ sc|money }} card surcharge ({{ (inv.balance_cents + sc)|money }} in total){% endif %} to {{ money_card_label(inv.client) }}? The client is not asked first.">Charge card on file</button></div>

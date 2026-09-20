@@ -197,7 +197,8 @@ def deposit_cancel():
 def _meta(sess):
     m = sess.get("metadata") or {}
     return {k: (m.get(k) if hasattr(m, "get") else getattr(m, k, None)) for k in
-            ("kind", "invoice_id", "surcharge_cents", "method", "client_id", "matter_id", "amount_cents")}
+            ("kind", "invoice_id", "surcharge_cents", "method", "client_id", "matter_id", "amount_cents",
+             "plan_id", "installment", "installment_due_on")}
 
 
 def _method_from(sess, meta):
@@ -246,6 +247,11 @@ def record_from_session(sess):
         inv.payments.append(p)
         db.session.flush()
         inv.recalc()
+        if str(meta.get("plan_id") or "").isdigit():
+            from ..models import PaymentPlan
+            from .collection_attempts import apply_installment
+            plan = db.session.get(PaymentPlan, int(meta["plan_id"]))
+            apply_installment(plan, p, meta.get("installment"), parse_date(meta.get("installment_due_on")))
         db.session.add(InvoiceEvent(invoice_id=inv.id, event="paid", detail=f"{cents_to_str(amount)} by {method} via Stripe"
                                     + (f" plus {cents_to_str(surcharge)} surcharge" if surcharge else "")))
         audit("payment_stripe", "invoice", inv.id, f"{cents_to_str(amount)} {method} session {sid}")
@@ -298,6 +304,15 @@ def stripe_webhook():
         return ("bad signature", 400)
     etype = event.get("type") or ""
     obj = (event.get("data") or {}).get("object") or {}
+    if etype == "payment_intent.succeeded":
+        from .collection_attempts import reconcile_intent
+        try:
+            reconcile_intent(obj)
+        except Exception:
+            db.session.rollback()
+            current_app.logger.exception("failed to reconcile saved-card payment")
+            return ("error", 500)
+        return ("ok", 200)
     if etype == "checkout.session.completed" and (obj.get("mode") or "") == "setup":
         # Card on file (money.py): a setup-mode session carries no payment; store the card on the contact.
         from .money import store_card_from_session

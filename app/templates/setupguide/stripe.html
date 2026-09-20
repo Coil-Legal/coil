@@ -15,7 +15,8 @@ Coil adds nothing on top and never touches the money: it goes straight to your S
   <li>In the dashboard open <strong>Developers, API keys</strong> and copy the secret and
     publishable keys.</li>
   <li>Still under Developers, open <strong>Webhooks</strong>, add the endpoint shown on the
-    Integrations page, choose the event <code>checkout.session.completed</code>, and copy the
+    Integrations page, choose <code>checkout.session.completed</code>,
+    <code>checkout.session.async_payment_succeeded</code> and <code>payment_intent.succeeded</code>, and copy the
     signing secret.</li>
   <li>Start with test keys. A test key begins <code>sk_test_</code> and a live one
     <code>sk_live_</code>, so you can try the whole flow before real money moves.</li>
