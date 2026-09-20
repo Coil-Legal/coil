@@ -13,7 +13,7 @@
   <div class="card stat"><div class="label">Worked</div><div class="value">{{ totals.worked|money }}</div><div class="small muted">{{ totals.minutes|hours }} hours, time dated {{ d_from|d }} to {{ d_to|d }}</div></div>
   <div class="card stat"><div class="label">Billed</div><div class="value">{{ totals.billed|money }}</div><div class="small muted">billing realization {{ pct(totals.billing_pct) }}</div></div>
   <div class="card stat"><div class="label">Collected</div><div class="value">{{ totals.collected|money }}</div><div class="small muted">collection realization {{ pct(totals.collection_pct) }}</div></div>
-  <div class="card stat"><div class="label">Write-downs</div><div class="value" {% if totals.writedown > 0 %}style="color:var(--warn)"{% endif %}>{{ totals.writedown|money }}</div><div class="small muted">worked minus billed on invoiced matters</div></div>
+  <div class="card stat"><div class="label">Write-downs</div><div class="value" {% if totals.writedown > 0 %}style="color:var(--warn)"{% endif %}>{{ totals.writedown|money }}</div><div class="small muted">worked minus billed on invoiced entries</div></div>
 </div>
 <div class="card"><h2>By attorney</h2>
 {% if user_rows %}
@@ -36,5 +36,5 @@
 </table>
 {% else %}<div class="empty">No time logged in this range.</div>{% endif %}
 </div>
-<p class="small muted">Worked is every time entry at its rate. Billed is what those entries became on non-void invoices. Collected is each invoice's payments prorated by the time share of the invoice total. Write-downs are counted only on matters that have been invoiced, so unbilled time on a fresh matter is WIP, not a write-down.</p>
+<p class="small muted">Worked is every time entry at its rate. Billed is what those entries became on non-void invoices. Collected is each invoice's payments prorated by the time share of the invoice total. Write-downs are counted only for invoiced entries. Unbilled time remains WIP even when the matter has earlier invoices.</p>
 {% endblock %}

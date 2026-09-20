@@ -4,7 +4,7 @@ All routes live under /portal so POSTs are CSRF-exempt by prefix (public.html fo
 Every client-facing string comes from app.i18n, chosen by lang_for(contact) (contact language, else firm default).
 """
 import os
-import time
+import uuid
 from datetime import timedelta
 from flask import (Blueprint, render_template, request, redirect, url_for, flash, session, current_app, abort,
                    send_file)
@@ -247,7 +247,7 @@ def upload():
     name = secure_filename(f.filename) or "upload"
     folder = os.path.join(current_app.config["UPLOAD_DIR"], str(matter.id))
     os.makedirs(folder, exist_ok=True)
-    stored = f"{int(time.time())}_{name}"
+    stored = f"{uuid.uuid4().hex}_{name}"
     path = os.path.join(folder, stored)
     f.save(path)
     doc = Document(matter_id=matter.id, name=f.filename[:300], path=path, size=os.path.getsize(path),

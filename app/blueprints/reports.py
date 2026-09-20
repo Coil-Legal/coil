@@ -335,22 +335,26 @@ def origination():
 
 # ---------------------------------------------------------------- realization
 def _time_lines_by_entry():
-    """{time_entry_id: [InvoiceLine]} for time lines on non-void invoices. Split-billed invoices scale their
-    lines by split_pct, so a line is grossed back up to the full entry value here."""
+    """Read actual lines from every payer, matching copied lines by group and sort.
+
+    Only the first invoice keeps the source foreign key. Reconstructing another
+    payer's cents from percentages loses rounding cents and ignores their receipts.
+    """
     lines = (db.session.query(InvoiceLine).join(Invoice, Invoice.id == InvoiceLine.invoice_id)
-             .filter(InvoiceLine.time_entry_id != None, Invoice.status != "void").all())  # noqa: E711
+             .options(joinedload(InvoiceLine.invoice))
+             .filter(InvoiceLine.kind == "time", Invoice.status != "void").all())
+    source_by_position = {}
+    for line in lines:
+        if line.time_entry_id and line.invoice.split_group:
+            source_by_position[(line.invoice.split_group, line.sort)] = line.time_entry_id
     out = defaultdict(list)
-    for ln in lines:
-        out[ln.time_entry_id].append(ln)
+    for line in lines:
+        source = line.time_entry_id
+        if not source and line.invoice.split_group:
+            source = source_by_position.get((line.invoice.split_group, line.sort))
+        if source:
+            out[source].append(line)
     return out
-
-
-def _line_full_value(ln):
-    inv = ln.invoice
-    pct = inv.split_pct if inv and inv.split_group and inv.split_pct else 100.0
-    if pct and pct != 100.0:
-        return int(round((ln.amount_cents or 0) * 100.0 / pct))
-    return ln.amount_cents or 0
 
 
 def realization_data(d_from, d_to):
@@ -358,7 +362,7 @@ def realization_data(d_from, d_to):
     worked   = every time entry at its rate
     billed   = the time lines those entries produced on non-void invoices (entry value when the line is missing)
     collected = payments on those invoices, prorated by each time line's share of the invoice total
-    write-downs = worked minus billed, only for matters that have at least one non-void invoice."""
+    write-downs = worked minus billed for invoiced entries; unbilled WIP is not a write-down."""
     entries = TimeEntry.query.filter(TimeEntry.date >= d_from, TimeEntry.date <= d_to).all()
     lines_by_entry = _time_lines_by_entry()
     invoiced_matters = {mid for (mid,) in db.session.query(Invoice.matter_id).filter(Invoice.status != "void")
@@ -381,7 +385,7 @@ def realization_data(d_from, d_to):
         lines = lines_by_entry.get(e.id, [])
         if lines:
             for ln in lines:
-                billed += _line_full_value(ln)
+                billed += ln.amount_cents or 0
                 inv = ln.invoice
                 if inv and inv.total_cents:
                     collected += paid_on(inv) * (ln.amount_cents or 0) / inv.total_cents
@@ -391,7 +395,7 @@ def realization_data(d_from, d_to):
             if inv.total_cents:
                 collected = paid_on(inv) * worked / inv.total_cents
         collected = int(round(collected))
-        writedown = (worked - billed) if e.matter_id in invoiced_matters else 0
+        writedown = (worked - billed) if lines or (e.invoice_id and e.invoice and e.invoice.status != "void") else 0
         for key, store, obj in (("user", by_user, e.user), ("matter", by_matter, e.matter)):
             k = obj.id if obj else 0
             r = store.setdefault(k, blank(key))
