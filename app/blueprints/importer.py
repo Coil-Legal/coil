@@ -1093,8 +1093,10 @@ def _match_folder(folder):
 
 def _zip_plan(path):
     from .documents import BLOCKED_EXT
+    from collections import Counter
     folders, skipped = {}, []
     with zipfile.ZipFile(path) as z:
+        paths = Counter(info.filename.replace("\\", "/") for info in z.infolist() if not info.is_dir())
         for info in z.infolist():
             if info.is_dir():
                 continue
@@ -1104,6 +1106,9 @@ def _zip_plan(path):
                 continue
             if len(parts) < 2:
                 skipped.append({"file": name, "reason": "Not inside a matter folder."})
+                continue
+            if paths[name] > 1:
+                skipped.append({"file": name, "reason": "Ambiguous duplicate path. Rename the files and upload again."})
                 continue
             ext = parts[-1].rsplit(".", 1)[-1].lower() if "." in parts[-1] else ""
             if ext in BLOCKED_EXT:
@@ -1117,7 +1122,7 @@ def _zip_plan(path):
                 continue
             top = parts[0]
             folders.setdefault(top, {"folder": top, "files": [], "matter_id": None, "matter_label": ""})
-            folders[top]["files"].append({"path": name, "name": parts[-1], "sub": "/".join(parts[1:-1]), "size": info.file_size})
+            folders[top]["files"].append({"path": name, "archive_path": info.filename, "name": parts[-1], "sub": "/".join(parts[1:-1]), "size": info.file_size})
     for top, f in folders.items():
         m = _match_folder(top)
         if m:
@@ -1133,21 +1138,32 @@ def _apply_zip(data, user):
     with zipfile.ZipFile(_token_path(data["token"], "zip")) as z:
         n = 0
         for f in data["folders"]:
-            mid = overrides.get(f["folder"]) or f["matter_id"]
+            mid = overrides.get(f["folder"], f["matter_id"])
             for entry in f["files"]:
                 n += 1
                 counts["rows"] += 1
+                if not mid and f["folder"] in overrides:
+                    counts["skipped"] += 1
+                    continue
                 if not mid:
                     counts["errors"] += 1
                     errors.append({"row": n, "message": f"Folder '{f['folder']}' does not match a matter.", "data": {"file": entry["path"]}})
                     continue
-                ext = entry["path"][:120]
+                path = entry["path"]
+                ext = path if len(path) <= 120 else "zip:sha256:" + hashlib.sha256(path.encode()).hexdigest()
                 if ExternalRef.query.filter_by(source=data["source"], entity="document", external_id=ext).first():
                     counts["skipped"] += 1
                     continue
+                # Old imports truncated long paths, so a legacy match cannot establish file identity.
+                if len(path) > 120 and ExternalRef.query.filter_by(
+                        source=data["source"], entity="document", external_id=path[:120]).first():
+                    counts["errors"] += 1
+                    errors.append({"row": n, "message": "An earlier import used a shortened path. Review the existing document and rename the archive path before importing.",
+                                   "data": {"file": path}})
+                    continue
                 try:
                     with db.session.begin_nested():
-                        doc, err = store_bytes(int(mid), entry["name"], z.read(entry["path"]), user_id=user.id,
+                        doc, err = store_bytes(int(mid), entry["name"], z.read(entry.get("archive_path", path)), user_id=user.id,
                                                folder="Imported" + ("/" + entry["sub"] if entry["sub"] else ""))
                         if err:
                             raise ValueError(err)
@@ -1271,11 +1287,13 @@ def preview(token):
     entity = data["entity"]
     if entity == "documents":
         if request.method == "POST":
-            overrides = {}
+            overrides = dict(data.get("folder_matters", {}))
             for f in data["folders"]:
                 v = request.form.get("folder_" + hashlib.md5(f["folder"].encode()).hexdigest())
-                if v and v.isdigit():
-                    overrides[f["folder"]] = int(v)
+                if v is not None:
+                    if v and not v.isdigit():
+                        abort(400)
+                    overrides[f["folder"]] = int(v) if v else None
             data["folder_matters"] = overrides
             _save(token, data)
             if request.form.get("do") == "commit":
@@ -1309,7 +1327,7 @@ def _commit(data):
     entity = data["entity"]
     if entity == "documents":
         result = _apply_zip(data, user)
-        mapping_json = {"headers": ["file"], "folders": {f["folder"]: (data.get("folder_matters", {}).get(f["folder"]) or f["matter_id"]) for f in data["folders"]}}
+        mapping_json = {"headers": ["file"], "folders": {f["folder"]: data.get("folder_matters", {}).get(f["folder"], f["matter_id"]) for f in data["folders"]}}
         mapping_json["warnings"] = result.get("warnings") or []
     else:
         fields = M.field_defs(entity)

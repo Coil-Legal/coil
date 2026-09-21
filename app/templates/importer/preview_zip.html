@@ -5,17 +5,17 @@
 {% set unmatched = data.folders|rejectattr('matter_id')|list %}
 <div class="card">
   <p><strong>{{ data.filename }}</strong>: {{ data.folders|length }} folders, {{ total }} files. Each top-level folder should be a matter number or matter name; its files land on that matter in the folder "Imported" (subfolders are kept underneath). Files already imported from this ZIP path are skipped, so re-uploading is safe.</p>
-  {% if unmatched %}<div class="flash error">{{ unmatched|length }} folder(s) do not match a matter. Pick the matter below or leave them; their files are reported as problems and nothing else is affected.</div>{% endif %}
+  {% if unmatched %}<div class="flash error">{{ unmatched|length }} folder(s) do not match a matter. Pick a matter below or choose skip. Skipped files will not be imported.</div>{% endif %}
 </div>
 <form method="post" action="/import/preview/{{ token }}">{{ csrf() }}
 <div class="card" style="overflow:auto">
   <table>
     <tr><th>Folder</th><th>Files</th><th>Matter</th></tr>
     {% for f in data.folders %}
-    {% set chosen = data.folder_matters.get(f.folder) or f.matter_id %}
+    {% set chosen = data.folder_matters.get(f.folder, f.matter_id) %}
     <tr><td>{{ f.folder }}</td><td>{{ f.files|length }} <span class="small muted">({{ f.files[:3]|map(attribute='name')|join(', ') }}{% if f.files|length > 3 %} ...{% endif %})</span></td>
       <td><select name="folder_{{ folder_key(f.folder) }}"><option value="">(no match, skip)</option>{% for m in matters %}<option value="{{ m.id }}" {% if m.id == chosen %}selected{% endif %}>{{ m.label }}</option>{% endfor %}</select>
-        {% if f.matter_id %}<span class="badge open">matched</span>{% else %}<span class="badge overdue">no match</span>{% endif %}</td></tr>
+        {% if chosen %}<span class="badge open">selected</span>{% else %}<span class="badge">skip</span>{% endif %}</td></tr>
     {% endfor %}
   </table>
   <div class="actions"><button class="btn secondary" name="do" value="recheck">Save folder choices</button><button class="btn" name="do" value="commit">Import {{ total }} files</button></div>
