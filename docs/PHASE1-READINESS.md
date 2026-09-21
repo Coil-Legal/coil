@@ -1,5 +1,18 @@
 # Coil Phase 1 completion pass
 
+## Latest: AI source isolation and research exports, September 21
+
+Both sites run `c2a413c`, including the `98ee5ca` fixes. Matter summaries use only messages filed to that matter, preventing another matter for the same client from supplying facts or displacing relevant messages. Research PDFs now preserve literal angle brackets and ampersands in names, notes and excerpts. No schema or provider changes.
+
+Final local full suite: 701 passed. Deployment Python 3.12 affected suites: 89 passed. Both sites are healthy, three changed file hashes match, SQLite integrity is OK and restart counts are zero. Four regression cases failed before the fixes. The exported PDF was visually checked as well as text-extracted.
+
+Six live summaries used synthetic matters 3035 (`QA-AI-ISOLATION-A`) and 3036 (`QA-AI-ISOLATION-B`) for the same client. Every sample excluded B's $98,765.43 settlement and retained A's unfavorable witness account, $1,234.56 estimate and provider record statuses. Estimated usage increased six cents. Public research save/edit/export/download passed for authority 1 and document 84, which remains unshared. Codex browser keyboard search, Supreme Court filtering and full opinion display also passed on the same research code.
+
+**AI date attribution remains defective.** One first-round sample turned a report date into the incident date and invented a trial-scheduling recommendation. Explicit instructions improved the result but did not solve date attribution: one of three final samples still shifted the report date into the incident timeline. Do not mark AI factual acceptance complete. Next engineering work is source-event attribution and output validation, followed by remaining date extraction/deposition samples.
+
+Ian requested more Grok work. The queue now has eight concrete cases: matter isolation, date grounding, PDF text, research browser flow, document date extraction and duplicate prevention, deposition citations/corrections, invoice narrative preservation, and client-update draft isolation. Queue: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5768649227; independent results pending. Full handoff, fixture details, limitations and backups: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-ai-research-handoff.md`. Stripe test-mode access, authentic handset SMS and remaining independent acceptance still block Phase 1 completion.
+
+
 ## Latest: many-folder and mixed-document ZIP acceptance, September 21
 
 Both sites run `b98647e`. ZIP previews show 25 folders per page and one shared matter-number picker. Saved choices persist across page changes; importing covers all pages. Unknown numbers stop the operation with a clear message. Blank names and ambiguous name/number matches require a choice rather than filing to an unrelated or first matching matter. No schema or provider changes.

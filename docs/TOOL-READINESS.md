@@ -137,6 +137,8 @@ Further checks:
 - A witness who contradicts himself and corrects it in the next answer. Should be reported as corrected, not as a contradiction.
 
 ### Research and cite check
+Current September 21 evidence: `c2a413c` preserves literal PDF source text; public save/edit/export/download passed on authority 1/document 84. Codex browser keyboard search, court filter and full opinion display passed. Independent Grok acceptance remains pending.
+
 Resolved, not found, and the wrong-case pincite trap all correct. States plainly that it cannot say whether a case is still good law.
 
 Further checks:
@@ -198,6 +200,8 @@ Further checks:
 **Draft invoice through the API and MCP.** Added in `c547c9b` after §S found the scope advertised but the tool missing. One test, no re-test yet. Grok: drive it end to end with an unredacted and a redacted token.
 
 **Reports reconciled against their rows.** Done by Grok for §L on one firm state. Repeat after the two-user day in §O, so the figures have something to disagree about.
+
+**Current AI acceptance, September 21:** cross-matter message contamination is fixed in `c2a413c`. Six live samples retained the intended matter facts, but one of three final samples still shifted a report date into the incident timeline despite stronger instructions. AI date grounding is defective and remains next for engineering review. Synthetic matters 3035/3036 and the exact outputs are in the Phase 1 handoff. This is not an AI signoff.
 
 **AI output quality on clean inputs.** Audited once on M-1008; one real grounding gap fixed. Repeat on two other matters with different document sets. What matters is a confident sentence the sources do not support.
 
