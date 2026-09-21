@@ -1,6 +1,16 @@
 # Coil Phase 1 completion pass
 
-## Latest: ZIP batching and recovery, September 21
+## Latest: many-folder and mixed-document ZIP acceptance, September 21
+
+Both sites run `b98647e`. ZIP previews show 25 folders per page and one shared matter-number picker. Saved choices persist across page changes; importing covers all pages. Unknown numbers stop the operation with a clear message. Blank names and ambiguous name/number matches require a choice rather than filing to an unrelated or first matching matter. No schema or provider changes.
+
+Local full suite: 697 passed. Deployment Python 3.12 affected suites: 98 passed. A 500-folder/1,000-matter local preview decreased from 35,535,275 bytes and 500,500 options to 92,481 bytes and 1,000 shared options. Matching uses one database snapshot rather than one query per folder.
+
+Public lab job 1 tested 500 folders across 20 pages with Word, twelve-page PDF, text and email files. The preview was 84,239 bytes with 1,002 matter suggestions. A page-one skip and page-two matter change survived returning to page one. The full import created 499 documents, skipped one and had zero errors in 25 batches, maximum request 0.358 seconds. Every stored file and four public downloads matched exact bytes. A separate read-only check verified all 499 document identifiers/amounts in extracted text and the final-page text in 125 PDFs. No files were shared to the portal.
+
+Both sites are healthy with three matching changed-file hashes, SQLite integrity OK and zero restarts. The temporary lab was removed; public and origin routes return 404. Grok queue: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5768157971; independent results are pending. Full handoff and backups: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-zip-preview-handoff.md`. Next executable work is broader AI/research acceptance. Provider access and independent browser gates remain open, so Phase 1 is not complete.
+
+## Earlier: ZIP batching and recovery, September 21
 
 Both sites run `2e52988`. ZIP imports start saved jobs and process up to 20 entries or 25 MB of uncompressed data per request. Counts, document records and progress commit together. Repeated starts/cursors do not duplicate work. A file manifest supports cleanup after a failed save or worker exit while preserving committed documents. Recovery after an abrupt exit happens when the job resumes. Upload and guide limits now match: 48 MB per ZIP, 25 MB per document.
 
@@ -86,7 +96,8 @@ Remaining acceptance gates:
 - [ ] Grok independently checks report examples, upload preservation, unsharing, signatures and final email/PDF artifacts, client separation, mobile layouts and keyboard behavior.
 - [x] Codex CSV proxy/browser checks: 50,000 unique rows through Cloudflare and a 5,001-row browser pause/resume fixture passed on `7e15867`. Independent Grok verification remains part of the browser signoff above.
 - [x] Synthetic text ZIP volume and recovery: 3,000 unique files through the public proxy, worker restart, replay, exact stored/downloaded bytes and cleanup verified on `2e52988`.
-- [ ] Broader ZIP samples with Office/PDF files and many matter folders, plus Grok's independent pause/resume browser checks.
+- [x] Mixed Word/PDF/text/email ZIP sample with 500 matter folders, page-choice persistence, exact bytes and extracted identifiers/amounts on `b98647e`.
+- [ ] Grok's independent ZIP preview, keyboard and pause/resume browser checks.
 - [ ] Broaden AI factual samples and research browser workflows beyond the successful provider search, opinion and citation checks.
 - [ ] Production branded SMTP configuration, offsite recovery and other launch operations need their own signoff. The QA mail setup does not change demo's sender.
 
