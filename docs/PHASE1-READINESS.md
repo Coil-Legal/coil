@@ -1,6 +1,16 @@
 # Coil Phase 1 completion pass
 
-## September 21 continuation
+## Latest: resumable CSV verification, September 21
+
+Both sites now run `7e15867`. Large CSVs use owner-authenticated batches with atomic saved progress. Previews clearly sample the first 200 rows. Local suite: 676 passed. Deployment-image affected tests: 68 passed. Both sites are healthy, files match, SQLite integrity is OK and containers have zero restarts.
+
+The 50,000-row import now passes through the actual Cloudflare proxy into a disposable firm. Preview: 0.955 seconds; maximum batch request: 1.655 seconds; total import: 493.843 seconds. All 50,000 rows, 300,000 minutes and 30,000,000 cents reconcile in storage and export. Reconnection and replay passed. The temporary authenticated route was removed after testing.
+
+Actual browser testfirm job 26 passed pause at 1,400, keyboard resume, close/reopen and completion at 5,001 rows. It repeatedly updated one synthetic contact (1809), leaving 1 created, 5,000 updated and 0 errors. Grok's independent verification is still pending: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5766422082.
+
+Full handoff, file list, evidence and recovery paths: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-import-resume-handoff.md`. Phase 1 is still open for provider access and remaining acceptance checks. Large ZIP imports retain their old flow and need separate volume verification.
+
+## Earlier September 21 evidence
 
 Both sites now run `2b21f25`. Portal uploads use staff file validation and text extraction; signing and document delivery verify the sent file hash; the invoice API rejects malformed dates before creating drafts. Full suite: 670 passed. Deployment Python 3.12 affected tests: 117 passed. Both sites have matching hashes, SQLite integrity OK and zero restarts. Public testfirm rejected invalid files and completed valid document 79/signature 6 with a PDF certificate.
 
@@ -54,7 +64,8 @@ Remaining acceptance gates:
 - [ ] Ian signs into the open Stripe Chrome tab. Install test keys and the correct signed webhook subscription, then verify successful/declined cards, saved-card retries, installments and real provider redelivery. Current live keys were not used for charges.
 - [ ] Authentic Twilio inbound SMS and reply from an authorized external handset. Credentials and webhook configuration are valid; number ending 7961 targets testfirm. Carrier delivery is not yet verified.
 - [ ] Grok independently checks report examples, upload preservation, unsharing, signatures and final email/PDF artifacts, client separation, mobile layouts and keyboard behavior.
-- [ ] Check large imports through the public proxy/browser. Current direct HTTP timing leaves little room below the 600-second worker limit on slower data or servers.
+- [x] Codex CSV proxy/browser checks: 50,000 unique rows through Cloudflare and a 5,001-row browser pause/resume fixture passed on `7e15867`. Independent Grok verification remains part of the browser signoff above.
+- [ ] Large ZIP import volume and interruption behavior. CSV batching does not change the ZIP flow.
 - [ ] Broaden AI factual samples and research browser workflows beyond the successful provider search, opinion and citation checks.
 - [ ] Production branded SMTP configuration, offsite recovery and other launch operations need their own signoff. The QA mail setup does not change demo's sender.
 
