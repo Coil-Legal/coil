@@ -1,5 +1,15 @@
 # Coil Phase 1 completion pass
 
+## September 21 continuation
+
+Both sites now run `2b21f25`. Portal uploads use staff file validation and text extraction; signing and document delivery verify the sent file hash; the invoice API rejects malformed dates before creating drafts. Full suite: 670 passed. Deployment Python 3.12 affected tests: 117 passed. Both sites have matching hashes, SQLite integrity OK and zero restarts. Public testfirm rejected invalid files and completed valid document 79/signature 6 with a PDF certificate.
+
+Phase 1 still needs the acceptance gates below. Large-import public-proxy behavior is particularly important: the direct 425.5-second commit exceeds Cloudflare's documented default 125-second read timeout. Actual zone behavior is not yet measured; do not count the direct HTTP result as a public browser pass.
+
+Grok's current release queue is https://github.com/Coil-Legal/coil/issues/12#issuecomment-5756766063. No new independent result since September 20 at 03:45 UTC. A recurring review follow-up is active every 30 minutes. Full evidence and recovery paths: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-phase-review-handoff.md`. Phase 2 progress and Phase 3 prerequisites are recorded in their QA checklists.
+
+## September 20 evidence
+
 2026-09-20. Deployed release `475b50fb72fd7e62ba7b21b990047515389bf6d7` on testfirm and demo. Phase 1 still needs Stripe test-mode checks, authentic SMS delivery and Grok's browser signoff.
 
 Completed application fixes:
