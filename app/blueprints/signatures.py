@@ -8,6 +8,7 @@ registers this blueprint on the app through a record_once hook. If "signatures" 
 remove the hook in portal.py.
 """
 import hashlib
+import io
 import os
 from flask import Blueprint, render_template, request, redirect, url_for, flash, abort, current_app, send_file, Response
 from markupsafe import escape
@@ -41,11 +42,22 @@ def pixel_url(s):
 
 
 def _file_bytes(doc):
-    p = abs_path(doc)
-    if not os.path.isfile(p):
+    if doc is None:
         return None
-    with open(p, "rb") as fh:
-        return fh.read()
+    p = abs_path(doc)
+    try:
+        with open(p, "rb") as fh:
+            return fh.read()
+    except OSError:
+        return None
+
+
+def _verified_file_bytes(s):
+    """Return the exact sent copy, or stop before displaying or signing different bytes."""
+    data = _file_bytes(s.document)
+    if data is None or not s.document_hash or hashlib.sha256(data).hexdigest() != s.document_hash:
+        abort(409, description=t("sign.err_document_changed", lang_for(s.contact)))
+    return data
 
 
 def _display_title(s):
@@ -213,7 +225,7 @@ def _certificate_bytes(s):
         return fh.read()
 
 
-def _email_signed_copies(s):
+def _email_signed_copies(s, data):
     f = Firm.get()
     lang = lang_for(s.contact)
     title = _display_title(s)
@@ -222,7 +234,6 @@ def _email_signed_copies(s):
         att.append((f"signature-certificate-{s.id}.pdf", _certificate_bytes(s), "application/pdf"))
     except OSError:
         pass
-    data = _file_bytes(s.document)
     if data is not None:
         att.append((s.document.name, data, s.document.mime or "application/octet-stream"))
     client_to = s.signer_email or s.contact.email
@@ -402,6 +413,7 @@ def sign(token):
     s = _by_token(token)
     if s.status in ("signed", "void", "declined", "draft"):
         return render_template("signatures/sign_status.html", **_ctx(s))
+    data = _verified_file_bytes(s)
     if request.method == "GET":
         _log_view(s, detail="page")
         return render_template("signatures/sign.html", name="", email=s.contact.email or "", error=None, **_ctx(s))
@@ -414,9 +426,6 @@ def sign(token):
         return render_template("signatures/sign.html", name=name, email=email, error=error, **_ctx(s)), 400
     ts = now()
     ip = client_ip()
-    if not s.document_hash:
-        data = _file_bytes(s.document)
-        s.document_hash = hashlib.sha256(data or b"").hexdigest()
     s.signature_hash = hashlib.sha256(f"{s.document_hash}{name}{ip}{ts.isoformat()}".encode("utf-8")).hexdigest()
     s.signer_name = name[:200]
     s.signer_email = email[:200]
@@ -430,7 +439,7 @@ def sign(token):
     db.session.flush()
     s.certificate_pdf_path = build_certificate_pdf(s)
     db.session.commit()
-    _email_signed_copies(s)
+    _email_signed_copies(s, data)
     return render_template("signatures/sign_done.html", **_ctx(s))
 
 
@@ -439,11 +448,10 @@ def sign_file(token):
     s = _by_token(token)
     if s.status not in ("sent", "viewed", "signed"):
         abort(404)
-    p = abs_path(s.document)
-    if not os.path.isfile(p):
-        abort(404)
+    data = _verified_file_bytes(s)
     inline = (s.document.mime or "") in INLINE_MIMES
-    return send_file(p, as_attachment=not inline, download_name=s.document.name, mimetype=s.document.mime or None)
+    return send_file(io.BytesIO(data), as_attachment=not inline, download_name=s.document.name,
+                     mimetype=s.document.mime or None)
 
 
 @bp.route("/sign/doc/<token>/decline", methods=["POST"])

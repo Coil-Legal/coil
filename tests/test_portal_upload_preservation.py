@@ -6,6 +6,7 @@ from tests.test_phase1_independent import app
 
 def test_same_name_uploads_within_one_second_preserve_both_files(app, monkeypatch):
     from app.models import Document
+    from app.blueprints.documents import abs_path
     import time
     monkeypatch.setattr(time, 'time', lambda: 1800000000)
     client = app.test_client()
@@ -18,5 +19,5 @@ def test_same_name_uploads_within_one_second_preserve_both_files(app, monkeypatc
     with app.app_context():
         docs = Document.query.order_by(Document.id).all()
         assert len(docs) == 2
-        assert [Path(doc.path).read_bytes() for doc in docs] == [b'first document', b'second document']
+        assert [Path(abs_path(doc)).read_bytes() for doc in docs] == [b'first document', b'second document']
         assert docs[0].path != docs[1].path

@@ -130,3 +130,9 @@ These come from the readiness register and support the seven product tools above
 A tool is ready only when its required cases pass on an identified release, failures have regression evidence and independent retests, and remaining limitations are stated. NOT BUILT and BLOCKED are valid findings, not passes. Product claims must match supported currencies, integrations, courts, formats and tested accessibility coverage.
 
 Result record: case ID; result; deployed commit; tester; fixture IDs; steps; expected; actual; evidence path; issue; retest commit/date. Log active ownership in COORDINATION.md before implementation. This checklist is documentation only; no new Phase 2 QA run, implementation or deployment is implied.
+
+## September 21 review progress
+
+A focused review reproduced P2-INV-04 date failures on baseline `20571c2`: malformed strings, an impossible date, a valid date with trailing garbage, an integer and an object each created a draft instead of returning an error. The fix validates explicitly supplied dates as exact `YYYY-MM-DD` values before calling the builder. Omitted/null dates retain the documented default behavior. Five refusal regressions plus one positive control pass; the related API/MCP group passed 62 tests. This is deterministic local evidence, not an actual MCP client or live browser pass. Deployment and final release evidence belong in the latest coordination handoff.
+
+Remaining priorities: genuine simultaneous invoice requests (P2-INV-05), mixed-currency totals (P2-CUR-05), actual HTTP MCP client operation, and keyboard/screen-reader QA. Phase 1 provider and independent browser gates remain open. Phase 3 inventory and prerequisites are now in `docs/PHASE3-QA-CHECKLIST.md`.

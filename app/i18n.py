@@ -66,6 +66,7 @@ T = {
                                   "applied to an invoice for work already done, and anything unused is returned to you.",
         "portal.upload.pick_matter": "Pick one of your matters.",
         "portal.upload.choose_file": "Choose a file to upload.",
+        "portal.upload.invalid_file": "The file could not be uploaded. Choose a nonempty document under 25 MB with the correct file extension. Executable files are not allowed.",
         "portal.upload.done": "Uploaded {name}. We will take a look.",
         # ---- portal: messages ----
         "portal.msgs.title": "Messages",
@@ -104,6 +105,7 @@ T = {
         "sign.record_note": "Your name, IP address, browser, and the time of signing are recorded and attached to the signed copy.",
         "sign.err_name": "Type your full name and tick the box to confirm you agree.",
         "sign.err_agree_doc": "Please tick the box to confirm you have read the document and agree to sign it.",
+        "sign.err_document_changed": "This document changed or is no longer available. Ask the firm to send a new signature request.",
         "sign.err_agree_letter": "Please tick the box to confirm you have read the letter and agree to its terms.",
         "sign.done.title": "Signed",
         "sign.done.thanks": "Thank you, {name}",
@@ -240,6 +242,7 @@ T = {
                                   "saldo no utilizado se le devolverá.",
         "portal.upload.pick_matter": "Seleccione uno de sus asuntos.",
         "portal.upload.choose_file": "Seleccione un archivo para subir.",
+        "portal.upload.invalid_file": "No se pudo subir el archivo. Seleccione un documento no vacío de menos de 25 MB con la extensión correcta. No se permiten archivos ejecutables.",
         "portal.upload.done": "Se subió {name}. Lo revisaremos.",
         # ---- portal: messages ----
         "portal.msgs.title": "Mensajes",
@@ -279,6 +282,7 @@ T = {
                             "copia firmada.",
         "sign.err_name": "Escriba su nombre completo y marque la casilla para confirmar que está de acuerdo.",
         "sign.err_agree_doc": "Marque la casilla para confirmar que ha leído el documento y acepta firmarlo.",
+        "sign.err_document_changed": "Este documento cambió o ya no está disponible. Pida al despacho que envíe una nueva solicitud de firma.",
         "sign.err_agree_letter": "Marque la casilla para confirmar que ha leído la carta y acepta sus términos.",
         "sign.done.title": "Firmado",
         "sign.done.thanks": "Gracias, {name}",

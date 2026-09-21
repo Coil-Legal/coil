@@ -576,8 +576,20 @@ def invoice_create():
     m = db.session.get(Matter, mid) if mid else None
     if not m:
         return _error(400, "matter_id is required and must be an existing matter.")
-    issued_on = parse_date(b.get("issued_on"), date.today())
-    due_on = parse_date(b.get("due_on"), issued_on)
+    dates = {}
+    for field in ("issued_on", "due_on"):
+        value = b.get(field)
+        if value is None:
+            dates[field] = dates.get("issued_on", date.today())
+            continue
+        try:
+            parsed = date.fromisoformat(value) if isinstance(value, str) else None
+        except ValueError:
+            parsed = None
+        if parsed is None or parsed.isoformat() != value:
+            return _error(400, f"{field} must be a valid date in YYYY-MM-DD format.")
+        dates[field] = parsed
+    issued_on, due_on = dates["issued_on"], dates["due_on"]
     try:
         created = build_for_matter(m, u, issued_on, due_on)
     except ValueError as e:

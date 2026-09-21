@@ -4,18 +4,17 @@ All routes live under /portal so POSTs are CSRF-exempt by prefix (public.html fo
 Every client-facing string comes from app.i18n, chosen by lang_for(contact) (contact language, else firm default).
 """
 import os
-import uuid
 from datetime import timedelta
 from flask import (Blueprint, render_template, request, redirect, url_for, flash, session, current_app, abort,
                    send_file)
 from sqlalchemy import func
-from werkzeug.utils import secure_filename
 from ..extensions import db
 from ..models import Contact, Matter, Invoice, Document, Engagement, PortalToken, Firm, Message, audit, now
 from ..helpers import portal_required, portal_contact
 from ..services.mail import send_email
 from ..i18n import t, lang_for
 from . import signatures as _signatures
+from .documents import store_upload
 
 bp = Blueprint("portal", __name__, url_prefix="/portal")
 
@@ -244,15 +243,10 @@ def upload():
     if not f or not f.filename:
         flash(t("portal.upload.choose_file", lang), "error")
         return redirect(url_for("portal.home"))
-    name = secure_filename(f.filename) or "upload"
-    folder = os.path.join(current_app.config["UPLOAD_DIR"], str(matter.id))
-    os.makedirs(folder, exist_ok=True)
-    stored = f"{uuid.uuid4().hex}_{name}"
-    path = os.path.join(folder, stored)
-    f.save(path)
-    doc = Document(matter_id=matter.id, name=f.filename[:300], path=path, size=os.path.getsize(path),
-                   mime=f.mimetype or "", uploaded_by_id=None, shared_to_portal=True, uploaded_by_client=True)
-    db.session.add(doc)
+    doc, error = store_upload(matter.id, f, shared=True, by_client=True)
+    if error:
+        flash(error if lang == "en" else t("portal.upload.invalid_file", lang), "error")
+        return redirect(url_for("portal.home"))
     db.session.flush()
     audit("document_upload_client", "document", doc.id, f"{c.display_name} uploaded {f.filename} to {matter.number}")
     db.session.commit()
