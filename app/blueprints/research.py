@@ -258,24 +258,24 @@ def build_memo_pdf(matter, rows):
     pdf = DocPDF(firm, title=f"Research memo {matter.number}")
     pdf.alias_nb_pages()
     pdf.add_page()
-    parts = [f"<h1>Research memo: {matter.label}</h1>",
-             f"<p>Client: {matter.client.display_name if matter.client else ''}. Prepared {date.today().strftime('%b %-d, %Y')}. "
+    parts = [f"<h1>Research memo: {escape(matter.label)}</h1>",
+             f"<p>Client: {escape(matter.client.display_name if matter.client else '')}. Prepared {date.today().strftime('%b %-d, %Y')}. "
              f"{len(rows)} authorit{'y' if len(rows) == 1 else 'ies'}.</p>"]
     for i, a in enumerate(rows, 1):
-        parts.append(f"<h3>{i}. {a.case_name}</h3>")
+        parts.append(f"<h3>{i}. {escape(a.case_name)}</h3>")
         line = ", ".join(x for x in [a.citation, a.court, a.decided_on.strftime("%b %-d, %Y") if a.decided_on else ""] if x)
         if line:
-            parts.append(f"<p>{line}</p>")
+            parts.append(f"<p>{escape(line)}</p>")
         if a.url:
-            parts.append(f"<p>{a.url}</p>")
+            parts.append(f"<p>{escape(a.url)}</p>")
         if a.notes:
             for para in re.split(r"\n\s*\n", a.notes):
-                parts.append(f"<p>{para.strip()}</p>")
+                parts.append(f"<p>{escape(para.strip())}</p>")
         elif a.snippet:
-            parts.append(f"<p>Excerpt: {a.snippet[:600]}</p>")
+            parts.append(f"<p>Excerpt: {escape(a.snippet[:600])}</p>")
     parts.append("<p>Source: CourtListener, a free public database run by Free Law Project. Verify every authority "
                  "against the official reporter before citing it.</p>")
-    html_to_pdf_body(pdf, "".join(p.replace("&", "&amp;") for p in parts))
+    html_to_pdf_body(pdf, "".join(parts))
     return bytes(pdf.output())
 
 

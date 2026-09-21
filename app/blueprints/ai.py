@@ -204,7 +204,8 @@ def _matter_context(m):
                                         ).order_by(CalendarEvent.starts_at).limit(8).all()
     if events:
         parts.append("Upcoming events:\n" + "\n".join(f"- {e.starts_at:%Y-%m-%d %H:%M} {e.title}" for e in events))
-    msgs = Message.query.filter(db.or_(Message.matter_id == m.id, Message.contact_id == m.client_id)).order_by(
+    # A shared client or an unfiled message does not establish which case a fact belongs to.
+    msgs = Message.query.filter(Message.matter_id == m.id).order_by(
         Message.created_at.desc()).limit(10).all()
     if msgs:
         parts.append("Recent messages (newest first):\n" + "\n".join(
