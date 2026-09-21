@@ -1,0 +1,51 @@
+{% extends "base.html" %}{% block title %}Import progress{% endblock %}{% block content %}
+<div class="topbar"><h1>Import: {{ entity_label }} from {{ source_label }}</h1>
+<a class="btn secondary" href="/import">Back to imports</a></div>
+<div class="card">
+<p><strong>{{ job.filename }}</strong></p>
+<p id="import-status" role="status" aria-live="polite">Saved {{ meta.cursor }} of {{ meta.total_rows }} rows.</p>
+<progress id="import-progress" aria-label="Rows processed" value="{{ meta.cursor }}" max="{{ meta.total_rows }}" style="width:100%"></progress>
+<p>Keep this page open to continue. You can pause or close it and resume from Imports. Saved rows will not be repeated.</p>
+<form id="import-form" method="post" action="/import/jobs/{{ job.id }}/continue">{{ csrf() }}
+<input id="import-cursor" type="hidden" name="cursor" value="{{ meta.cursor }}">
+<div class="actions"><button id="import-resume" class="btn">Resume import</button>
+<button id="import-pause" type="button" class="btn secondary" hidden>Pause after this batch</button></div>
+</form>
+<noscript><p>Each click saves the next batch. Repeat until the import is complete.</p></noscript>
+</div>
+<script>
+(function () {
+  const form = document.getElementById('import-form');
+  const status = document.getElementById('import-status');
+  const cursor = document.getElementById('import-cursor');
+  const progress = document.getElementById('import-progress');
+  const resume = document.getElementById('import-resume');
+  const pause = document.getElementById('import-pause');
+  let running = false;
+  let paused = false;
+  pause.hidden = false;
+  pause.addEventListener('click', function () { paused = true; pause.disabled = true; });
+  async function proceed() {
+    if (running) return;
+    running = true; paused = false; resume.disabled = true; pause.disabled = false;
+    try {
+      while (!paused) {
+        const response = await fetch(form.action, {method: 'POST', body: new FormData(form), headers: {'Accept': 'application/json'}});
+        if (!response.ok) throw new Error('Import paused. Reopen this page or sign in again, then resume. Saved progress is kept.');
+        const result = await response.json();
+        cursor.value = result.processed; progress.value = result.processed;
+        status.textContent = 'Saved ' + result.processed + ' of ' + result.total + ' rows. ' + result.created + ' created, ' + result.updated + ' updated, ' + result.errors + ' with problems.';
+        if (result.done) { window.location.assign(result.url); return; }
+      }
+      status.textContent += ' Paused. Resume when ready.';
+    } catch (error) {
+      status.textContent = 'Import paused. Check your connection and sign-in, then resume. Saved progress is kept.';
+    } finally {
+      running = false; resume.disabled = false; pause.disabled = true;
+    }
+  }
+  form.addEventListener('submit', function (event) { event.preventDefault(); proceed(); });
+  proceed();
+})();
+</script>
+{% endblock %}

@@ -3,7 +3,8 @@
 <div class="actions" style="margin:0"><a class="btn small secondary" href="/import">Choose a different file</a></div></div>
 {% set c = result.counts %}
 <div class="card">
-  <p><strong>{{ data.filename }}</strong>: {{ c.rows }} rows. With the mapping below Coil would <strong>create {{ c.created }}</strong>, <strong>update {{ c.updated }}</strong>, skip {{ c.skipped }}, and report <strong>{{ c.errors }}</strong> rows with problems. Nothing has been written yet.</p>
+  <p><strong>{{ data.filename }}</strong>: {{ total_rows }} rows. {% if total_rows > c.rows %}This preview checks a sample of the first {{ c.rows }} rows. In that sample Coil would{% else %}With the mapping below Coil would{% endif %} <strong>create {{ c.created }}</strong>, <strong>update {{ c.updated }}</strong>, skip {{ c.skipped }}, and report <strong>{{ c.errors }}</strong> rows with problems. Nothing has been written yet.</p>
+  {% if total_rows > c.rows %}<p>Every row will be checked when you import. You can pause and resume from Imports; saved progress is kept.</p>{% endif %}
   {% if missing_required %}<div class="flash error">These required fields have no column yet: {{ missing_required|join(', ') }}. Pick a source column for each, then re-check.</div>{% endif %}
 </div>
 
@@ -42,7 +43,7 @@
     {% if data.entity == 'trust' %}<p class="small muted">Rows are applied in date order. Any row that would take a client below zero is refused and listed so you can add the opening balance and re-upload just those rows.</p>{% endif %}
     <div class="actions">
       <button class="btn secondary" name="do" value="recheck">Re-check with this mapping</button>
-      <button class="btn" name="do" value="commit" {% if missing_required %}disabled{% endif %}>Import {{ c.rows }} rows</button>
+      <button class="btn" name="do" value="commit" {% if missing_required %}disabled{% endif %}>Import {{ total_rows }} rows</button>
     </div>
     {% if c.errors %}<p class="small muted">Rows with problems are listed after the import so you can download and fix them; the good rows still go in.</p>{% endif %}
   </div>

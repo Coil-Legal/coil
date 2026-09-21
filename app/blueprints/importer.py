@@ -2,7 +2,7 @@
 from Clio, MyCase, PracticePanther or any CSV.
 
 Flow per file: POST upload -> parse + auto-map + dry run -> preview page with mapping selects -> POST commit with
-the (possibly edited) mapping -> rows applied in one transaction per 500, ExternalRef rows written so later files
+the (possibly edited) mapping -> resumable batches for large CSVs, ExternalRef rows written so later files
 link up and a re-import updates instead of duplicating -> ImportJob with counts and errors -> job page.
 
 Nothing is ever deleted by an import. Trust rows that would take a client below zero are refused and listed.
@@ -18,7 +18,7 @@ import uuid
 import zipfile
 from datetime import datetime, date, timedelta
 
-from flask import Blueprint, render_template, request, redirect, url_for, flash, abort, current_app, Response, session
+from flask import Blueprint, render_template, request, redirect, url_for, flash, abort, current_app, Response, session, jsonify
 from sqlalchemy import func, text
 
 from ..extensions import db
@@ -33,6 +33,8 @@ MAX_CSV_BYTES = 20 * 1024 * 1024
 MAX_ZIP_BYTES = 200 * 1024 * 1024
 BATCH = 500
 SAMPLE = 20
+PREVIEW_ROWS = 200
+CSV_BATCH_ROWS = 100
 
 
 # ---------------------------------------------------------------- storage for the two-step flow
@@ -58,8 +60,15 @@ def _load(token):
 
 
 def _save(token, data):
-    with open(_token_path(token), "w") as fh:
-        json.dump(data, fh)
+    path = _token_path(token)
+    temporary = path + "." + uuid.uuid4().hex + ".tmp"
+    try:
+        with open(temporary, "w") as fh:
+            json.dump(data, fh)
+        os.replace(temporary, path)
+    finally:
+        if os.path.exists(temporary):
+            os.remove(temporary)
 
 
 def _parse_csv(raw):
@@ -1007,13 +1016,16 @@ def _ordered_rows(entity, rows, mapping):
     return sorted(rows, key=key)
 
 
-def run_import(data, mapping, options, user, dry):
+def run_import(data, mapping, options, user, dry, commit_rows=True):
     """Returns {"counts", "rows" (sample), "errors", "warnings", "id_map"}.
 
     Warnings are rows that imported but not exactly as the file asked, most often a matter or invoice number
     that was already taken by an unrelated Coil record. They are not errors and do not stop anything.
 
-    Commits after every row rather than batching: a firm's own users keep writing to the same SQLite file while
+    The legacy direct path commits after every row. Resumable requests pass commit_rows=False
+    after reserving the writer and commit their small batch with its progress checkpoint.
+
+    The direct path commits after every row rather than batching: a firm's own users keep writing to the same SQLite file while
     an import runs, and a batched commit held one open transaction across hundreds of rows, so any of their
     writes that landed inside that window made every row after it fail with the same stale-snapshot error, not
     just the row that collided. A short-lived transaction per row, retried a few times on that specific error,
@@ -1036,17 +1048,20 @@ def run_import(data, mapping, options, user, dry):
                 try:
                     # Start the row with the writer reserved. Retrying a read snapshot
                     # can keep losing to another writer until every retry is exhausted.
-                    db.session.rollback()
-                    db.session.execute(text('UPDATE external_refs SET coil_id = coil_id WHERE 0'))
+                    if commit_rows:
+                        db.session.rollback()
+                        db.session.execute(text('UPDATE external_refs SET coil_id = coil_id WHERE 0'))
                     with db.session.begin_nested():
                         coil_id, created = apply(ctx, rec)
-                    db.session.commit()
+                    if commit_rows:
+                        db.session.commit()
                     if rec.get("external_id"):
                         id_map[str(rec["external_id"])[:120]] = coil_id
                     action = "create" if created else "update"
                     break
                 except Exception as e:  # noqa: BLE001 - roll back and either retry or move on
-                    db.session.rollback()
+                    if commit_rows:
+                        db.session.rollback()
                     if is_lock_error(e) and attempt < LOCK_RETRIES - 1:
                         time.sleep(0.05 * (attempt + 1))
                         continue
@@ -1246,6 +1261,9 @@ def _options_from_form(entity):
 @bp.route("/preview/<token>", methods=["GET", "POST"])
 @owner_required
 def preview(token):
+    existing = _csv_job_for_token(token)
+    if existing:
+        return redirect(url_for("importer.job", job_id=existing.id))
     data = _load(token)
     if not data:
         flash("That upload has expired. Upload the file again.", "error")
@@ -1275,12 +1293,13 @@ def preview(token):
         _save(token, data)
         if request.form.get("do") == "commit":
             return _commit(data)
-    result = run_import(data, data["mapping"], data["options"], current_user(), dry=True)
+    preview_data = {**data, "rows": data["rows"][:PREVIEW_ROWS]}
+    result = run_import(preview_data, data["mapping"], data["options"], current_user(), dry=True)
     fields = M.field_defs(entity)
     missing_required = [label for f, label, req, _ in fields if req and not data["mapping"].get(f)]
     unmapped = M.unmapped_headers(data["headers"], data["mapping"])
     return render_template("importer/preview.html", data=data, token=token, result=result, fields=fields,
-                           missing_required=missing_required, unmapped=unmapped,
+                           missing_required=missing_required, unmapped=unmapped, total_rows=len(data["rows"]),
                            entity_label=M.ENTITY_LABELS[entity], source_label=M.SOURCE_LABELS.get(data["source"], data["source"]),
                            first_row=(data["rows"][0] if data["rows"] else {}))
 
@@ -1298,6 +1317,8 @@ def _commit(data):
         if missing:
             flash("Map these required fields first: " + ", ".join(missing), "error")
             return redirect(url_for("importer.preview", token=data["token"]))
+        if len(data["rows"]) > CSV_BATCH_ROWS:
+            return _start_csv_job(data, user)
         result = run_import(data, data["mapping"], data["options"], user, dry=False)
         mapping_json = {"headers": data["headers"], "mapping": data["mapping"], "options": data["options"],
                         "warnings": result.get("warnings") or []}
@@ -1324,6 +1345,104 @@ def _commit(data):
     return redirect(url_for("importer.job", job_id=job.id))
 
 
+def _csv_job_for_token(token):
+    return ImportJob.query.filter(func.json_extract(ImportJob.mapping_json, "$.upload_token") == token).first()
+
+
+def _reserve_import_writer():
+    # End the authentication read snapshot before taking SQLite's writer reservation.
+    db.session.rollback()
+    db.session.execute(text('UPDATE import_jobs SET id = id WHERE 0'))
+
+
+def _start_csv_job(data, user):
+    user_id = user.id
+    _reserve_import_writer()
+    existing = _csv_job_for_token(data["token"])
+    if existing:
+        return redirect(url_for("importer.job", job_id=existing.id))
+    file_token = uuid.uuid4().hex
+    # Freeze a separate source copy. An already-open mapping form cannot change a running job.
+    _save(file_token, {**data, "rows": _ordered_rows(data["entity"], data["rows"], data["mapping"])})
+    meta = {"headers": data["headers"], "mapping": data["mapping"], "options": data["options"],
+            "upload_token": data["token"], "file_token": file_token, "cursor": 0,
+            "total_rows": len(data["rows"]), "warnings": []}
+    j = ImportJob(source=data["source"], entity=data["entity"], filename=data["filename"][:300],
+                  mapping_json=json.dumps(meta), rows=0, status="running", created_by_id=user_id)
+    db.session.add(j)
+    db.session.commit()
+    return redirect(url_for("importer.job", job_id=j.id))
+
+
+def _csv_progress(j):
+    meta = json.loads(j.mapping_json)
+    return {"processed": meta["cursor"], "total": meta["total_rows"], "done": j.status == "committed",
+            "created": j.created, "updated": j.updated, "skipped": j.skipped, "errors": len(j.errors),
+            "url": url_for("importer.job", job_id=j.id)}
+
+
+@bp.route("/jobs/<int:job_id>/continue", methods=["POST"])
+@owner_required
+def continue_csv(job_id):
+    try:
+        expected = int(request.form.get("cursor", ""))
+    except ValueError:
+        abort(400, description="The import position is missing. Reopen this import to continue.")
+    wants_json = request.accept_mimetypes.best == "application/json"
+    for attempt in range(LOCK_RETRIES):
+        try:
+            _reserve_import_writer()
+            j = db.session.get(ImportJob, job_id) or abort(404)
+            meta = json.loads(j.mapping_json or "{}")
+            if "file_token" not in meta:
+                abort(400, description="This import does not have a pending batch.")
+            if j.status == "running" and expected == meta["cursor"]:
+                data = _load(meta["file_token"])
+                if data is None:
+                    abort(409, description="The source file is missing. Restore it before continuing this import.")
+                batch = {**data, "rows": data["rows"][expected:expected + CSV_BATCH_ROWS]}
+                result = run_import(batch, meta["mapping"], meta["options"],
+                                    db.session.get(User, j.created_by_id), dry=False, commit_rows=False)
+                counts = result["counts"]
+                j.rows += counts["rows"]
+                j.created += counts["created"]
+                j.updated += counts["updated"]
+                j.skipped += counts["skipped"]
+                j.errors_json = json.dumps(j.errors + result["errors"])
+                id_map = json.loads(j.id_map_json or "{}")
+                id_map.update(result["id_map"])
+                j.id_map_json = json.dumps(id_map)
+                meta["cursor"] += counts["rows"]
+                meta["warnings"].extend(result.get("warnings") or [])
+                j.mapping_json = json.dumps(meta)
+                if meta["cursor"] == meta["total_rows"]:
+                    j.status = "committed"
+                    audit("import", j.entity, j.id,
+                          f"{j.filename}: {j.created} created, {j.updated} updated, "
+                          f"{j.skipped} skipped, {len(j.errors)} errors", j.created_by_id)
+                # Source rows and this checkpoint commit together, including the final audit.
+                db.session.commit()
+            response = _csv_progress(j)
+            db.session.rollback()
+            if response["done"]:
+                for token in (meta["file_token"], meta["upload_token"]):
+                    try:
+                        os.remove(_token_path(token))
+                    except FileNotFoundError:
+                        pass
+            return jsonify(response) if wants_json else redirect(response["url"])
+        except Exception as exc:
+            db.session.rollback()
+            if not is_lock_error(exc):
+                raise
+            if attempt + 1 == LOCK_RETRIES:
+                if wants_json:
+                    return jsonify(error="Coil is busy saving another change. Resume this import in a moment."), 503
+                flash("Coil is busy saving another change. Resume this import in a moment.", "error")
+                return redirect(url_for("importer.job", job_id=job_id))
+            time.sleep(0.05 * (attempt + 1))
+
+
 @bp.route("/jobs/<int:job_id>")
 @owner_required
 def job(job_id):
@@ -1332,7 +1451,8 @@ def job(job_id):
         meta = json.loads(j.mapping_json or "{}")
     except Exception:
         meta = {}
-    return render_template("importer/job.html", job=j, meta=meta, entity_label=M.ENTITY_LABELS.get(j.entity, j.entity),
+    template = "importer/progress.html" if j.status == "running" else "importer/job.html"
+    return render_template(template, job=j, meta=meta, entity_label=M.ENTITY_LABELS.get(j.entity, j.entity),
                            source_label=M.SOURCE_LABELS.get(j.source, j.source))
 
 

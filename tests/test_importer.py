@@ -52,7 +52,20 @@ def _commit(c, token, **extra):
     assert r.status_code == 302, r.data[:500]
     loc = r.headers["Location"]
     assert "/import/jobs/" in loc, loc
-    return int(loc.rsplit("/", 1)[-1])
+    job_id = int(loc.rsplit("/", 1)[-1])
+    page = c.get(loc)
+    if b'id="import-cursor"' in page.data:
+        cursor = 0
+        for _ in range(1000):
+            batch = c.post(f"/import/jobs/{job_id}/continue", data={"_csrf": c.tok, "cursor": cursor},
+                           headers={"Accept": "application/json"})
+            assert batch.status_code == 200, batch.data[:300]
+            cursor = batch.json["processed"]
+            if batch.json["done"]:
+                break
+        else:
+            raise AssertionError("Import did not finish")
+    return job_id
 
 
 def _job(app, job_id):

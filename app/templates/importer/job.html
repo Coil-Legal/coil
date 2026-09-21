@@ -20,8 +20,9 @@
 <div class="card">
   <h3 style="margin-top:0">Rows to check ({{ meta.warnings|length }})</h3>
   <p class="small muted">These rows went in, but not exactly as the file asked. Coil never overwrites a record it did not import, so a number that was already taken by an unrelated Coil record was replaced with the next Coil number and both records were left intact.</p>
+  {% if meta.warnings|length > 200 %}<p>Showing the first 200 warnings.</p>{% endif %}
   <table><tr><th>Line</th><th>What happened</th></tr>
-  {% for w in meta.warnings %}<tr><td>{{ w.row }}</td><td class="small">{{ w.message }}</td></tr>{% endfor %}
+  {% for w in meta.warnings[:200] %}<tr><td>{{ w.row }}</td><td class="small">{{ w.message }}</td></tr>{% endfor %}
   </table>
 </div>
 {% endif %}
@@ -29,8 +30,9 @@
   <h3 style="margin-top:0">Rows with problems</h3>
   {% if job.errors %}
   <p class="small muted">Download them as a CSV, fix the values in a spreadsheet, and upload that file again. Rows that succeeded will not be duplicated.</p>
+  {% if job.errors|length > 200 %}<p>Showing the first 200 problems. The CSV contains every failed row.</p>{% endif %}
   <table><tr><th>Line</th><th>Problem</th><th>Row</th></tr>
-  {% for e in job.errors %}<tr><td>{{ e.row }}</td><td class="small">{{ e.message }}</td><td class="small muted">{% for k, v in (e.data or {}).items() if v %}{{ k }}: {{ v|truncate(40) }}; {% endfor %}</td></tr>{% endfor %}
+  {% for e in job.errors[:200] %}<tr><td>{{ e.row }}</td><td class="small">{{ e.message }}</td><td class="small muted">{% for k, v in (e.data or {}).items() if v %}{{ k }}: {{ v|truncate(40) }}; {% endfor %}</td></tr>{% endfor %}
   </table>
   {% else %}<div class="empty">Every row went in.</div>{% endif %}
 </div>
