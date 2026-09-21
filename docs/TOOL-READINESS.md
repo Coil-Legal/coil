@@ -144,7 +144,7 @@ Further checks:
 - Feed it a brief that the AI narrative tool itself drafted. Any citation it invented must come back not found.
 
 ### Exports and importer
-Current September 21 evidence: CSV batches on `7e15867` passed a 50,000-row Cloudflare run and browser pause/resume. ZIP mapping and path identity fixes are in `27c6bd3`; full local suite 682 passed. ZIP volume, interruption and concurrent commit checks remain open. See the Phase 1 readiness log for deployment and independent QA status.
+Current September 21 evidence: CSV batches on `7e15867` passed a 50,000-row Cloudflare run and browser pause/resume. ZIP batches and file recovery on `2e52988` passed 3,000 unique text files through Cloudflare, worker restart/replay and exact byte checks. Full local suite: 690 passed; deployment suites: 91 passed. Mixed Office/PDF archives, many-folder previews and independent Grok browser checks remain open. See the Phase 1 readiness log for details.
 
 Contacts, matters, time, trust ledger, QuickBooks layouts, LEDES. Formula injection neutralised, negatives still numeric. Importer with preview, commit, failed-rows CSV, duplicate handling, concurrent-write lock fixed.
 

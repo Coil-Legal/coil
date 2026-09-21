@@ -1,6 +1,16 @@
 # Coil Phase 1 completion pass
 
-## Latest: ZIP mapping and identity verification, September 21
+## Latest: ZIP batching and recovery, September 21
+
+Both sites run `2e52988`. ZIP imports start saved jobs and process up to 20 entries or 25 MB of uncompressed data per request. Counts, document records and progress commit together. Repeated starts/cursors do not duplicate work. A file manifest supports cleanup after a failed save or worker exit while preserving committed documents. Recovery after an abrupt exit happens when the job resumes. Upload and guide limits now match: 48 MB per ZIP, 25 MB per document.
+
+Local full suite: 690 passed. Deployment Python 3.12 affected suites: 91 passed. Tests include actual subprocess exit after writing bytes, checkpoint rollback, same-cursor/start concurrency, post-commit preservation, missing archive recovery and permissions. A real multipart check accepted a 46 MB ZIP for preview and gave a clear split-file message for 49 MB.
+
+A separate authenticated firm imported 3,000 unique synthetic text documents through Cloudflare in 150 batches. Maximum batch request: 0.284 seconds. Every stored file matched its expected bytes; three public downloads matched. After restarting workers at file 1,000, a fresh login and replay resumed without duplicates. Lab job 1 completed with 3,000 created, zero errors and 1,931,700 stored bytes. The temporary lab was removed and both public/origin paths return 404.
+
+Both sites are healthy, six changed file hashes match, SQLite integrity is OK and restart counts are zero. Grok's independent browser queue: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5767641831. Full handoff/backups: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-zip-resume-handoff.md`. Mixed Office/PDF archives, many-folder previews, wider AI/research samples, provider access and independent browser acceptance remain open. Phase 1 is not complete.
+
+## Earlier: ZIP mapping and identity verification, September 21
 
 Both sites run `27c6bd3`. Explicit folder skips survive saving and commit. Windows ZIP paths import their original bytes. Long paths no longer collide at 120 characters; ambiguous legacy shortened references require review. Duplicate member paths, including slash/backslash aliases, are reported and skipped. No schema or provider changes.
 
@@ -75,7 +85,8 @@ Remaining acceptance gates:
 - [ ] Authentic Twilio inbound SMS and reply from an authorized external handset. Credentials and webhook configuration are valid; number ending 7961 targets testfirm. Carrier delivery is not yet verified.
 - [ ] Grok independently checks report examples, upload preservation, unsharing, signatures and final email/PDF artifacts, client separation, mobile layouts and keyboard behavior.
 - [x] Codex CSV proxy/browser checks: 50,000 unique rows through Cloudflare and a 5,001-row browser pause/resume fixture passed on `7e15867`. Independent Grok verification remains part of the browser signoff above.
-- [ ] Large ZIP import volume and interruption behavior. CSV batching does not change the ZIP flow.
+- [x] Synthetic text ZIP volume and recovery: 3,000 unique files through the public proxy, worker restart, replay, exact stored/downloaded bytes and cleanup verified on `2e52988`.
+- [ ] Broader ZIP samples with Office/PDF files and many matter folders, plus Grok's independent pause/resume browser checks.
 - [ ] Broaden AI factual samples and research browser workflows beyond the successful provider search, opinion and citation checks.
 - [ ] Production branded SMTP configuration, offsite recovery and other launch operations need their own signoff. The QA mail setup does not change demo's sender.
 
