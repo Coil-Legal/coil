@@ -8,11 +8,13 @@ link up and a re-import updates instead of duplicating -> ImportJob with counts 
 Nothing is ever deleted by an import. Trust rows that would take a client below zero are refused and listed.
 """
 import csv
+import errno
 import hashlib
 import io
 import json
 import os
 import re
+import shutil
 import time
 import uuid
 import zipfile
@@ -30,7 +32,9 @@ from . import _importmap as M
 bp = Blueprint("importer", __name__, url_prefix="/import")
 
 MAX_CSV_BYTES = 20 * 1024 * 1024
-MAX_ZIP_BYTES = 200 * 1024 * 1024
+MAX_ZIP_BYTES = 48 * 1024 * 1024
+ZIP_BATCH_FILES = 20
+ZIP_BATCH_BYTES = 25 * 1024 * 1024
 BATCH = 500
 SAMPLE = 20
 PREVIEW_ROWS = 200
@@ -59,8 +63,8 @@ def _load(token):
         return json.load(fh)
 
 
-def _save(token, data):
-    path = _token_path(token)
+def _save(token, data, ext="json"):
+    path = _token_path(token, ext)
     temporary = path + "." + uuid.uuid4().hex + ".tmp"
     try:
         with open(temporary, "w") as fh:
@@ -1130,57 +1134,120 @@ def _zip_plan(path):
     return list(folders.values()), skipped
 
 
-def _apply_zip(data, user):
+def _zip_rows(data):
+    rows = []
+    overrides = data.get("folder_matters", {})
+    for folder in data["folders"]:
+        mid = overrides.get(folder["folder"], folder["matter_id"])
+        rows.extend({**entry, "matter_id": mid, "folder": folder["folder"],
+                     "skip": not mid and folder["folder"] in overrides}
+                    for entry in folder["files"])
+    rows.extend({"path": entry["file"], "skip": True, "size": 0} for entry in data.get("skipped", []))
+    return rows
+
+
+def _cleanup_zip_files(token):
+    """Caller holds the SQLite writer so another batch cannot replace this manifest."""
+    path = _token_path(token, "pending.json")
+    if not os.path.isfile(path):
+        return
+    with open(path) as fh:
+        paths = json.load(fh)
+    for relative in paths:
+        if not Document.query.filter_by(path=relative).first():
+            try:
+                os.remove(os.path.join(current_app.config["UPLOAD_DIR"], relative))
+            except OSError as exc:
+                if exc.errno not in (errno.ENOENT, errno.ENAMETOOLONG):
+                    raise
+    os.remove(path)
+
+
+def _apply_zip(data, user, token, start):
     from .documents import store_bytes
     counts = {"rows": 0, "created": 0, "updated": 0, "skipped": 0, "errors": 0}
-    errors, id_map = [], {}
-    overrides = data.get("folder_matters", {})
-    with zipfile.ZipFile(_token_path(data["token"], "zip")) as z:
-        n = 0
-        for f in data["folders"]:
-            mid = overrides.get(f["folder"], f["matter_id"])
-            for entry in f["files"]:
-                n += 1
-                counts["rows"] += 1
-                if not mid and f["folder"] in overrides:
-                    counts["skipped"] += 1
-                    continue
-                if not mid:
-                    counts["errors"] += 1
-                    errors.append({"row": n, "message": f"Folder '{f['folder']}' does not match a matter.", "data": {"file": entry["path"]}})
-                    continue
-                path = entry["path"]
-                ext = path if len(path) <= 120 else "zip:sha256:" + hashlib.sha256(path.encode()).hexdigest()
-                if ExternalRef.query.filter_by(source=data["source"], entity="document", external_id=ext).first():
-                    counts["skipped"] += 1
-                    continue
-                # Old imports truncated long paths, so a legacy match cannot establish file identity.
-                if len(path) > 120 and ExternalRef.query.filter_by(
-                        source=data["source"], entity="document", external_id=path[:120]).first():
-                    counts["errors"] += 1
-                    errors.append({"row": n, "message": "An earlier import used a shortened path. Review the existing document and rename the archive path before importing.",
-                                   "data": {"file": path}})
-                    continue
-                try:
-                    with db.session.begin_nested():
-                        doc, err = store_bytes(int(mid), entry["name"], z.read(entry.get("archive_path", path)), user_id=user.id,
-                                               folder="Imported" + ("/" + entry["sub"] if entry["sub"] else ""))
-                        if err:
-                            raise ValueError(err)
-                        db.session.flush()
-                        db.session.add(ExternalRef(source=data["source"], entity="document", external_id=ext, coil_id=doc.id))
-                    counts["created"] += 1
-                    id_map[ext] = doc.id
-                except Exception as e:  # noqa: BLE001
-                    counts["errors"] += 1
-                    errors.append({"row": n, "message": f"{entry['path']}: {e}", "data": {"file": entry["path"]}})
-            if n % BATCH == 0:
-                db.session.commit()
-        for s in data.get("skipped", []):
+    errors, id_map, pending = [], {}, []
+    size = 0
+
+    def before_write(relative):
+        # Record ownership before creating bytes. A killed worker leaves enough information
+        # for the next request to remove files whose database transaction did not commit.
+        pending.append(relative)
+        _save(token, pending, ext="pending.json")
+
+    with zipfile.ZipFile(_token_path(token, "zip")) as z:
+        for entry in data["rows"][start:start + ZIP_BATCH_FILES]:
+            if counts["rows"] and size + entry["size"] > ZIP_BATCH_BYTES:
+                break
             counts["rows"] += 1
-            counts["skipped"] += 1
-    db.session.commit()
+            size += entry["size"]
+            n = start + counts["rows"]
+            if entry.get("skip"):
+                counts["skipped"] += 1
+                continue
+            mid = entry["matter_id"]
+            if not mid:
+                counts["errors"] += 1
+                errors.append({"row": n, "message": f"Folder '{entry['folder']}' does not match a matter.",
+                               "data": {"file": entry["path"]}})
+                continue
+            path = entry["path"]
+            ext = path if len(path) <= 120 else "zip:sha256:" + hashlib.sha256(path.encode()).hexdigest()
+            if ExternalRef.query.filter_by(source=data["source"], entity="document", external_id=ext).first():
+                counts["skipped"] += 1
+                continue
+            if len(path) > 120 and ExternalRef.query.filter_by(
+                    source=data["source"], entity="document", external_id=path[:120]).first():
+                counts["errors"] += 1
+                errors.append({"row": n, "message": "An earlier import used a shortened path. Review the existing document and rename the archive path before importing.",
+                               "data": {"file": path}})
+                continue
+            try:
+                with db.session.begin_nested():
+                    doc, err = store_bytes(int(mid), entry["name"], z.read(entry.get("archive_path", path)),
+                                           user_id=user.id, before_write=before_write,
+                                           folder="Imported" + ("/" + entry["sub"] if entry["sub"] else ""))
+                    if err:
+                        raise ValueError(err)
+                    db.session.flush()
+                    db.session.add(ExternalRef(source=data["source"], entity="document", external_id=ext, coil_id=doc.id))
+                counts["created"] += 1
+                id_map[ext] = doc.id
+            except Exception as exc:
+                if is_lock_error(exc):
+                    raise
+                counts["errors"] += 1
+                errors.append({"row": n, "message": f"{path}: {exc}", "data": {"file": path}})
     return {"counts": counts, "errors": errors, "warnings": [], "id_map": id_map}
+
+
+def _start_zip_job(data, user):
+    user_id = user.id
+    _reserve_import_writer()
+    existing = _csv_job_for_token(data["token"])
+    if existing:
+        return redirect(url_for("importer.job", job_id=existing.id))
+    token = uuid.uuid4().hex
+    rows = _zip_rows(data)
+    try:
+        shutil.copyfile(_token_path(data["token"], "zip"), _token_path(token, "zip"))
+        _save(token, {"source": data["source"], "rows": rows})
+        meta = {"headers": ["file"], "folders": {f["folder"]: data.get("folder_matters", {}).get(f["folder"], f["matter_id"]) for f in data["folders"]},
+                "upload_token": data["token"], "file_token": token, "cursor": 0,
+                "total_rows": len(rows), "warnings": []}
+        j = ImportJob(source=data["source"], entity="documents", filename=data["filename"][:300],
+                      mapping_json=json.dumps(meta), rows=0, status="running", created_by_id=user_id)
+        db.session.add(j)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        for ext in ("json", "zip"):
+            try:
+                os.remove(_token_path(token, ext))
+            except FileNotFoundError:
+                pass
+        raise
+    return redirect(url_for("importer.job", job_id=j.id))
 
 
 # ---------------------------------------------------------------- routes
@@ -1225,7 +1292,7 @@ def upload(entity):
     if entity == "documents":
         raw = f.read(MAX_ZIP_BYTES + 1)
         if len(raw) > MAX_ZIP_BYTES:
-            flash("That ZIP is over 200 MB. Split it into smaller ZIPs.", "error")
+            flash("That ZIP is over 48 MB. Split it into smaller ZIPs.", "error")
             return redirect(url_for("importer.index"))
         with open(_token_path(token, "zip"), "wb") as fh:
             fh.write(raw)
@@ -1326,9 +1393,7 @@ def _commit(data):
     user = current_user()
     entity = data["entity"]
     if entity == "documents":
-        result = _apply_zip(data, user)
-        mapping_json = {"headers": ["file"], "folders": {f["folder"]: data.get("folder_matters", {}).get(f["folder"], f["matter_id"]) for f in data["folders"]}}
-        mapping_json["warnings"] = result.get("warnings") or []
+        return _start_zip_job(data, user)
     else:
         fields = M.field_defs(entity)
         missing = [label for f, label, req, _ in fields if req and not data["mapping"].get(f)]
@@ -1416,11 +1481,15 @@ def continue_csv(job_id):
                 abort(400, description="This import does not have a pending batch.")
             if j.status == "running" and expected == meta["cursor"]:
                 data = _load(meta["file_token"])
-                if data is None:
+                if data is None or (j.entity == "documents" and not os.path.isfile(_token_path(meta["file_token"], "zip"))):
                     abort(409, description="The source file is missing. Restore it before continuing this import.")
-                batch = {**data, "rows": data["rows"][expected:expected + CSV_BATCH_ROWS]}
-                result = run_import(batch, meta["mapping"], meta["options"],
-                                    db.session.get(User, j.created_by_id), dry=False, commit_rows=False)
+                if j.entity == "documents":
+                    _cleanup_zip_files(meta["file_token"])
+                    result = _apply_zip(data, db.session.get(User, j.created_by_id), meta["file_token"], expected)
+                else:
+                    batch = {**data, "rows": data["rows"][expected:expected + CSV_BATCH_ROWS]}
+                    result = run_import(batch, meta["mapping"], meta["options"],
+                                        db.session.get(User, j.created_by_id), dry=False, commit_rows=False)
                 counts = result["counts"]
                 j.rows += counts["rows"]
                 j.created += counts["created"]
@@ -1441,17 +1510,27 @@ def continue_csv(job_id):
                 # Source rows and this checkpoint commit together, including the final audit.
                 db.session.commit()
             response = _csv_progress(j)
+            if j.entity == "documents":
+                _reserve_import_writer()
+                _cleanup_zip_files(meta["file_token"])
             db.session.rollback()
             if response["done"]:
                 for token in (meta["file_token"], meta["upload_token"]):
-                    try:
-                        os.remove(_token_path(token))
-                    except FileNotFoundError:
-                        pass
+                    for ext in (("json", "zip") if j.entity == "documents" else ("json",)):
+                        try:
+                            os.remove(_token_path(token, ext))
+                        except FileNotFoundError:
+                            pass
             return jsonify(response) if wants_json else redirect(response["url"])
         except Exception as exc:
             db.session.rollback()
             if not is_lock_error(exc):
+                if "meta" in locals() and "file_token" in meta:
+                    _reserve_import_writer()
+                    try:
+                        _cleanup_zip_files(meta["file_token"])
+                    finally:
+                        db.session.rollback()
                 raise
             if attempt + 1 == LOCK_RETRIES:
                 if wants_json:

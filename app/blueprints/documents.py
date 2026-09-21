@@ -181,7 +181,7 @@ def _extension_lies(ext, data):
 
 
 def store_bytes(matter_id, name, data, mime="", user_id=None, shared=False, by_client=False, folder="", tags="",
-                version=1, version_of_id=None, is_current=True):
+                version=1, version_of_id=None, is_current=True, before_write=None):
     """Write raw bytes as a new Document row (used by uploads, new versions and email attachments).
     Validates the extension and size. Returns (Document, error)."""
     name = (name or "").strip()
@@ -204,6 +204,8 @@ def store_bytes(matter_id, name, data, mime="", user_id=None, shared=False, by_c
     os.makedirs(folder_abs, exist_ok=True)
     fname = f"{uuid.uuid4().hex}_{safe}"
     full = os.path.join(folder_abs, fname)
+    if before_write is not None:
+        before_write(f"{rel_dir}/{fname}")
     with open(full, "wb") as f:
         f.write(data)
     mime = mime or mimetypes.guess_type(name)[0] or "application/octet-stream"

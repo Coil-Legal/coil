@@ -1,11 +1,12 @@
 {% extends "base.html" %}{% block title %}Import progress{% endblock %}{% block content %}
+{% set unit = "files" if job.entity == "documents" else "rows" %}
 <div class="topbar"><h1>Import: {{ entity_label }} from {{ source_label }}</h1>
 <a class="btn secondary" href="/import">Back to imports</a></div>
 <div class="card">
 <p><strong>{{ job.filename }}</strong></p>
-<p id="import-status" role="status" aria-live="polite">Saved {{ meta.cursor }} of {{ meta.total_rows }} rows.</p>
-<progress id="import-progress" aria-label="Rows processed" value="{{ meta.cursor }}" max="{{ meta.total_rows }}" style="width:100%"></progress>
-<p>Keep this page open to continue. You can pause or close it and resume from Imports. Saved rows will not be repeated.</p>
+<p id="import-status" role="status" aria-live="polite">Saved {{ meta.cursor }} of {{ meta.total_rows }} {{ unit }}.</p>
+<progress id="import-progress" aria-label="{{ unit|capitalize }} processed" value="{{ meta.cursor }}" max="{{ meta.total_rows }}" style="width:100%"></progress>
+<p>Keep this page open to continue. You can pause or close it and resume from Imports. Saved {{ unit }} will not be repeated.</p>
 <form id="import-form" method="post" action="/import/jobs/{{ job.id }}/continue">{{ csrf() }}
 <input id="import-cursor" type="hidden" name="cursor" value="{{ meta.cursor }}">
 <div class="actions"><button id="import-resume" class="btn">Resume import</button>
@@ -34,7 +35,7 @@
         if (!response.ok) throw new Error('Import paused. Reopen this page or sign in again, then resume. Saved progress is kept.');
         const result = await response.json();
         cursor.value = result.processed; progress.value = result.processed;
-        status.textContent = 'Saved ' + result.processed + ' of ' + result.total + ' rows. ' + result.created + ' created, ' + result.updated + ' updated, ' + result.errors + ' with problems.';
+        status.textContent = 'Saved ' + result.processed + ' of ' + result.total + ' {{ unit }}. ' + result.created + ' created, ' + result.updated + ' updated, ' + result.errors + ' with problems.';
         if (result.done) { window.location.assign(result.url); return; }
       }
       status.textContent += ' Paused. Resume when ready.';

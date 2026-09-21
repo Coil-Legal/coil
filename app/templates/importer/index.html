@@ -19,6 +19,7 @@
   <div class="card">
     <h3 style="margin-top:0">{{ loop.index }}. {{ label }}</h3>
     <p class="small muted">{{ blurb }}</p>
+    {% if key == "documents" %}<p class="small muted">Up to 48 MB per ZIP and 25 MB per file. Imports save progress in batches and can be paused or resumed.</p>{% endif %}
     <form method="post" action="/import/{{ key }}/upload" enctype="multipart/form-data">{{ csrf() }}
       <input type="hidden" name="source" value="{{ source }}">
       <input type="file" name="file" accept="{{ '.zip' if key == 'documents' else '.csv,.txt,.tsv' }}" required>
