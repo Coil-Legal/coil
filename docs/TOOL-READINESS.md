@@ -1,9 +1,8 @@
 # Tool readiness register
 
-What is proven, what is proven with a caveat, and what is not, as of commit `c547c9b`
-(2026-09-12). Each tool carries the specific further checks that would harden it, and the
-inputs a real firm will eventually feed it that the demo data never did. Grok Bot works
-these in order; findings go to GitHub issues with the `QA finding` template.
+Current acceptance status, updated September 21, 2026: Phase 1 is still open. See [Phase 1 readiness](PHASE1-READINESS.md) for deployed commits and evidence, [Phase 2 checks](PHASE2-QA-CHECKLIST.md) and [Phase 3 checks](PHASE3-QA-CHECKLIST.md) for the later review queues. Provider prerequisites and independent Grok retests are not complete.
+
+The per-tool descriptions below originated at `c547c9b` on September 12. They record earlier reports and follow-up ideas, not a current release signoff. Findings go to GitHub issues with the `QA finding` template.
 
 **Proven** means: the launch checklist passed, the adversarial pass passed, every fix was
 re-tested by Grok independently, and there is a test in the suite holding it. It does not
@@ -15,7 +14,7 @@ setup on the clean instance Claude provisions. Never on demo.
 
 ---
 
-## Phase 1: proven. Ship these.
+## Phase 1: acceptance in progress
 
 ### Trust accounting
 Overdraw refused on every route including the importer and the invoice. Cross-matter and
@@ -145,6 +144,8 @@ Further checks:
 - Feed it a brief that the AI narrative tool itself drafted. Any citation it invented must come back not found.
 
 ### Exports and importer
+Current September 21 evidence: CSV batches on `7e15867` passed a 50,000-row Cloudflare run and browser pause/resume. ZIP mapping and path identity fixes are in `27c6bd3`; full local suite 682 passed. ZIP volume, interruption and concurrent commit checks remain open. See the Phase 1 readiness log for deployment and independent QA status.
+
 Contacts, matters, time, trust ledger, QuickBooks layouts, LEDES. Formula injection neutralised, negatives still numeric. Importer with preview, commit, failed-rows CSV, duplicate handling, concurrent-write lock fixed.
 
 Further checks:
@@ -188,7 +189,7 @@ Further checks:
 
 ---
 
-## Phase 2: proven, with a caveat to close
+## Phase 2: earlier evidence, current review open
 
 **Conflict check speed: withdrawn.** Grok measured 11 to 14 seconds at 760 contacts and this register repeated it without reproducing it. Measured on the live database: the index builds in 0.15s, the scan runs in 0.03s, the full request including the results page is 0.19s, and the round trip from a browser through Cloudflare is 0.2 to 0.9s. Grok's figure was its own automation overhead, which is why it cost the same with 500 hits as with none. Re-measure at five thousand contacts once the volume fixture exists, timing the request rather than the tester.
 

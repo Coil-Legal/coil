@@ -1,6 +1,16 @@
 # Coil Phase 1 completion pass
 
-## Latest: resumable CSV verification, September 21
+## Latest: ZIP mapping and identity verification, September 21
+
+Both sites run `27c6bd3`. Explicit folder skips survive saving and commit. Windows ZIP paths import their original bytes. Long paths no longer collide at 120 characters; ambiguous legacy shortened references require review. Duplicate member paths, including slash/backslash aliases, are reported and skipped. No schema or provider changes.
+
+Six new regression cases failed before the fix. Final local suite: 682 passed; deployment Python 3.12 affected suites: 74 passed. The initial full run hit a SQLite lock in an unrelated fixture; that fixture passed alone and a fresh full suite passed. Both sites are healthy with three matching file hashes, SQLite integrity OK and zero restarts.
+
+Public Cloudflare job 27 imported Windows and two long-path files while preserving a saved skip choice: documents 80, 81 and 82 on synthetic matter 3033. Exact downloaded bytes matched. Repeat job 28 created nothing and skipped four. Job 29 created unique document 83 and skipped both ambiguous duplicate members. No files were shared to the portal. Grok's independent retest is queued at https://github.com/Coil-Legal/coil/issues/12#issuecomment-5767064351; acknowledgment/results are pending.
+
+Full handoff and backups: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-zip-review-handoff.md`. ZIP imports remain synchronous; volume, interruption, concurrent commits and cleanup after failed database writes are still open. Phase 1 is not complete. The provider, AI/research and independent browser gates below remain applicable.
+
+## Earlier: resumable CSV verification, September 21
 
 Both sites now run `7e15867`. Large CSVs use owner-authenticated batches with atomic saved progress. Previews clearly sample the first 200 rows. Local suite: 676 passed. Deployment-image affected tests: 68 passed. Both sites are healthy, files match, SQLite integrity is OK and containers have zero restarts.
 
