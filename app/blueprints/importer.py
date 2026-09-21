@@ -1082,17 +1082,37 @@ def run_import(data, mapping, options, user, dry, commit_rows=True):
 
 
 # ---------------------------------------------------------------- documents ZIP
-def _match_folder(folder):
-    f = M.clean_name(folder)
-    if not f:
-        return None
-    m = find_matter_by_number(f) or find_matter_by_name(f)
-    if m:
-        return m
-    fl = f.lower()
-    cands = [x for x in Matter.query.all() if x.number and (x.number.lower() in fl or fl in (x.name or "").lower()
-                                                            or (x.name or "").lower() in fl)]
-    return cands[0] if len(cands) == 1 else None
+def _folder_matcher(matters):
+    """Reuse one matter snapshot for all folders instead of querying per folder."""
+    numbers, names, searchable = {}, {}, []
+    for matter in matters:
+        number, name = (matter.number or "").lower(), (matter.name or "").lower()
+        if number:
+            numbers.setdefault(number, []).append(matter)
+        if name:
+            names.setdefault(name, []).append(matter)
+        searchable.append((number, name, matter))
+
+    def match(folder):
+        value = M.clean_name(folder).lower()
+        if not value:
+            return None
+        lookups = [(numbers, value)]
+        head, _, tail = value.partition("-")
+        if tail:
+            lookups.extend([(numbers, head.strip()), (names, tail.strip())])
+        lookups.append((names, value))
+        parts = re.split(r"[\s:-]+", value, maxsplit=1)
+        if len(parts) == 2:
+            lookups.extend([(names, parts[1].strip()), (numbers, parts[0].strip())])
+        for index, key in lookups:
+            matches = index.get(key, [])
+            if matches:
+                return matches[0] if len(matches) == 1 else None
+        candidates = [matter for number, name, matter in searchable
+                      if number and (number in value or (name and (value in name or name in value)))]
+        return candidates[0] if len(candidates) == 1 else None
+    return match
 
 
 def _zip_plan(path):
@@ -1127,8 +1147,9 @@ def _zip_plan(path):
             top = parts[0]
             folders.setdefault(top, {"folder": top, "files": [], "matter_id": None, "matter_label": ""})
             folders[top]["files"].append({"path": name, "archive_path": info.filename, "name": parts[-1], "sub": "/".join(parts[1:-1]), "size": info.file_size})
+    match_folder = _folder_matcher(Matter.query.order_by(Matter.id).all())
     for top, f in folders.items():
-        m = _match_folder(top)
+        m = match_folder(top)
         if m:
             f["matter_id"], f["matter_label"] = m.id, m.label
     return list(folders.values()), skipped
@@ -1353,20 +1374,50 @@ def preview(token):
         return redirect(url_for("importer.index"))
     entity = data["entity"]
     if entity == "documents":
+        matters = Matter.query.order_by(Matter.number).all()
+        by_id = {m.id: m for m in matters}
+        by_number = {m.number: m for m in matters if m.number}
+        page_count = max(1, (len(data["folders"]) + 24) // 25)
+        page = max(1, min(request.args.get("page", 1, type=int), page_count))
         if request.method == "POST":
             overrides = dict(data.get("folder_matters", {}))
-            for f in data["folders"]:
-                v = request.form.get("folder_" + hashlib.md5(f["folder"].encode()).hexdigest())
-                if v is not None:
-                    if v and not v.isdigit():
+            problem = None
+            for folder in data["folders"]:
+                key = hashlib.md5(folder["folder"].encode()).hexdigest()
+                if "folder_number_" + key in request.form:
+                    value = request.form["folder_number_" + key].strip()
+                    matter = by_number.get(value)
+                    if value and matter is None:
+                        problem = f"Unknown matter number for folder '{folder['folder']}'. Choose an existing number or clear it to skip."
+                        break
+                    overrides[folder["folder"]] = matter.id if matter else None
+                elif "folder_" + key in request.form:
+                    # Preserve compatibility with a preview opened before this release.
+                    value = request.form["folder_" + key]
+                    if value and (not value.isascii() or not value.isdigit() or int(value) not in by_id):
+                        problem = f"The selected matter for folder '{folder['folder']}' no longer exists. Choose another matter."
+                        break
+                    overrides[folder["folder"]] = int(value) if value else None
+            if problem:
+                flash(problem, "error")
+            else:
+                data["folder_matters"] = overrides
+                _save(token, data)
+                action = request.form.get("do", "")
+                if action == "commit":
+                    return _commit(data)
+                if action.startswith("page:"):
+                    try:
+                        destination = int(action.partition(":")[2])
+                    except ValueError:
                         abort(400)
-                    overrides[f["folder"]] = int(v) if v else None
-            data["folder_matters"] = overrides
-            _save(token, data)
-            if request.form.get("do") == "commit":
-                return _commit(data)
-        matters = Matter.query.order_by(Matter.number).all()
-        return render_template("importer/preview_zip.html", data=data, matters=matters, token=token,
+                    return redirect(url_for("importer.preview", token=token,
+                                            page=max(1, min(destination, page_count))))
+        folders = data["folders"][(page - 1) * 25:page * 25]
+        unassigned = sum(not data.get("folder_matters", {}).get(f["folder"], f["matter_id"])
+                         and f["folder"] not in data.get("folder_matters", {}) for f in data["folders"])
+        return render_template("importer/preview_zip.html", data=data, folders=folders, matters=matters,
+                               by_id=by_id, page=page, page_count=page_count, unassigned=unassigned, token=token,
                                source_label=M.SOURCE_LABELS.get(data["source"], data["source"]),
                                folder_key=lambda s: hashlib.md5(s.encode()).hexdigest())
     if request.method == "POST":

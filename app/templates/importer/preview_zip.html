@@ -2,23 +2,30 @@
 <div class="topbar"><h1>Preview: documents from {{ source_label }}</h1>
 <div class="actions" style="margin:0"><a class="btn small secondary" href="/import">Choose a different file</a></div></div>
 {% set total = data.folders|map(attribute='files')|map('length')|sum %}
-{% set unmatched = data.folders|rejectattr('matter_id')|list %}
+
 <div class="card">
   <p><strong>{{ data.filename }}</strong>: {{ data.folders|length }} folders, {{ total }} files. Each top-level folder should be a matter number or matter name; its files land on that matter in the folder "Imported" (subfolders are kept underneath). Files already imported from this ZIP path are skipped, so re-uploading is safe.</p>
-  {% if unmatched %}<div class="flash error">{{ unmatched|length }} folder(s) do not match a matter. Pick a matter below or choose skip. Skipped files will not be imported.</div>{% endif %}
+  {% if unassigned %}<div class="flash error">{{ unassigned }} folder(s) need a matter choice. Unassigned folders on other pages will be reported as problems if you import now.</div>{% endif %}
+  <p>Choose a matter number using the suggestions, or clear the number to skip that folder. Page buttons save your choices. Import includes every page.</p>
 </div>
-<form method="post" action="/import/preview/{{ token }}">{{ csrf() }}
+<form method="post" action="/import/preview/{{ token }}?page={{ page }}">{{ csrf() }}
+<datalist id="zip-matters">{% for m in matters if m.number %}<option value="{{ m.number }}" label="{{ m.name }}"></option>{% endfor %}</datalist>
 <div class="card" style="overflow:auto">
+<p>Page {{ page }} of {{ page_count }}. Up to 25 folders per page.</p>
   <table>
     <tr><th>Folder</th><th>Files</th><th>Matter</th></tr>
-    {% for f in data.folders %}
+    {% for f in folders %}
     {% set chosen = data.folder_matters.get(f.folder, f.matter_id) %}
     <tr><td>{{ f.folder }}</td><td>{{ f.files|length }} <span class="small muted">({{ f.files[:3]|map(attribute='name')|join(', ') }}{% if f.files|length > 3 %} ...{% endif %})</span></td>
-      <td><select name="folder_{{ folder_key(f.folder) }}"><option value="">(no match, skip)</option>{% for m in matters %}<option value="{{ m.id }}" {% if m.id == chosen %}selected{% endif %}>{{ m.label }}</option>{% endfor %}</select>
-        {% if chosen %}<span class="badge open">selected</span>{% else %}<span class="badge">skip</span>{% endif %}</td></tr>
+      <td><label class="small" for="folder-{{ folder_key(f.folder) }}">Matter for {{ f.folder }}</label>
+        <input id="folder-{{ folder_key(f.folder) }}" name="folder_number_{{ folder_key(f.folder) }}" value="{{ by_id[chosen].number if chosen in by_id else '' }}" list="zip-matters" autocomplete="off" placeholder="Matter number, or blank to skip">
+        <span class="small muted">Saved: {{ by_id[chosen].label if chosen in by_id else ('skip' if f.folder in data.folder_matters else 'no match') }}</span></td></tr>
     {% endfor %}
   </table>
-  <div class="actions"><button class="btn secondary" name="do" value="recheck">Save folder choices</button><button class="btn" name="do" value="commit">Import {{ total }} files</button></div>
+  <div class="actions">
+    {% if page > 1 %}<button class="btn secondary" name="do" value="page:{{ page - 1 }}">Save and previous page</button>{% endif %}
+    {% if page < page_count %}<button class="btn secondary" name="do" value="page:{{ page + 1 }}">Save and next page</button>{% endif %}
+    <button class="btn secondary" name="do" value="recheck">Save folder choices</button><button class="btn" name="do" value="commit">Import all {{ total }} files</button></div>
 </div>
 </form>
 {% if data.skipped %}
