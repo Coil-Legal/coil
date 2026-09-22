@@ -924,6 +924,19 @@ def _source_testimony(text, k):
     return item
 
 
+def _contradiction_source(text, kind, conflicts_with, source):
+    """An internal contradiction's "source" is a page:line the model guessed for its own "conflicts_with"
+    quote, not a location it looked up. The guess is unreliable exactly where it matters most: short
+    answers like "I am not sure" recur, and page numbers restart every volume, so the same string can
+    name two different passages. Resolve the quote against the transcript the same way key testimony is,
+    so an ambiguous or missing match warns instead of pointing an attorney at the wrong line. External
+    contradictions cite the chronology or PI facts, not a transcript position, and are left alone."""
+    if kind != "internal" or not conflicts_with:
+        return source
+    resolved = _source_testimony(text, {"quote": conflicts_with, "topic": ""})
+    return resolved["citation_warning"] if resolved.get("citation_warning") else cite(None, resolved)
+
+
 def summarize_transcript(dep, text):
     """Run the model over the transcript in chunks. Returns (summary, key_testimony, contradictions).
     Raises LLMUnavailable when nothing could be produced."""
@@ -951,7 +964,9 @@ def summarize_transcript(dep, text):
               f"statement, like \"p31:17\". Do NOT report it when the witness catches and corrects himself, "
               f"such as in the very next answer, and the transcript shows the correction was accepted (\"I "
               f"misspoke\", \"let me correct that\", or simply restating and confirming the new answer): that "
-              f"is corrected testimony, not a contradiction, and belongs in the summary instead.\n"
+              f"is corrected testimony, not a contradiction, and belongs in the summary instead. Only pair two "
+              f"answers when they respond to the same question or describe the same fact: an uncertain answer "
+              f"to a different question is not a contradiction of a confident one.\n"
               f"  kind \"external\": the testimony conflicts with the confirmed chronology or the PI facts "
               f"below. Set \"source\" to \"chronology <date> <provider>\" or \"PI facts: <field>\".\n\n"
               f"In both cases put the testimony in \"testimony\" and what it conflicts with in "
@@ -980,10 +995,13 @@ def summarize_transcript(dep, text):
         for c in data.get("contradictions") or []:
             if isinstance(c, dict) and (c.get("testimony") or "").strip():
                 kind = str(c.get("kind") or "external").strip().lower()
+                kind = kind if kind in ("internal", "external") else "external"
+                conflicts_with = str(c.get("conflicts_with") or "").strip()
                 contras.append({"testimony": str(c.get("testimony")).strip(),
-                                "conflicts_with": str(c.get("conflicts_with") or "").strip(),
-                                "source": str(c.get("source") or "").strip(),
-                                "kind": kind if kind in ("internal", "external") else "external"})
+                                "conflicts_with": conflicts_with,
+                                "source": _contradiction_source(text, kind, conflicts_with,
+                                                                 str(c.get("source") or "").strip()),
+                                "kind": kind})
     if not summaries:
         raise llm.LLMBadOutput("The AI returned nothing usable for this transcript.")
     summary = summaries[0]
@@ -1092,7 +1110,9 @@ def _dep_lists(dep):
     # Recheck old summaries against their current source without rewriting saved drafts.
     text = (dep.document.extracted_text if dep.document else "") or ""
     key = [_source_testimony(text, k) for k in key if isinstance(k, dict)] if isinstance(key, list) else []
-    contras = [c for c in contras if isinstance(c, dict)] if isinstance(contras, list) else []
+    contras = [dict(c, source=_contradiction_source(text, c.get("kind"), c.get("conflicts_with", ""),
+                                                     c.get("source", "")))
+               for c in contras if isinstance(c, dict)] if isinstance(contras, list) else []
     return key, contras
 
 
