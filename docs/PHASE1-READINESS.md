@@ -1,5 +1,17 @@
 # Coil Phase 1 completion pass
 
+## Latest: client-update filtering across record types, September 22
+
+Both sites run `500abb8`. Internal-prefix and known billing-text exclusions now cover work descriptions, completed task titles, upcoming task titles and calendar titles, as well as notes. Filtering happens before count limits, so excluded records do not crowd out eligible activity. Task/event candidates are fetched in batches. Original records stay unchanged. The preview explains the checks and their limitations.
+
+Twelve baseline regressions failed. The focused suite passed 36 tests; the full isolated suite passed 746 tests with 126 existing warnings in 130.12 seconds. The deployment-image suite passed 147 tests. Both sites are healthy with matching hashes for all three changed files, SQLite integrity OK and zero restarts. Environment and Compose settings were preserved.
+
+Public synthetic fixtures: matter 3045 (`QA-UPDATE-FILTER`) and matter 3046 (`QA-UPDATE-FILTER-FALLBACK`), overflow note 30, saved draft message 146. Each has internal, invoice and hours text plus an eligible record in each of the four affected source types. One real provider preview and one oversized template preview excluded those marked records, preserved eligible sources and left all original text unchanged. The overflow case made zero model calls and saved the exact draft. No email was sent. Exact record IDs and the model response are in the handoff evidence.
+
+These are text heuristics, not a guarantee that all sensitive content is removed. English billing keywords can miss material or exclude useful descriptions, and arbitrary unmarked attorney analysis remains a review responsibility. Existing saved drafts are not rewritten. The previously reproduced unsupported narrative timing/status claims remain open. Provider prerequisites and independent QA still prevent full Phase 1 signoff.
+
+Grok's new bounded retest queue: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5771205527. Handoff and backups: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-update-filter-handoff.md`.
+
 ## Latest: complete client-update sources, September 22
 
 Both sites run `3cf4af4`. Client-update requests preserve complete selected statements instead of clipping sources at 9,000 characters. When the full request exceeds the provider cap, no model call is made and the template keeps complete eligible notes, including later corrections. English and Spanish templates separate file notes from recorded work instead of treating recently recorded notes as work performed recently. Note creation timestamps and the injected current date are omitted from model facts. The preview exposes the source records and selection limits for review.
