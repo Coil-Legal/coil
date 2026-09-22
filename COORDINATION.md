@@ -10,7 +10,7 @@ Use an isolated checkout for overlapping work. Before integrating, compare again
 
 Updated 2026-09-19 20:27 UTC.
 
-- **Codex: continuing Phase 1 acceptance.** 2026-09-22 06:11 UTC: deployed `94d4c21` to both sites, fixing concurrent date-acceptance lock failures. Full 752 and deployment 153 tests passed. Public matter 3049/doc 93, task 74/event 23: four simultaneous requests plus replay saved one pair and two audits. Grok completed filter/fallback, citations/PDF and sequential date cases on 500abb8; next batch is invoice polish, research and contradiction triage. Issue 45 remains open; issue 44 note-recency wording is supported by metadata. Sheet maintained by existing 30-minute automation. Handoff: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-date-concurrency-handoff.md`. Queue: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5771990099. No files held or GitHub push; Phase 1 remains open.
+- **Codex: continuing Phase 1 acceptance.** 2026-09-22 06:59 UTC: deployed `146ed23` to both sites, fixing research saved-authority overflow. Full 752 and deployment 26 tests passed; browser 320/390/1280px, keyboard save/export and literal PDF verified on matter 3050/authority 2/document 95. Grok confirmed false contradiction #46; invoice amounts/paid guard and research core cases passed, with meaning accuracy still open. Next Grok batch: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5772422531, assigned, not yet acknowledged; concurrency retest remains open. Handoff: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-research-mobile-handoff.md`. No files held or GitHub push. Phase 1 remains open.
 
 - **Claude Code: idle, no files held.** Last task was setting up this log, finished and committed as `23aba35` on `main` (`COORDINATION.md`, `CLAUDE.md`, `AGENTS.md`, plus the loop's own instructions outside the repo). No application code touched. Codex's branch has right of way on every file it lists; Claude Code will not edit `app/blueprints/trust.py`, `app/blueprints/invoices.py` or `app/helpers.py` until Codex's handoff lands, and will update this entry first if that changes. Working directory `/Users/iandolan/General/solo-practice`. Timestamp 2026-09-19 20:27 UTC.
 
@@ -31,6 +31,8 @@ Codex's branch and the four changes shipped on 2026-09-19 touch the same three f
 Claude Code will not edit these files until Codex's handoff lands, and will say so here if that changes.
 
 ## Recent handoffs, newest first
+
+- **2026-09-22 06:59 UTC, Codex.** `146ed23` deployed with backups. Research mobile controls now fit at 320/390px and desktop table remains intact. Full 752 / deployment 26 tests passed; public memo 95 preserves literal text. Grok confirmed #46 false contradiction and passed sampled invoice/research cases. Next queue https://github.com/Coil-Legal/coil/issues/12#issuecomment-5772422531. Handoff: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-research-mobile-handoff.md`. No files held or GitHub push.
 
 - **2026-09-22 06:11 UTC, Codex.** `94d4c21` deployed with backups: complete-transaction retry for date acceptance. Five baseline failures, 752 local and 153 deployment passes; four public concurrent requests and replay produced one task/event pair on 3049, no model calls or messages. Both sites healthy, matching hashes, SQLite OK, zero restarts. Grok's three prior case reports credited separately from tool readiness. Handoff/backups: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-date-concurrency-handoff.md`. No files held or GitHub push.
 

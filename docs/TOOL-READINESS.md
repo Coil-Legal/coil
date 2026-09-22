@@ -129,6 +129,8 @@ Further checks:
 - A disposition after a plea to a lesser charge than the one filed.
 
 ### Discovery and depositions
+Current September 22 independent result: Grok confirmed false contradiction #46 on matter 3047/document 91/deposition 14. Citation and PDF case passes remain valid, but contradiction semantics are defective. Both statements need source-context validation; existing draft preserved. See current Phase 1 readiness.
+
 Current September 22 evidence: `16c533f` fixed transcript request coverage and condensation truncation. `f5135a3` checks unique exact quotes against source markers and warns on absent/repeated quotes; old saved drafts receive the same checks on viewing/export. Public fixtures 3041/3042, depositions 12/13, notes 26/27 and PDFs 88/90 passed the documented short samples and artifact text checks. Full local 727 and deployment-image 128 tests passed. Repeated/OCR-modified quotes still require manual source review; cross-part contradiction quality and independent QA remain open. Narrative date attribution is defective. This tool has no complete acceptance signoff.
 
 Earlier report: Contradictions caught, internal and external, 3 of 3 runs, cited to page and line. Summaries not wiped by an empty save.
@@ -139,7 +141,7 @@ Further checks:
 - A witness who contradicts himself and corrects it in the next answer. Should be reported as corrected, not as a contradiction.
 
 ### Research and cite check
-Current September 21 evidence: `c2a413c` preserves literal PDF source text; public save/edit/export/download passed on authority 1/document 84. Codex browser keyboard search, court filter and full opinion display passed. Independent Grok acceptance remains pending.
+Current September 22 evidence: Grok passed keyboard search, court filter, opinion, save/note and literal memo text on 94d4c21, matter 3050/authority 2/document 94. Its 390px saved-authority overflow is fixed in `146ed23`, deployed to both sites. Codex passed 320px, 390px, 1280px and keyboard save/export; document 95 is unshared and its authenticated download preserves literal text. Full 752 and deployment-image 26 tests passed. Independent mobile retest is assigned, not yet acknowledged. Reference document 84 was reported missing; cause remains unestablished. Edge citations and complete research signoff remain open.
 
 Resolved, not found, and the wrong-case pincite trap all correct. States plainly that it cannot say whether a case is still good law.
 
