@@ -1,5 +1,17 @@
 # Coil Phase 1 completion pass
 
+## Latest: concurrent date acceptance and Grok results, September 22
+
+Both sites run `94d4c21`. Concurrent document-date acceptance now rolls back and retries the complete transaction, including the duplicate checks. This fixes a reproduced SQLite lock failure when independent requests accept the same dates. Exhausted retries show a clear 503 without retaining partial rows. Unrelated database errors are not retried. No schema or AI-generation changes.
+
+Five baseline cases failed; one unrelated-error check already passed. Focused suite: 43 passed. Full suite: 752 passed, 126 existing warnings in 137.03 seconds. Deployment-image affected suite: 153 passed. Both sites healthy, two changed-file hashes match per site, SQLite integrity OK and zero restarts. Environment and Compose settings stayed unchanged.
+
+Public synthetic matter 3049 (`QA-DATE-CONCURRENT`), document 93: four simultaneous authenticated HTTPS submissions and a later replay all redirected successfully. Exactly one task 74, one event 23 and two creation audit rows remain. Deselection and exact source download bytes were preserved. Zero model calls, no messages or payments. Local tests force the collision; the public run verifies concurrent submission behavior without claiming every request hit the collision window.
+
+Grok independently passed the prior filter/fallback, citation/PDF/keyboard and document-date sequential-replay cases on `500abb8`, with fresh fixtures 3047/document 91/deposition 14 and 3048/document 92/tasks 72,73/event 22. These case passes do not establish whole-tool readiness. Issue 45's no-new-developments claim remains defective. Issue 44's specific note-recency wording is supported by note 28 being created September 22 at 03:40 UTC and the 30-day source selection; that does not date the underlying incident. General narrative date accuracy remains open, as does the alleged false contradiction on deposition 14.
+
+Grok's next batch covers invoice narrative polish, research workflow and contradiction triage. New concurrency retest and wording clarification: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5771990099. The Google Sheet records the case outcomes and open work. Handoff and backups: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-date-concurrency-handoff.md`. GitHub main remains unpushed.
+
 ## Latest: client-update filtering across record types, September 22
 
 Both sites run `500abb8`. Internal-prefix and known billing-text exclusions now cover work descriptions, completed task titles, upcoming task titles and calendar titles, as well as notes. Filtering happens before count limits, so excluded records do not crowd out eligible activity. Task/event candidates are fetched in batches. Original records stay unchanged. The preview explains the checks and their limitations.
