@@ -15,6 +15,7 @@ params. Tests monkeypatch _get / _post to return canned JSON, or requests.get to
 import os
 import re
 import time
+from urllib.parse import parse_qs, urlsplit
 from html import unescape
 
 import requests
@@ -245,8 +246,12 @@ def _normalise_cluster(c):
 
 
 def _cursor_from(url):
-    m = re.search(r"[?&]cursor=([^&]+)", url or "")
-    return m.group(1) if m else ""
+    # The provider URL is already escaped. Return its decoded query value so the
+    # page link and requests client each encode it once for their own request.
+    try:
+        return parse_qs(urlsplit(url or "").query).get("cursor", [""])[0]
+    except ValueError:
+        return ""
 
 
 # ---------------------------------------------------------------------------
