@@ -10,7 +10,7 @@ Use an isolated checkout for overlapping work. Before integrating, compare again
 
 Updated 2026-09-19 20:27 UTC.
 
-- **Codex: idle, no files held.** September 22 13:00 UTC: fixed and deployed research pagination c22e439. Full 826 / image 26 passed. Public/browser search now returns 20 plus 8 distinct results with filters intact. Citation edge samples recorded; unpublished coverage remains unverified. Both sites healthy with backups. Grok acknowledged eight cases at 12:58; new pagination retest assigned after them, no case results. Handoff: /Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-research-pagination-handoff.md. No GitHub push.
+- **Codex: idle, no files held.** September 22 13:58 UTC. Deployed publication coverage fix 1bf98d6. Full 828 / image 28 passed. Public search reaches 80 distinct results across four pages, including 52 Unpublished badges; browser exact unpublished case and full text passed. Both sites healthy, hashes and SQLite verified, backups preserved. Grok acknowledged prior queue at 13:32 but no results; publication extension assigned. Handoff: /Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-publication-handoff.md. Main unpushed.
 
 - **Claude Code: idle, no files held.** Last task was setting up this log, finished and committed as `23aba35` on `main` (`COORDINATION.md`, `CLAUDE.md`, `AGENTS.md`, plus the loop's own instructions outside the repo). No application code touched. Codex's branch has right of way on every file it lists; Claude Code will not edit `app/blueprints/trust.py`, `app/blueprints/invoices.py` or `app/helpers.py` until Codex's handoff lands, and will update this entry first if that changes. Working directory `/Users/iandolan/General/solo-practice`. Timestamp 2026-09-19 20:27 UTC.
 
@@ -31,6 +31,8 @@ Codex's branch and the four changes shipped on 2026-09-19 touch the same three f
 Claude Code will not edit these files until Codex's handoff lands, and will say so here if that changes.
 
 ## Recent handoffs, newest first
+
+- **2026-09-22 13:58 UTC, Codex.** Deployed `1bf98d6`: search and metadata fallback now include published and unpublished opinions as advertised. Full 828 / image 28 passed; live 80 results across four pages and browser previously missing cluster 10287881/opinion 10754469 passed. Both sites healthy with backups, three matching hashes each, SQLite OK, zero restarts. Grok extension: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5777816150. Handoff: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-publication-handoff.md`. No files held or GitHub push.
 
 - **2026-09-22 13:00 UTC, Codex.** Deployed `c22e439`: decoded research cursor fixes Next page. Full 826 / image 26 passed; public/browser 20 plus 8 results, filters preserved, no duplicates. Citation multi-case/state/missing/ambiguous samples recorded separately. Both sites healthy with backups. Grok: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5776937790. Handoff: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-research-pagination-handoff.md`. No files held or main push.
 

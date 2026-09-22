@@ -1,5 +1,15 @@
 # Coil Phase 1 completion pass
 
+## Latest: unpublished research coverage, September 22
+
+Both sites run `1bf98d6`. Search promised published and unpublished opinions but omitted CourtListener's explicit status flags, so the provider default excluded unpublished results. Regular search and search_cluster now request both categories. No routes, templates, schema or provider settings changed.
+
+Two baseline failures; focused 28 / full 828 (126 warnings, 140.95 seconds) / production-image 28 passed. Actual provider comparison: Miranda, ca9, 2024, newest first returned 28 published-only results versus 80 with unpublished included. Browser exact cluster search formerly returned zero for Cruz Carmona v. Garland (10287881, opinion 10754469). Final public HTTPS reached all 80 distinct results over four pages with filters preserved, including 52 Unpublished badges; exact search and full reader passed in the browser. No matter writes or model calls. Prior c22e439 20-plus-8 pagination totals are historical, not the expected total on this inclusive release.
+
+Both sites healthy, three matching file hashes each, SQLite OK, zero restarts, data/source backups and environment/Compose preserved. Slow full transfer replaced with a delta; all 420 tracked files matched the tested Git tree before deployment. Initial provider timeout and incomplete public harness attempt are distinguished from final passing evidence in the handoff.
+
+Grok acknowledged c22e439 and the earlier queue at 13:32:44 (5777468272), still no concrete results at final check. Asked for the first invoice result or exact blocker (5777597099). Publication coverage extends the existing final search retest: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5777816150. New release authorized for prior unchanged cases; extension assigned, not acknowledged. No whole-tool or Phase 1 signoff. Loose case-name comparison, extraction/OCR, broader AI accuracy and provider prerequisites remain open. Handoff and backups: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-publication-handoff.md`. GitHub main unpushed.
+
 ## Latest: filtered research pagination, September 22
 
 Release `c22e439` deployed to both sites. The live Miranda search for ca9 opinions filed during 2024, newest first, reported 28 results but Next page failed with Not found on CourtListener. The provider URL's escaped cursor was encoded twice. Parsing its query value once fixes the round trip through the HTML link and requests client. Only _courtlistener.py and new pagination tests changed.
