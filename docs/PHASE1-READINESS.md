@@ -1,5 +1,17 @@
 # Coil Phase 1 completion pass
 
+## Latest: complete client-update sources, September 22
+
+Both sites run `3cf4af4`. Client-update requests preserve complete selected statements instead of clipping sources at 9,000 characters. When the full request exceeds the provider cap, no model call is made and the template keeps complete eligible notes, including later corrections. English and Spanish templates separate file notes from recorded work instead of treating recently recorded notes as work performed recently. Note creation timestamps and the injected current date are omitted from model facts. The preview exposes the source records and selection limits for review.
+
+Six baseline cases failed. Seven new regression cases are included in the final full suite: 734 passed, 126 existing warnings in 129.57 seconds in a fresh temporary checkout with byte-identical changed files. Two earlier full runs had seed-fixture SQLite lock errors (QA headers, then setup guide); logs are retained and the cause is not established. The header module passed alone. Deployment-image affected suite: 135 passed, 28 existing warnings in 67.54 seconds. Both sites have matching hashes for all three changed files, SQLite integrity OK and zero restarts.
+
+Public fixtures: matter 3043 (`QA-UPDATE-CONTEXT`), note 28, 9,618 characters; matter 3044 (`QA-UPDATE-OVERFLOW`), note 29, 13,938 characters. One actual model sample retained the correction from green to red after the old cutoff. The oversized case made zero model calls, retained the complete correction and unknown incident date, and saved unchanged as draft message 144. No email was sent. Browser generation and Enter-key source expansion passed on 3044, with the final correction visible.
+
+**AI factual accuracy remains defective.** The 3043 sample claimed there were no other recent developments, which the selected source records do not establish. A second actual model sample on existing matter 3039 still said documents were received recently, although note 21 supplies no receipt date. Removing exact metadata dates did not eliminate unsupported relative timing. The same draft asserted no immediate next steps, another inference from absence in the selected records. Matter-summary date attribution is unchanged. These are open findings, not a full narrative or Phase 1 signoff.
+
+The template can be long and still requires staff review of eligible note content before sending. History limits, provider prerequisites, independent acceptance and the remaining Phase 1 reviews stay open. Grok's new fixture-specific queue: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5770889250. Handoff and backups: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-update-context-handoff.md`.
+
 ## Latest: deposition quotes checked against sources, September 22
 
 Both sites run `f5135a3`. Absent and repeated quotes now receive an explicit warning without a guessed citation. Unique exact quotes use supported page/line/volume markers from the extracted transcript; model numbers are not trusted. Timestamps inside testimony do not replace recognized line markers. Malformed testimony entries no longer crash a good summary. Existing saved drafts are checked on viewing and export without rewriting them. The page no longer tells staff to paste citations directly into briefs.

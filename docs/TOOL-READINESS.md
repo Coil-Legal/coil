@@ -203,7 +203,7 @@ Further checks:
 
 **Reports reconciled against their rows.** Done by Grok for §L on one firm state. Repeat after the two-user day in §O, so the figures have something to disagree about.
 
-**Current AI acceptance, September 21:** cross-matter message contamination is fixed in `c2a413c`. Six live samples retained the intended matter facts, but one of three final samples still shifted a report date into the incident timeline despite stronger instructions. AI date grounding is defective and remains next for engineering review. Synthetic matters 3035/3036 and the exact outputs are in the Phase 1 handoff. This is not an AI signoff.
+**Current AI acceptance, September 22:** matter isolation and complete summary inputs are deployed; `3cf4af4` also preserves whole client-update statements, bypasses the model for oversized input and separates file notes from work performed. Public 3043 retained a correction after the old cutoff; 3044 preserved the full overflow note in draft 144 with zero model calls. Factual acceptance is still defective: new live samples inferred recent receipt from an undated note on 3039 and asserted no other developments from selected records on 3043. Matter-summary date attribution is unchanged. Full local 734 and deployment-image 135 tests passed. See Phase 1 readiness for exact samples, test-fixture limitations and remaining acceptance gates.
 
 **AI output quality on clean inputs.** Audited once on M-1008; one real grounding gap fixed. Repeat on two other matters with different document sets. What matters is a confident sentence the sources do not support.
 
