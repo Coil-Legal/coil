@@ -31,8 +31,8 @@ SEARCH_ENTITIES = ("matters", "contacts", "invoices", "time", "tasks")
 # Anything Coil writes to a matter for the firm's own use carries it (see matter_summary_save).
 INTERNAL_PREFIX = "[internal]"
 
-# Notes that talk about money are excluded from the client update as well, whoever wrote them. The
-# update email promises no fees, hours or invoices, and a note is free text nobody vetted for that.
+# Free text that mentions money is excluded from client updates, whoever wrote it.
+# Apply the same rule to notes, work descriptions and task/event titles.
 _MONEY_NOTE = re.compile(
     r"[$\u20ac\u00a3]\s?\d"
     r"|\b\d+(?:[.,]\d+)?\s*(?:hours?|hrs?)\b"
@@ -54,10 +54,27 @@ def _is_internal(note):
             and "this is a draft for attorney review and may contain errors." in first_line)
 
 
+def _client_safe_update_text(text):
+    """Filter selected free text, without treating this heuristic as a privacy guarantee."""
+    text = (text or "").strip()
+    return bool(text) and not text.lower().startswith(INTERNAL_PREFIX) and not _MONEY_NOTE.search(text)
+
+
+def _client_update_titles(query, limit):
+    """Apply exclusions before the count limit, fetching candidates in small batches."""
+    rows = []
+    for row in query.yield_per(50):
+        if _client_safe_update_text(row.title):
+            rows.append(row)
+            if len(rows) == limit:
+                break
+    return rows
+
+
 def _client_safe_note(note):
     """True when a matter note may be shown to the client in a status update."""
     body = (note.body or "").strip()
-    return bool(body) and not _is_internal(note) and not _MONEY_NOTE.search(body)
+    return _client_safe_update_text(body) and not _is_internal(note)
 
 
 def _uid():
@@ -425,26 +442,25 @@ UPDATE_DAYS = 30
 
 
 def update_facts(m, today=None):
-    """Client-safe facts for a status update: recent notes, recent work descriptions, tasks finished
-    recently, upcoming deadlines and events. Fees and invoices are deliberately left out, so a note is
-    dropped when it starts with [internal] (everything Coil writes to a matter for the firm's own use
-    does) or when it mentions money, hours, invoices or billing. The same list feeds the AI prompt and
-    the no-model template, so both honour the same promise."""
+    """Select recent activity and upcoming dates for both client-update paths.
+    Exclude internal markers and known billing language in every selected free-text field.
+    These heuristics do not establish that all remaining content is suitable to send.
+    """
     today = today or date.today()
     since = today - timedelta(days=UPDATE_DAYS)
     since_dt = datetime.combine(since, datetime.min.time())
     notes = [n for n in sorted(m.notes, key=lambda n: n.created_at or datetime.min, reverse=True)
              if _client_safe_note(n) and n.created_at and n.created_at >= since_dt][:8]
     work = [t for t in sorted(m.time_entries, key=lambda t: (t.date or date.min, t.id), reverse=True)
-            if t.date and t.date >= since and (t.description or "").strip()][:10]
-    done = Task.query.filter(Task.matter_id == m.id, Task.done == True, Task.done_at != None,  # noqa: E712,E711
-                             Task.done_at >= since_dt).order_by(Task.done_at.desc()).limit(8).all()
-    upcoming = Task.query.filter(Task.matter_id == m.id, Task.done == False, Task.due_on != None,  # noqa: E712,E711
+            if t.date and t.date >= since and _client_safe_update_text(t.description)][:10]
+    done = _client_update_titles(Task.query.filter(Task.matter_id == m.id, Task.done == True, Task.done_at != None,  # noqa: E712,E711
+                             Task.done_at >= since_dt).order_by(Task.done_at.desc(), Task.id.desc()), 8)
+    upcoming = _client_update_titles(Task.query.filter(Task.matter_id == m.id, Task.done == False, Task.due_on != None,  # noqa: E712,E711
                                  Task.due_on >= today, Task.kind.in_(["deadline", "court_date"])).order_by(
-        Task.due_on).limit(8).all()
-    events = CalendarEvent.query.filter(CalendarEvent.matter_id == m.id,
+        Task.due_on, Task.id), 8)
+    events = _client_update_titles(CalendarEvent.query.filter(CalendarEvent.matter_id == m.id,
                                         CalendarEvent.starts_at >= datetime.combine(today, datetime.min.time())
-                                        ).order_by(CalendarEvent.starts_at).limit(6).all()
+                                        ).order_by(CalendarEvent.starts_at, CalendarEvent.id), 6)
     return {"notes": notes, "work": work, "done": done, "upcoming": upcoming, "events": events, "since": since}
 
 

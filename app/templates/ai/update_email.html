@@ -2,10 +2,10 @@
 <div class="topbar"><h1>Client update <span style="font-weight:500">{{ m.label }}</span></h1>
 <div class="actions" style="margin:0"><a class="btn small secondary" href="/matters/{{ m.id }}">Back to matter</a></div></div>
 {% if error %}<div class="flash">AI was not available ({{ error }}), so this draft was built from the matter's recent notes, work, completed tasks and upcoming dates using a plain template. Edit it as you like; it sends the same way.</div>
-{% elif source == 'model' %}<p class="small muted">Drafted from the last 30 days of notes, work descriptions, completed tasks and upcoming deadlines and events{% if lang != 'en' %}, in the client's language ({{ lang }}){% endif %}. Notes starting with [internal], fees, hours and invoices were left out. Read it before sending.</p>{% endif %}
+{% elif source == 'model' %}<p class="small muted">Drafted from the last 30 days of notes, work descriptions, completed tasks and upcoming deadlines and events{% if lang != 'en' %}, in the client's language ({{ lang }}){% endif %}. Selected notes, work descriptions and task/event titles are screened for [internal] prefixes and known billing terms. Review every statement before sending.</p>{% endif %}
 {% if source_context %}
 <details class="card"><summary>Review the source records</summary>
-<p class="small muted">Includes up to 8 notes, 10 work entries and 8 completed tasks from the last 30 days, plus 8 upcoming deadlines and 6 events. Internal and money-related notes are excluded. Note record dates do not establish event dates. Check dates and statements against these sources before sending.</p>
+<p class="small muted">Includes up to 8 notes, 10 work entries and 8 completed tasks from the last 30 days, plus 8 upcoming deadlines and 6 events. Notes, work descriptions and task/event titles with [internal] prefixes or known billing terms are excluded. These text checks can miss sensitive content or exclude useful records; they do not replace your review. Note record dates do not establish event dates. Check dates and statements against these sources before sending.</p>
 <pre style="white-space:pre-wrap;overflow-wrap:anywhere">{{ source_context }}</pre>
 </details>
 {% endif %}
