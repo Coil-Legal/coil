@@ -1,5 +1,13 @@
 # Coil Phase 1 completion pass
 
+## Latest: signer-name validation and new independent passes, September 22 18:52 UTC
+
+2026-09-22 18:52 UTC. Deployed d7f7461: reject signer names over 200 characters before signing, with English/Spanish errors and form limits. Reproduced document hash/store truncation mismatch. Full 858 / production image 21 passed; four public rejection cases passed on matters 3060/3061, documents 112/113, signatures 7/8 and engagements 11/12, no emails or signatures. Both sites healthy with backups, six hashes each, SQLite OK, zero restarts; testfirm version label corrected. Grok passed oversized-source, three extraction limits and persisted builder results at 18:23. Next AI batch assigned 5782011952; signature retest assigned 5782130221, not acknowledged. Main unpushed. Handoff: /Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-signature-name-handoff.md.
+
+The document route previously hashed a 201-character name and stored only 200, making the stored signature details inconsistent. Both signing routes now refuse overlong names without mutation. Valid 200-character names, reproducible hashes, PDF text/layout and repeat protection passed isolated checks. Live positive signing was not performed; no historical signatures were rewritten. Independent/mobile/concurrency/Unicode/decline-resend gates remain.
+
+Grok result links: oversized document source https://github.com/Coil-Legal/coil/issues/12#issuecomment-5781736123; three extraction preflights https://github.com/Coil-Legal/coil/issues/12#issuecomment-5781736360; persisted builder result https://github.com/Coil-Legal/coil/issues/12#issuecomment-5781736539. Independent pasted overrides and builder creation remain separate. Grok clarified its model queue was queued, not a stuck provider request. No full tool signoff or Phase 1 completion.
+
 ## Latest: public invoice builder and independent PDF pass, September 22 18:07 UTC
 
 2026-09-22 18:07 UTC. Public 200-entry builder acceptance passed on unchanged 9d25324. New matter3058/control3059, invoice3038 (INV-1039), time41348 to41547 and lines10033 to10232: exact links/money, zero rates, seven-minute rounding, four controls and sequential replay passed. Draft/unpaid, 2466389 cents, six-page PDF text intact. Grok independently passed prior PDF case5781045202. New short no-model queue plus builder-result inspection assigned5781519971, not acknowledged. No application changes or deployment; main unpushed. Handoff: /Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-invoice-builder-live-handoff.md.

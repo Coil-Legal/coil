@@ -1,5 +1,7 @@
 # Tool readiness register
 
+Latest September 22 18:52 UTC: deployed d7f7461 rejects overlong signer names before any signature/hash/PDF, fixing a stored-name/hash mismatch. Full 858 and image 21 tests passed; English/Spanish public rejection fixtures 3060/3061 passed without mail. E-signature remains QA pending. Grok independently passed oversized document-source, three extraction-limit and saved builder-result cases (5781736123, 5781736360, 5781736539). Research and Invoicing remain QA pending. The model queue is queued, not blocked by a provider. See Phase 1 readiness and the signature-name handoff for limits, backups and next cases.
+
 Current acceptance status, updated September 22, 2026: Phase 1 is still open. See [Phase 1 readiness](PHASE1-READINESS.md) for deployed commits and evidence, [Phase 2 checks](PHASE2-QA-CHECKLIST.md) and [Phase 3 checks](PHASE3-QA-CHECKLIST.md) for the later review queues. Provider prerequisites and independent Grok retests are not complete.
 
 Current deposition acceptance: `1a33ddb` holds uncertain, identical or source-unresolved comparisons for review across page, note and PDF. Synthetic 3047/doc 91/deposition 14, internal note 31 and unshared PDF 97 passed Codex checks with source/draft unchanged; 778 local and 53 production-image tests passed. Broader meaning accuracy and independent retests remain open. Grok stopped the prior batch on the SHA change and has been retargeted to 1a33ddb: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5773994130. New acknowledgment and case results pending.
