@@ -393,17 +393,27 @@ def _name_for(text, citation, claims, start_index=None):
 
 
 def _names_agree(claimed, actual):
-    """True when the brief's party names and the matched case's name share a surname.
+    """Whether names share any meaningful word, used to flag wholly different names.
 
-    Deliberately loose. Real citations are written "Smith v. Jones" against a full case
-    name of "Smith v. Jones Manufacturing Co., Inc.", and reporters abbreviate. One
-    shared distinctive word is enough to say these are the same case; zero shared words
-    is what a fabricated citation looks like.
+    Shared words alone do not verify both parties; see _party_names_agree.
     """
     c, a = set(_norm_name(claimed)), set(_norm_name(actual))
     if not c or not a:
         return True          # nothing to compare, do not cry wolf
     return bool(c & a)
+
+
+def _party_names_agree(claimed, actual):
+    """Require a meaningful name overlap on each side of a two-party caption.
+
+    Short or differently structured captions are held for manual review. This is
+    a bounded name check, not proof of case identity or substantive authority.
+    """
+    c = re.split(r"\s+v(?:s)?\.?\s+", claimed or "", flags=re.I)
+    a = re.split(r"\s+v(?:s)?\.?\s+", actual or "", flags=re.I)
+    if len(c) != 2 or len(a) != 2:
+        return False
+    return all(set(_norm_name(x)) & set(_norm_name(y)) for x, y in zip(c, a))
 
 
 def citation_lookup(text):
@@ -414,6 +424,7 @@ def citation_lookup(text):
     `resolution` is the one to read: "resolved" for a confident single match, "ambiguous" when the
     citation matched more than one case (CourtListener answers 300 for those, and occasionally 200 with
     several clusters), "not_found" for anything else including a 404. "source_uncertain" means the result could not be tied to a specific source occurrence.
+    "name_uncertain" means both named parties could not be matched to the database caption.
     "resolved" confirms a database match only; every citation still needs review before filing."""
     text = text or ""
     if len(text) > CITE_TEXT_CAP:
@@ -453,16 +464,20 @@ def citation_lookup(text):
         source_uncertain = resolved and source_index is None
         mismatch = bool(resolved and claimed_name and actual_name
                         and not _names_agree(claimed_name, actual_name))
-        if mismatch or source_uncertain:
+        name_uncertain = bool(resolved and claimed_name and actual_name and not mismatch
+                              and not _party_names_agree(claimed_name, actual_name))
+        if mismatch or source_uncertain or name_uncertain:
             resolved = False
         found.append({
             "claimed_name": claimed_name,
             "name_mismatch": mismatch,
+            "name_uncertain": name_uncertain,
             "source_uncertain": source_uncertain,
             "citation": it.get("citation") or (norm[0] if norm else ""),
             "normalized": norm[0] if norm else (it.get("citation") or ""),
             "status": status,
             "resolution": ("source_uncertain" if source_uncertain else "name_mismatch" if mismatch else
+                           "name_uncertain" if name_uncertain else
                            "resolved" if resolved else ("ambiguous" if ambiguous else "not_found")),
             "found": resolved or ambiguous,
             "ambiguous": ambiguous,
