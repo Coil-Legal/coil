@@ -1082,7 +1082,7 @@ def deposition_new():
                 dep.summary_text = summary
                 dep.key_testimony_json = json.dumps(key, ensure_ascii=False)
                 dep.contradictions_json = json.dumps(contras, ensure_ascii=False)
-                flash(f"Summary drafted: {len(key)} key passages, {len(contras)} contradictions. "
+                flash(f"Summary drafted: {len(key)} key passages, {len(contras)} comparisons for review. "
                       f"This is a draft for attorney review.", "ok")
             except LLMUnavailable as e:
                 dep.summary_text = (f"The AI model is not configured, so no summary was generated. ({e}) "
@@ -1098,6 +1098,52 @@ def _dep_or_404(id):
     return db.session.get(DepositionSummary, id) or abort(404)
 
 
+def _review_comparison(text, comparison):
+    """Classify a raw AI comparison for display without changing the saved draft.
+
+    Unique quotes are not proof of a contradiction. Missing sources and answers
+    that assert only uncertainty require review before being described as one.
+    """
+    item = dict(comparison)
+    item.pop("review_warning", None)
+    item.pop("testimony_source", None)
+    kind = item.get("kind")
+    first = str(item.get("testimony") or "")
+    second = str(item.get("conflicts_with") or "")
+    item["source"] = _contradiction_source(text, kind, second, item.get("source", ""))
+    warnings = []
+    uncertain = (r"(?:i(?: am|'m) not sure|i (?:do not|don't) (?:know|recall|remember)|"
+                 r"i (?:cannot|can't|can not) (?:recall|remember)|not sure|(?:do not|don't) know)")
+    normalized_statements = [re.sub(r"\s+", " ", statement.lower().replace("’", "'")).strip(' .!?"“”')
+                             for statement in (first, second)]
+    if normalized_statements[0] and normalized_statements[0] == normalized_statements[1]:
+        warnings.append("Both statements are the same. No opposing fact is identified.")
+    for normalized in normalized_statements:
+        if re.fullmatch(uncertain, normalized):
+            warnings.append("An uncertain answer does not establish an opposing fact. "
+                            "Review both questions and answers before treating this as a contradiction.")
+            break
+    if not first.strip() or not second.strip():
+        warnings.append("One of the statements is missing. Check the source.")
+    if kind == "internal":
+        for label, statement in (("Testimony", first), ("Compared statement", second)):
+            resolved = _source_testimony(text, {"quote": statement, "topic": ""})
+            if resolved.get("citation_warning"):
+                warnings.append(f"{label}: {resolved['citation_warning']}")
+            elif label == "Testimony":
+                item["testimony_source"] = cite(None, resolved)
+    elif kind != "external":
+        warnings.append("The comparison type was not recorded. Check both sources.")
+    if warnings:
+        item["review_warning"] = " ".join(warnings)
+    return item
+
+
+def _comparison_groups(comparisons):
+    return [("Possible contradictions", [c for c in comparisons if not c.get("review_warning")]),
+            ("Comparisons needing review", [c for c in comparisons if c.get("review_warning")])]
+
+
 def _dep_lists(dep):
     try:
         key = json.loads(dep.key_testimony_json or "[]")
@@ -1110,9 +1156,7 @@ def _dep_lists(dep):
     # Recheck old summaries against their current source without rewriting saved drafts.
     text = (dep.document.extracted_text if dep.document else "") or ""
     key = [_source_testimony(text, k) for k in key if isinstance(k, dict)] if isinstance(key, list) else []
-    contras = [dict(c, source=_contradiction_source(text, c.get("kind"), c.get("conflicts_with", ""),
-                                                     c.get("source", "")))
-               for c in contras if isinstance(c, dict)] if isinstance(contras, list) else []
+    contras = [_review_comparison(text, c) for c in contras if isinstance(c, dict)] if isinstance(contras, list) else []
     return key, contras
 
 
@@ -1122,8 +1166,8 @@ def deposition_detail(id):
     dep = _dep_or_404(id)
     key, contras = _dep_lists(dep)
     rows = [(k, cite(dep, k)) for k in key]
-    return render_template("discovery/deposition_detail.html", dep=dep, rows=rows, contras=contras,
-                           statuses=STATUSES, ai=llm.status())
+    return render_template("discovery/deposition_detail.html", dep=dep, rows=rows, contras=_comparison_groups(contras)[0][1],
+                           review_contras=_comparison_groups(contras)[1][1], statuses=STATUSES, ai=llm.status())
 
 
 @bp.route("/depositions/<int:id>/save", methods=["POST"])
@@ -1167,7 +1211,7 @@ def deposition_rerun(id):
     dep.contradictions_json = json.dumps(contras, ensure_ascii=False)
     audit("ai_rerun", "deposition_summary", dep.id, "", _uid())
     db.session.commit()
-    flash(f"Summary redrafted: {len(key)} key passages, {len(contras)} contradictions. Draft for attorney review.", "ok")
+    flash(f"Summary redrafted: {len(key)} key passages, {len(contras)} comparisons for review. Draft for attorney review.", "ok")
     return redirect(url_for("discovery.deposition_detail", id=dep.id))
 
 
@@ -1180,10 +1224,17 @@ def deposition_note_text(dep):
         lines += ["", "Key testimony:"]
         lines += [f"- {cite(dep, k)}: \"{k.get('quote', '')}\"" + (f" ({k['topic']})" if k.get("topic") else "")
                   for k in key]
-    if contras:
-        lines += ["", "Possible contradictions:"]
-        lines += [f"- {c.get('testimony', '')} vs {c.get('conflicts_with', '')}"
-                  + (f" [{c['source']}]" if c.get("source") else "") for c in contras]
+    for heading, comparisons in _comparison_groups(contras):
+        if not comparisons:
+            continue
+        lines += ["", heading + ":"]
+        for c in comparisons:
+            lines += [f"- Testimony: {c.get('testimony', '')}"
+                      + (f" [{c['testimony_source']}]" if c.get("testimony_source") else ""),
+                      f"  Compared statement: {c.get('conflicts_with', '')}"
+                      + (f" [{c['source']}]" if c.get("source") else "")]
+            if c.get("review_warning"):
+                lines.append("  Review: " + c["review_warning"])
     lines += ["", "AI draft for attorney review."]
     return "\n".join(lines)
 
@@ -1224,12 +1275,18 @@ def build_deposition_pdf(dep):
         for k in key:
             _para(pdf, f"{cite(dep, k)}" + (f"  [{k['topic']}]" if k.get("topic") else ""), style="B", gap=1)
             _para(pdf, f"\"{k.get('quote', '')}\"", gap=2)
-    if contras:
-        _para(pdf, "POSSIBLE CONTRADICTIONS", size=12, style="B", gap=2)
-        for c in contras:
-            _para(pdf, f"Testimony: {c.get('testimony', '')}", gap=1)
-            _para(pdf, f"Conflicts with: {c.get('conflicts_with', '')}"
+    for heading, comparisons in _comparison_groups(contras):
+        if not comparisons:
+            continue
+        _para(pdf, heading.upper(), size=12, style="B", gap=2)
+        for c in comparisons:
+            _para(pdf, f"Testimony: {c.get('testimony', '')}"
+                  + (f" ({c['testimony_source']})" if c.get("testimony_source") else ""), gap=1)
+            label = "Compared statement" if c.get("review_warning") else "Conflicts with"
+            _para(pdf, f"{label}: {c.get('conflicts_with', '')}"
                   + (f" (source: {c['source']})" if c.get("source") else ""), gap=3)
+            if c.get("review_warning"):
+                _para(pdf, "Review: " + c["review_warning"], gap=3)
     return bytes(pdf.output())
 
 

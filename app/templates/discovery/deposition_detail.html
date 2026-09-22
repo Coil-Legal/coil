@@ -38,8 +38,14 @@
 
 <div class="card"><h2>Possible contradictions</h2>
 {% if contras %}
-<ul>{% for c in contras %}<li><strong>Testimony:</strong> {{ c.testimony }}<br><strong>Conflicts with:</strong> {{ c.conflicts_with }}{% if c.source %} <span class="small muted">(source: {{ c.source }})</span>{% endif %}</li>{% endfor %}</ul>
-{% else %}<div class="empty">None found against the confirmed chronology and PI facts.</div>{% endif %}
+<ul>{% for c in contras %}<li><strong>Testimony:</strong> {{ c.testimony }}{% if c.testimony_source %} <span class="small muted">({{ c.testimony_source }})</span>{% endif %}<br><strong>Conflicts with:</strong> {{ c.conflicts_with }}{% if c.source %} <span class="small muted">(source: {{ c.source }})</span>{% endif %}</li>{% endfor %}</ul>
+{% else %}<div class="empty">None listed in this draft.</div>{% endif %}
 </div>
+{% if review_contras %}
+<div class="card"><h2>Comparisons needing review</h2>
+<p class="small muted">These AI comparisons have unresolved sources or do not establish an opposing fact. They are retained for review and are not counted as possible contradictions.</p>
+<ul>{% for c in review_contras %}<li style="margin-bottom:12px"><strong>Testimony:</strong> {{ c.testimony }}{% if c.testimony_source %} <span class="small muted">({{ c.testimony_source }})</span>{% endif %}<br><strong>Compared statement:</strong> {{ c.conflicts_with }}{% if c.source %} <span class="small muted">(source: {{ c.source }})</span>{% endif %}<p class="small">{{ c.review_warning }}</p></li>{% endfor %}</ul>
+</div>
+{% endif %}
 <form method="post" action="/discovery/depositions/{{ dep.id }}/delete" class="inline">{{ csrf() }}<button class="btn small danger" data-confirm="Delete this deposition summary? Exported PDFs and notes stay.">Delete</button></form>
 {% endblock %}
