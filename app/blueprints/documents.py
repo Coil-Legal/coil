@@ -40,14 +40,44 @@ def abs_path(doc):
 
 
 TEXT_CAP = 200_000
+TEXT_BYTE_CAP = TEXT_CAP * 2
+TEXT_PAGE_CAP = 200
+TEXT_EXTENSIONS = {"txt", "md", "csv", "tsv", "log", "json", "html", "htm", "xml", "eml"}
+
+
+def extraction_limit_reason(path, ext):
+    """Explain when the stored search text may omit source bytes or PDF pages.
+
+    Citation checks must not mistake the search index for a complete document.
+    This checks known extraction limits, not OCR or general extraction accuracy.
+    """
+    try:
+        if ext in TEXT_EXTENSIONS and os.path.getsize(path) > TEXT_BYTE_CAP:
+            return f"This file exceeds the {TEXT_BYTE_CAP:,}-byte text extraction limit."
+        if ext == "pdf":
+            from pypdf import PdfReader
+            reader = PdfReader(path)
+            pages = len(reader.pages)
+            if pages > TEXT_PAGE_CAP:
+                return (f"This PDF has {pages:,} pages. Stored text extraction covers at most "
+                        f"{TEXT_PAGE_CAP:,} pages.")
+            raw_length = 0
+            for page in reader.pages:
+                raw_length += len(page.extract_text() or "")
+                if raw_length > TEXT_CAP:
+                    return (f"This PDF exceeds the {TEXT_CAP:,}-character extraction limit "
+                            "before whitespace is normalized. Later text may be missing.")
+    except Exception:  # source is unavailable, encrypted or unreadable
+        return "The original file could not be read to verify its extraction limits."
+    return ""
 
 
 def extract_text(path, ext):
     """Best-effort plain text from a stored file for conflict searching. Never raises."""
     try:
-        if ext in ("txt", "md", "csv", "tsv", "log", "json", "html", "htm", "xml", "eml"):
+        if ext in TEXT_EXTENSIONS:
             with open(path, "rb") as f:
-                raw = f.read(TEXT_CAP * 2)
+                raw = f.read(TEXT_BYTE_CAP)
             text = raw.decode("utf-8", "ignore")
             if ext in ("html", "htm", "xml"):
                 text = re.sub(r"<[^>]+>", " ", text)
@@ -62,7 +92,7 @@ def extract_text(path, ext):
             from pypdf import PdfReader
             reader = PdfReader(path)
             parts = []
-            for page in reader.pages[:200]:
+            for page in reader.pages[:TEXT_PAGE_CAP]:
                 parts.append(page.extract_text() or "")
                 if sum(len(x) for x in parts) > TEXT_CAP:
                     break

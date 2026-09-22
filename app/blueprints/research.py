@@ -18,7 +18,7 @@ from ..services.pdf import DocPDF, html_to_pdf_body
 from .. import llm
 from ..llm import LLMUnavailable
 from . import _courtlistener as cl
-from .documents import store_bytes
+from .documents import store_bytes, abs_path as document_path, extraction_limit_reason
 
 bp = Blueprint("research", __name__, url_prefix="/research")
 
@@ -384,6 +384,15 @@ def cite_check():
             matter_id = doc.matter_id
     ctx.update(text=text if source_label == "pasted text" else "", document_id=document_id, matter_id=matter_id,
                source_label=source_label)
+    if doc and source_label != "pasted text":
+        ext = doc.name.rsplit(".", 1)[-1].lower() if "." in doc.name else ""
+        reason = extraction_limit_reason(document_path(doc), ext)
+        if reason:
+            ctx["api_error"] = cl._error("incomplete_document", reason +
+                " No citation lookup was sent and no result note was saved. Split the original into "
+                "smaller files and check each part, or paste the complete text in sections of up to "
+                "64,000 characters, keeping each case name with its citation.")
+            return render_template("research/cite_check.html", **ctx)
     if not text.strip():
         flash("Paste some text or pick a document that has readable text.", "error")
         return render_template("research/cite_check.html", **ctx)
