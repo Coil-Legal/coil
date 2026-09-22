@@ -890,7 +890,6 @@ def summarize_transcript(dep, text):
     facts, _ = llm.clip(matter_facts(m), 1500)
     marked = has_markers(text)
     multi_volume = _is_multi_volume(text)
-    chunks = chunk_transcript(text)
     summaries, key, contras = [], [], []
     marker_note = ("The text keeps the transcript's page and line markers (lines like \"Page 12\" or \"12:5\" meaning "
                    "page 12 line 5). Cite the page and line each quote comes from."
@@ -898,32 +897,41 @@ def summarize_transcript(dep, text):
     if multi_volume:
         marker_note += (" The transcript covers more than one volume, and page numbers restart at 1 in each "
                         "volume, so a page/line pair alone does not tell two volumes apart.")
+    prompt_prefix = (f"Read the deposition transcript of {dep.deponent or 'the deponent'}"
+              f"{', taken ' + dep.taken_on.strftime('%b %-d, %Y') if dep.taken_on else ''}. {marker_note}\n"
+              f"Return JSON with: \"summary\" (a plain summary of this part, about 150 words), \"key_testimony\" "
+              f"(up to 10 items: page, line, a short verbatim quote, topic), and \"contradictions\".\n\n"
+              f"Contradictions are of two kinds and BOTH matter. Give each one a \"kind\".\n"
+              f"  kind \"internal\": the witness contradicts himself inside this transcript, or contradicts a "
+              f"document he is shown in it. Give a figure and then a different figure for the same thing, "
+              f"say a duration, a distance, a speed or a time; say he does not recall something he described "
+              f"earlier; agree with a record that differs from his own account. These are the ones a litigator "
+              f"reads first, so look for them carefully. Set \"source\" to the page and line of the other "
+              f"statement, like \"p31:17\". Do NOT report it when the witness catches and corrects himself, "
+              f"such as in the very next answer, and the transcript shows the correction was accepted (\"I "
+              f"misspoke\", \"let me correct that\", or simply restating and confirming the new answer): that "
+              f"is corrected testimony, not a contradiction, and belongs in the summary instead.\n"
+              f"  kind \"external\": the testimony conflicts with the confirmed chronology or the PI facts "
+              f"below. Set \"source\" to \"chronology <date> <provider>\" or \"PI facts: <field>\".\n\n"
+              f"In both cases put the testimony in \"testimony\" and what it conflicts with in "
+              f"\"conflicts_with\". Quote or closely paraphrase the actual words rather than describing them. "
+              f"Report only what the transcript or the facts below actually support: a contradiction you are "
+              f"not sure of costs an attorney more time than a missing one.\n\n"
+              f"Matter facts:\n{facts}\n\n")
+    # Account for instructions and matter facts before choosing transcript boundaries.
+    # The number of chunks cannot exceed the character count, so this reserves enough digits.
+    header_budget = len(f"Transcript part {len(text)} of {len(text)}:\n")
+    size = min(CHUNK_CHARS, llm.MAX_CONTEXT_CHARS - len(prompt_prefix) - header_budget)
+    if size < 1:
+        raise LLMUnavailable("The deposition context is too long. No transcript was sent.")
+    chunks = chunk_transcript(text, size=size)
     volume = None
     for i, chunk in enumerate(chunks, 1):
+        incoming_volume = volume
         labels = _volume_labels(chunk)
         if labels:
             volume = labels[-1]
-        prompt = (f"This is part {i} of {len(chunks)} of the deposition transcript of {dep.deponent or 'the deponent'}"
-                  f"{', taken ' + dep.taken_on.strftime('%b %-d, %Y') if dep.taken_on else ''}. {marker_note}\n"
-                  f"Return JSON with: \"summary\" (a plain summary of this part, about 150 words), \"key_testimony\" "
-                  f"(up to 10 items: page, line, a short verbatim quote, topic), and \"contradictions\".\n\n"
-                  f"Contradictions are of two kinds and BOTH matter. Give each one a \"kind\".\n"
-                  f"  kind \"internal\": the witness contradicts himself inside this transcript, or contradicts a "
-                  f"document he is shown in it. Give a figure and then a different figure for the same thing, "
-                  f"say a duration, a distance, a speed or a time; say he does not recall something he described "
-                  f"earlier; agree with a record that differs from his own account. These are the ones a litigator "
-                  f"reads first, so look for them carefully. Set \"source\" to the page and line of the other "
-                  f"statement, like \"p31:17\". Do NOT report it when the witness catches and corrects himself, "
-                  f"such as in the very next answer, and the transcript shows the correction was accepted (\"I "
-                  f"misspoke\", \"let me correct that\", or simply restating and confirming the new answer): that "
-                  f"is corrected testimony, not a contradiction, and belongs in the summary instead.\n"
-                  f"  kind \"external\": the testimony conflicts with the confirmed chronology or the PI facts "
-                  f"below. Set \"source\" to \"chronology <date> <provider>\" or \"PI facts: <field>\".\n\n"
-                  f"In both cases put the testimony in \"testimony\" and what it conflicts with in "
-                  f"\"conflicts_with\". Quote or closely paraphrase the actual words rather than describing them. "
-                  f"Report only what the transcript or the facts below actually support: a contradiction you are "
-                  f"not sure of costs an attorney more time than a missing one.\n\n"
-                  f"Matter facts:\n{facts}\n\nTranscript part {i}:\n{chunk}")
+        prompt = prompt_prefix + f"Transcript part {i} of {len(chunks)}:\n{chunk}"
         data = llm.complete_json(prompt, DEPO_SCHEMA, system=SYSTEM, max_tokens=2500, kind="deposition_summary",
                                  entity="deposition_summary", entity_id=dep.id, user_id=_uid())
         if not isinstance(data, dict):
@@ -940,7 +948,7 @@ def summarize_transcript(dep, text):
                     # volume break, so the chunk's last-seen label (`volume`) is only a fallback for a
                     # quote the model paraphrased enough that it can't be found verbatim.
                     pos = chunk.find(quote)
-                    item_volume = _volume_at(chunk, pos) if pos >= 0 else None
+                    item_volume = (_volume_at(chunk, pos) or incoming_volume) if pos >= 0 else None
                     if item_volume or volume:
                         item["volume"] = item_volume or volume
                 key.append(item)
@@ -956,10 +964,13 @@ def summarize_transcript(dep, text):
     summary = summaries[0]
     if len(summaries) > 1:
         joined = "\n\n".join(summaries)
+        condense_prompt = (
+            f"Combine these part summaries of the deposition of {dep.deponent or 'the deponent'} into one summary "
+            f"of about 300 words, in order, keeping every fact. Return JSON {{\"summary\": \"...\"}}.\n\n{joined}")
+        if len(condense_prompt) > llm.MAX_CONTEXT_CHARS:
+            return joined, key, contras
         try:
-            data = llm.complete_json(
-                f"Combine these part summaries of the deposition of {dep.deponent or 'the deponent'} into one summary "
-                f"of about 300 words, in order, keeping every fact. Return JSON {{\"summary\": \"...\"}}.\n\n{joined}",
+            data = llm.complete_json(condense_prompt,
                 CONDENSE_SCHEMA, system=SYSTEM, max_tokens=1200, kind="deposition_condense",
                 entity="deposition_summary", entity_id=dep.id, user_id=_uid())
             summary = str(data.get("summary") or "").strip() if isinstance(data, dict) else ""
