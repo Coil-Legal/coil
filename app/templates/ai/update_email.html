@@ -3,6 +3,12 @@
 <div class="actions" style="margin:0"><a class="btn small secondary" href="/matters/{{ m.id }}">Back to matter</a></div></div>
 {% if error %}<div class="flash">AI was not available ({{ error }}), so this draft was built from the matter's recent notes, work, completed tasks and upcoming dates using a plain template. Edit it as you like; it sends the same way.</div>
 {% elif source == 'model' %}<p class="small muted">Drafted from the last 30 days of notes, work descriptions, completed tasks and upcoming deadlines and events{% if lang != 'en' %}, in the client's language ({{ lang }}){% endif %}. Notes starting with [internal], fees, hours and invoices were left out. Read it before sending.</p>{% endif %}
+{% if source_context %}
+<details class="card"><summary>Review the source records</summary>
+<p class="small muted">Includes up to 8 notes, 10 work entries and 8 completed tasks from the last 30 days, plus 8 upcoming deadlines and 6 events. Internal and money-related notes are excluded. Note record dates do not establish event dates. Check dates and statements against these sources before sending.</p>
+<pre style="white-space:pre-wrap;overflow-wrap:anywhere">{{ source_context }}</pre>
+</details>
+{% endif %}
 <form method="post" action="/ai/matter/{{ m.id }}/update-email/send" class="card">{{ csrf() }}
   <div class="row">
     <div><label>To</label><input type="email" name="to" value="{{ to }}" placeholder="{{ 'no email on the client contact' if not to else '' }}"></div>

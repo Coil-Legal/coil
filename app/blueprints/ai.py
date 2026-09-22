@@ -454,11 +454,12 @@ def _facts_text(m, facts):
              f"Responsible attorney: {m.responsible.name if m.responsible else 'the firm'}",
              f"Status: {m.status}. Practice area: {m.practice_area or ''}"]
     if facts["notes"]:
-        parts.append("Recent notes:\n" + "\n".join(f"- {n.created_at:%Y-%m-%d}: {n.body.strip()}" for n in facts["notes"]))
+        parts.append("Notes recently added to the file (event dates only when stated in the note):\n"
+                     + "\n".join(f"- Note {n.id}: {n.body.strip()}" for n in facts["notes"]))
     if facts["work"]:
         parts.append("Work done recently:\n" + "\n".join(f"- {t.date}: {t.description.strip()}" for t in facts["work"]))
     if facts["done"]:
-        parts.append("Tasks completed:\n" + "\n".join(f"- {t.done_at:%Y-%m-%d}: {t.title}" for t in facts["done"]))
+        parts.append("Tasks marked complete on the listed dates:\n" + "\n".join(f"- {t.done_at:%Y-%m-%d}: {t.title}" for t in facts["done"]))
     if facts["upcoming"]:
         parts.append("Upcoming deadlines and court dates:\n" + "\n".join(
             f"- {t.due_on}: {t.title} ({t.kind.replace('_', ' ')})" for t in facts["upcoming"]))
@@ -472,11 +473,12 @@ _UPDATE_T = {
         "subject": "Update on {matter}",
         "greeting": "Dear {name},",
         "intro": "Here is a short update on your matter, {matter}.",
-        "work": "Since {since}, we have:",
-        "done": "Completed:",
+        "work": "Work recorded since {since}:",
+        "notes": "Notes from your file:",
+        "done": "Tasks marked complete:",
         "upcoming": "Coming up:",
         "events": "Scheduled:",
-        "nothing": "There has been no new activity on the file since {since}. We are monitoring it and will let you know as soon as anything changes.",
+        "nothing": "Please contact our office for the current status of your matter.",
         "close": "Please reply to this email or call the office if you have any questions.",
         "sign": "Kind regards,\n{attorney}\n{firm}",
         "ymd": "%B %-d, %Y",
@@ -485,29 +487,17 @@ _UPDATE_T = {
         "subject": "Actualización sobre {matter}",
         "greeting": "Estimado/a {name}:",
         "intro": "Le escribimos para informarle brevemente sobre el estado de su asunto, {matter}.",
-        "work": "Desde el {since}, hemos realizado lo siguiente:",
-        "done": "Tareas completadas:",
+        "work": "Trabajo registrado desde el {since}:",
+        "notes": "Notas de su expediente:",
+        "done": "Tareas marcadas como completadas:",
         "upcoming": "Próximos plazos:",
         "events": "Citas programadas:",
-        "nothing": "No ha habido novedades en su expediente desde el {since}. Seguimos pendientes y le avisaremos en cuanto haya algún cambio.",
+        "nothing": "Comuníquese con nuestra oficina para conocer el estado actual de su asunto.",
         "close": "Si tiene alguna pregunta, responda a este correo o llame a nuestra oficina.",
         "sign": "Atentamente,\n{attorney}\n{firm}",
         "ymd": "%-d de %B de %Y",
     },
 }
-
-
-NOTE_LINE_CHARS = 200
-
-
-def _note_line(note):
-    """One line from a note for a client-facing draft. A note is the attorney's own scratch space, so the
-    template takes its first line and truncates it rather than pasting the whole body into the email."""
-    for raw in (note.body or "").splitlines():
-        line = " ".join(raw.split())
-        if line:
-            return line if len(line) <= NOTE_LINE_CHARS else line[:NOTE_LINE_CHARS].rstrip() + "..."
-    return ""
 
 
 def _first_name(contact):
@@ -523,11 +513,16 @@ def template_update(m, facts, lang="en"):
     attorney = m.responsible.name if m.responsible else firm.name
     since = facts["since"].strftime(T["ymd"])
     lines = [T["greeting"].format(name=_first_name(m.client)), "", T["intro"].format(matter=m.name), ""]
-    items = [t.description.strip() for t in facts["work"]] + [_note_line(n) for n in facts["notes"]]
+    items = [t.description.strip() for t in facts["work"]]
     items = [x for x in items if x]
     if items:
         lines.append(T["work"].format(since=since))
         lines += [f"- {x}" for x in items]
+        lines.append("")
+    if facts["notes"]:
+        lines.append(T["notes"])
+        # A later sentence may correct the first. Keep each eligible note intact.
+        lines += [f"- {n.body.strip()}" for n in facts["notes"]]
         lines.append("")
     if facts["done"]:
         lines.append(T["done"])
@@ -541,15 +536,16 @@ def template_update(m, facts, lang="en"):
         lines.append(T["events"])
         lines += [f"- {e.starts_at.strftime(T['ymd'])}: {e.title}" for e in facts["events"]]
         lines.append("")
-    if not (items or facts["done"] or facts["upcoming"] or facts["events"]):
+    if not (items or facts["notes"] or facts["done"] or facts["upcoming"] or facts["events"]):
         lines += [T["nothing"].format(since=since), ""]
     lines += [T["close"], "", T["sign"].format(attorney=attorney, firm=firm.name)]
     return T["subject"].format(matter=m.name), "\n".join(lines)
 
 
-def _update_page(m, subject, body, source, error=None):
+def _update_page(m, subject, body, source, error=None, source_context=None):
     return render_template("ai/update_email.html", m=m, subject=subject, body=body, source=source, error=error,
-                           to=(m.client.email if m.client else "") or "", lang=lang_for(m.client))
+                           to=(m.client.email if m.client else "") or "", lang=lang_for(m.client),
+                           source_context=source_context)
 
 
 @bp.route("/matter/<int:id>/update-email", methods=["POST"])
@@ -561,14 +557,21 @@ def matter_update_email(id):
     language = {"es": "Spanish (formal usted)"}.get(lang, "English")
     firm = Firm.get()
     attorney = m.responsible.name if m.responsible else firm.name
-    ctx, _cut = llm.clip(_facts_text(m, facts), 9000)
-    prompt = (f"Today is {date.today().isoformat()}. Write a short status update email from the law firm to its "
+    ctx = _facts_text(m, facts)
+    prompt = (f"Write a short status update email from the law firm to its "
               f"client about the matter below, in {language}. Address the client by name, say plainly what has "
-              "been done since the last update, what was completed, and what is coming up with dates. Use only "
+              "been recorded recently, what was completed, and what is coming up with dates. "
+              "A note being recorded recently does not date the events it describes. Keep report dates "
+              "separate from event dates; do not infer an event date, today or yesterday when none is given. Use only "
               "the facts given; if there is little activity, say so honestly. Never mention fees, hours, rates, "
               "invoices or internal opinions. Warm, professional, no marketing, no jargon, about 120 to 180 "
               f"words, plain text with blank lines between paragraphs. Sign off as {attorney}, {firm.name}. "
               "Return JSON {\"subject\": \"...\", \"body\": \"...\"}.\n\n" + ctx)
+    if len(prompt) > llm.MAX_CONTEXT_CHARS:
+        subject, body = template_update(m, facts, lang)
+        return _update_page(m, subject, body, source="template", source_context=ctx,
+                            error="The selected records are too long for one AI request. No AI request was sent; "
+                                  "the template keeps complete statements, including later corrections.")
     try:
         data = llm.complete_json(prompt, UPDATE_SCHEMA, system=SYSTEM, max_tokens=900, kind="client_update",
                                  entity="matter", entity_id=m.id, user_id=_uid())
@@ -577,10 +580,10 @@ def matter_update_email(id):
         if not body:
             raise llm.LLMBadOutput("The AI answered in an unexpected format.")
         subject = subject or template_update(m, facts, lang)[0]
-        return _update_page(m, subject, body, source="model")
+        return _update_page(m, subject, body, source="model", source_context=ctx)
     except LLMUnavailable as e:
         subject, body = template_update(m, facts, lang)
-        return _update_page(m, subject, body, source="template", error=str(e))
+        return _update_page(m, subject, body, source="template", error=str(e), source_context=ctx)
 
 
 def _body_html(body):
