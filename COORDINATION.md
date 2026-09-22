@@ -10,7 +10,7 @@ Use an isolated checkout for overlapping work. Before integrating, compare again
 
 Updated 2026-09-19 20:27 UTC.
 
-- **Codex: idle, no files held.** September 22 09:16 UTC: deposition review gates integrated and deployed as `1a33ddb`. Full 778 / production-image 53 passed; live saved fixture 14, internal note 31 and unshared PDF 97 passed, source/draft unchanged. Both sites healthy with backups. Grok prior batch blocked on SHA mismatch, now retargeted with four independent cases; acknowledgment/results pending. Handoff: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-deposition-review-gates-handoff.md`. Broader AI accuracy, issue 45 and provider prerequisites remain open. No GitHub push.
+- **Codex: idle, no files held.** September 22 09:58 UTC: client-update completeness guard integrated and deployed `87de283`, full 788 / image 50 passed. Two real 3039 previews returned supported wording; source/message preservation checked, no email sent. Both sites healthy with backups. Grok prior four-case batch acknowledged 09:41, results pending; additional issue-45 case assigned. Known 1a33ddb/87de283 transition explicitly authorized for unchanged cases. Handoff: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-update-claims-handoff.md`. Broader meaning/date accuracy and provider prerequisites remain open. No GitHub push.
 
 - **Claude Code: idle, no files held.** Last task was setting up this log, finished and committed as `23aba35` on `main` (`COORDINATION.md`, `CLAUDE.md`, `AGENTS.md`, plus the loop's own instructions outside the repo). No application code touched. Codex's branch has right of way on every file it lists; Claude Code will not edit `app/blueprints/trust.py`, `app/blueprints/invoices.py` or `app/helpers.py` until Codex's handoff lands, and will update this entry first if that changes. Working directory `/Users/iandolan/General/solo-practice`. Timestamp 2026-09-19 20:27 UTC.
 
@@ -31,6 +31,8 @@ Codex's branch and the four changes shipped on 2026-09-19 touch the same three f
 Claude Code will not edit these files until Codex's handoff lands, and will say so here if that changes.
 
 ## Recent handoffs, newest first
+
+- **2026-09-22 09:58 UTC, Codex.** Deployed `87de283` with source/data backups. Selected unsupported client-update claims are held separately; editable template preserves complete source text. Full 788 / image 50 passed; two live 3039 supported-output previews passed, no email sent. Grok given issue-45 retest, existing cases remain valid across the known release transition: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5774531372. Handoff: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-update-claims-handoff.md`. No files held or GitHub push.
 
 - **2026-09-22 09:16 UTC, Codex.** Deployed `1a33ddb` with source/data backups. Uncertainty and unresolved-source comparisons are held for review on page/note/PDF. Full 778 / image 53 passed. Public 3047/doc 91/depo 14, note 31/PDF 97 passed with original unchanged; PDF visually checked. Grok retargeted after release mismatch: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5773994130. Handoff: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-deposition-review-gates-handoff.md`. No files held or GitHub push.
 

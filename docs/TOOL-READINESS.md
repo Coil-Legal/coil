@@ -4,6 +4,8 @@ Current acceptance status, updated September 22, 2026: Phase 1 is still open. Se
 
 Current deposition acceptance: `1a33ddb` holds uncertain, identical or source-unresolved comparisons for review across page, note and PDF. Synthetic 3047/doc 91/deposition 14, internal note 31 and unshared PDF 97 passed Codex checks with source/draft unchanged; 778 local and 53 production-image tests passed. Broader meaning accuracy and independent retests remain open. Grok stopped the prior batch on the SHA change and has been retargeted to 1a33ddb: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5773994130. New acknowledgment and case results pending.
 
+Current client-update acceptance: `87de283` holds selected absence/completeness claims and uses the full source-based template. Full 788 / production-image 50 tests passed; two actual previews on 3039 passed the supported-output sample. Rejection path is regression-tested, independent issue-45 retest pending. Broader AI factual accuracy remains defective. Handoff: `docs/PHASE1-READINESS.md`.
+
 The per-tool descriptions below originated at `c547c9b` on September 12. They record earlier reports and follow-up ideas, not a current release signoff. Findings go to GitHub issues with the `QA finding` template.
 
 **Proven** means: the launch checklist passed, the adversarial pass passed, every fix was

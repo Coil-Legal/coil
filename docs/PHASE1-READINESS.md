@@ -1,5 +1,13 @@
 # Coil Phase 1 completion pass
 
+## Latest: client-update completeness claims held for review, September 22
+
+Both sites run `87de283`. Client-update generation now holds selected English/Spanish absence or completeness claims in the subject/body and supplies the source-based template in the editable fields. The proposal remains escaped and inspectable separately. Complete eligible source statements and later corrections stay intact. The prompt no longer encourages filler for sparse records. This is a bounded phrase guard, not semantic validation; unlisted wording, incident-date inferences and unsupported positive claims remain open. Existing manual edits and saved messages are not rewritten.
+
+Nine corrected baseline cases failed, one supported-output control passed. Final focused 37 and full 788 tests passed; production-image suite 50 passed. Initial test-harness dependency and script-count assumptions were corrected before these final results. Two live provider previews on synthetic matter 3039 returned only the supported documents-received fact without a completeness/receipt-date claim. Neither triggered rejection; controlled route tests cover the held path. Scripted preview kept source records and messages unchanged. No email sent. Browser source disclosure showed note 21 and the incomplete-history explanation.
+
+Both sites healthy, all three hashes match, SQLite integrity OK, zero restarts, with source/data backups and preserved configuration. Grok acknowledged the prior four cases at 09:41; no results observed by 09:58. Before deployment it was authorized to use 1a33ddb or 87de283 for unchanged invoice/date/deposition cases. The new issue-45 case requires 87de283: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5774531372. Assigned, new-case acknowledgment pending. Phase 1 remains open; provider gates and broader factual accuracy are not signed off. Handoff/backups: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-update-claims-handoff.md`. GitHub main remains unpushed.
+
 ## Latest: deposition comparisons held for review, September 22
 
 Checked September 22, 2026 09:16 UTC. Both sites deployed `1a33ddb5f78e020dea75ee6b5d84960b1d16061e`.
