@@ -6,7 +6,7 @@ Current deposition acceptance: `1a33ddb` holds uncertain, identical or source-un
 
 Current client-update acceptance: `87de283` holds selected absence/completeness claims and uses the full source-based template. Full 788 / production-image 50 tests passed; two actual previews on 3039 passed the supported-output sample. Rejection path is regression-tested, independent issue-45 retest pending. Broader AI factual accuracy remains defective. Handoff: `docs/PHASE1-READINESS.md`.
 
-Current research acceptance: `1589dda` holds partial citation party-name matches for review on page/note/audit. Full 839 / image 50 passed. Public original/reversed/Unicode samples and 3054/doc 103/internal note 34 passed, source unchanged; browser false-pass sample now warns. Prior publication, pagination, source-limit, occurrence and independent core/mobile/PDF evidence retained. Grok retest: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5778526975. Broader caption/identity matching, extraction/OCR, good-law status and independent acceptance remain open.
+Current research acceptance: ac7edc1 stops unsupported text encodings before citation lookup/note creation. Full 847 / image 34 passed; live 3056/docs 105 to 111/control notes 35/36 and browser warning passed, sources preserved. Prior party-name, publication, pagination, occurrence, source limits and independent core/mobile/PDF evidence retained. Independent encoding retest: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5779235749. General extraction, OCR/MIME/DOCX, caption identity, other AI consumers and full acceptance remain open.
 
 The per-tool descriptions below originated at `c547c9b` on September 12. They record earlier reports and follow-up ideas, not a current release signoff. Findings go to GitHub issues with the `QA finding` template.
 
@@ -252,3 +252,5 @@ The GHCR package is private, so nobody can install Coil. `github.com/orgs/Coil-L
 ## Invoice polish qualifier guard, September 22
 
 Release `0438bad` holds suggestions that change protected English qualifier markers and rechecks Apply atomically. Full 770 / deployment 45 tests passed. Public invoice 3035/line 9832 preserved complete rows and audits on unsafe submission; one real browser preview retained the sample limits and negatives. This is bounded phrase validation, not general semantic equivalence. Independent retest and broader factual acceptance remain open. See current Phase 1 readiness.
+
+Independent invoice update (2026-09-22 15:28 UTC): Grok passed qualifier preview, unsafe Apply rejection, faithful Apply and unchanged amounts on invoice 3035 / INV-1038 / line 9832, matter 3014, release 1589dda. Paid/sent controls disabled. Result: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5779159699. Broader semantic and full invoice acceptance remain open.
