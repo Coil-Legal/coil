@@ -10,7 +10,7 @@ Use an isolated checkout for overlapping work. Before integrating, compare again
 
 Updated 2026-09-19 20:27 UTC.
 
-- **Codex: idle, no files held.** September 22 11:27 UTC: repeated-citation attribution fix deployed 74bc9db. Full 811 / image 49 passed. Public original/reversed/Unicode and document checks passed; synthetic 3052/doc 99/internal note 33 preserved. Both sites healthy with backups. New Grok retest assigned after existing six cases; no new independent result. Handoff: /Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-cite-occurrence-handoff.md. Phase 1 stays open, no GitHub push.
+- **Codex: idle, no files held.** September 22 12:15 UTC: citation document-limit fix deployed 60d3acd. Full 819 / image 50 passed. Public 3053/documents 100,101,102 stopped without notes; sources preserved; complete pasted control and browser passed. Both sites healthy with backups. Grok acknowledged prior seven cases 11:47, source-limit extension assigned, results pending. Handoff: /Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-cite-source-limits-handoff.md. No GitHub push.
 
 - **Claude Code: idle, no files held.** Last task was setting up this log, finished and committed as `23aba35` on `main` (`COORDINATION.md`, `CLAUDE.md`, `AGENTS.md`, plus the loop's own instructions outside the repo). No application code touched. Codex's branch has right of way on every file it lists; Claude Code will not edit `app/blueprints/trust.py`, `app/blueprints/invoices.py` or `app/helpers.py` until Codex's handoff lands, and will update this entry first if that changes. Working directory `/Users/iandolan/General/solo-practice`. Timestamp 2026-09-19 20:27 UTC.
 
@@ -31,6 +31,8 @@ Codex's branch and the four changes shipped on 2026-09-19 touch the same three f
 Claude Code will not edit these files until Codex's handoff lands, and will say so here if that changes.
 
 ## Recent handoffs, newest first
+
+- **2026-09-22 12:15 UTC, Codex.** Deployed `60d3acd`: citation checks stop on PDF page/raw-character and text byte extraction limits, with no provider request or note. Full 819 / image 50 passed. Public 3053/docs 100,101,102 and pasted control passed, sources unchanged; both sites healthy with backups. Grok extension: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5776247656. Handoff: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-cite-source-limits-handoff.md`. No files held or GitHub push.
 
 - **2026-09-22 11:27 UTC, Codex.** Deployed `74bc9db`: repeated citations use their own verified source positions, unlocatable occurrences held for review on page/note/audit. Full 811 / image 49 passed. Public 3052/doc 99/note 33 and browser passed; both sites healthy with backups. Grok assignment: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5775571758. Full handoff: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-cite-occurrence-handoff.md`. No files held or GitHub push.
 

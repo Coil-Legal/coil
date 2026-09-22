@@ -1,5 +1,13 @@
 # Coil Phase 1 completion pass
 
+## Latest: citation document extraction limits, September 22
+
+Release `60d3acd` deployed to both sites. Reproduced three partial-source paths: PDFs over 200 pages, plain-text-like files over the 400,000-byte read limit, and PDFs over 200,000 raw text characters before whitespace normalization. Each could leave fewer than 64,000 indexed characters and omit a later citation. The citation route now stops known-limited or unverifiable PDF sources before provider lookup or note creation. Complete pasted text still takes priority. Existing extraction behavior remains unchanged; page/byte constants are shared. The form explicitly discloses scan/image extraction gaps.
+
+Baseline route regressions: 2 failures. Initial full 818 pass superseded after raw-PDF limit addition. Final focused 50 / full 819 (126 warnings, 138.26 seconds) / production-image 50 passed. Actual local generated PDFs reproduced page and raw-character truncation. Public synthetic matter 3053 (QA-CITE-EXTRACTION), unshared documents 100,101,102: correct explicit stops, zero notes and source rows/bytes preserved. Short pasted provider control passed; browser document 100 warning and retained selection passed. Both sites healthy, five exact hashes each, SQLite OK, zero restarts. Data/source backups and configuration preserved.
+
+Grok acknowledged all seven prior cases at 11:47:51 UTC: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5775896132. No concrete case result observed this run. Source-limit extension assigned after them, not acknowledged: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5776247656. Known new release authorized for all existing cases. This is not OCR, automatic chunking, full DOCX/encoding extraction or general AI/citation correctness. Other tools' extraction contracts remain separate. No whole-tool or Phase 1 signoff. Handoff, hashes and backups: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-cite-source-limits-handoff.md`. GitHub main unpushed.
+
 ## Latest: repeated citation source attribution, September 22
 
 Release `74bc9db` deployed to both sites. A real CourtListener probe reproduced a false pass: the same reporter citation beneath a fabricated second case inherited the first case's name. Verified provider offsets now identify each occurrence. Missing/invalid offsets use only a unique exact match; unresolved source occurrence gets an explicit review status in the page, internal note and audit.
