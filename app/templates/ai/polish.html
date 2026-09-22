@@ -2,15 +2,16 @@
 <div class="topbar"><h1>Narrative cleanup <span style="font-weight:500">for invoice {{ inv.number }}</span> <span class="badge {{ inv.status }}">{{ inv.status }}</span></h1>
 <div class="actions" style="margin:0"><a class="btn small secondary" href="/invoices/{{ inv.id }}">Back to invoice</a></div></div>
 {% include "ai/_notice.html" %}
+{% if validation_error %}<div class="flash error">{{ validation_error }}</div>{% endif %}
 {% if rows %}
 <form method="post" action="/ai/invoice/{{ inv.id }}/polish/apply">{{ csrf() }}
 <div class="card">
-  <p class="small muted">Each time line rewritten as a client-facing past-tense narrative. Hours, rates and amounts are not touched. Edit any suggestion before applying. {{ changed }} of {{ rows|length }} line(s) differ from the original.</p>
+  <p class="small muted">Suggestions clean up time-line wording. Qualifier checks retain the original when they detect changes to negatives, scope, timing or purpose. These checks do not verify every factual claim. Hours, rates and amounts are not touched. Edit any suggestion before applying. {{ changed }} of {{ rows|length }} line(s) differ from the original.</p>
   <table><tr><th>Date</th><th style="width:40%">Before</th><th style="width:45%">After (editable)</th></tr>
   {% for l, text in rows %}<tr>
     <td class="nowrap">{{ l.date|d }}<br><span class="small muted">{{ '%.2f' % l.quantity }} h</span></td>
     <td class="small" style="white-space:pre-wrap">{{ l.description }}</td>
-    <td><textarea name="line_{{ l.id }}" style="min-height:64px;width:100%">{{ text }}</textarea>{% if text == l.description %}<div class="small muted">unchanged</div>{% endif %}</td>
+    <td>{% if held and l.id in held %}<div class="flash error"><strong>Original retained</strong> {{ held[l.id].warnings|join(' ') }}<details><summary>View held suggestion</summary><p style="white-space:pre-wrap">{{ held[l.id].text }}</p></details></div>{% endif %}<textarea aria-label="Description for line {{ l.id }}" name="line_{{ l.id }}" style="min-height:64px;width:100%">{{ text }}</textarea>{% if text == l.description %}<div class="small muted">unchanged</div>{% endif %}</td>
   </tr>{% endfor %}</table>
   <div class="actions">
     {% if can_apply %}<button class="btn">Apply to the draft invoice</button>

@@ -7,6 +7,7 @@ search, a plain substring search that always works.
 import json
 import re
 import time
+from collections import Counter
 from sqlalchemy.exc import OperationalError
 from datetime import date, datetime, timedelta
 from html import escape
@@ -116,6 +117,56 @@ def _can_apply(inv):
     return inv.status == "draft" and not inv.split_group
 
 
+def _polish_warnings(original, suggestion):
+    """Conservative English qualifier checks, not a semantic equivalence validator.
+
+    A held suggestion keeps the original editable text. Human edits that intentionally
+    change the facts belong in the invoice editor, not the AI cleanup workflow.
+    """
+    def normalize(text):
+        text = (text or "").lower().replace("’", "'")
+        text = re.sub(r"\bcan't\b", "can not", text)
+        text = re.sub(r"\bcannot\b", "can not", text)
+        return re.sub(r"n't\b", " not", text)
+
+    before, after = normalize(original), normalize(suggestion)
+    checks = (
+        (r"\b(?:no|not|never|without|neither|nor)\b", "Negation changed.", True),
+        (r"\b(?:only|solely|exclusively|just|limited|except|unless|pending|alleged|allegedly|"
+         r"reportedly|possible|possibly|may|might|could)\b", "A scope or uncertainty qualifier changed.", False),
+        (r"\b(?:at this time|currently|recently|now|yet|already|today|previously|still|later|"
+         r"subsequently|ultimately)\b", "Timing wording changed.", False),
+        (r"\b(?:so that|in order to|so as to|for the purpose of|to determine|to ensure|"
+         r"to establish|to achieve|to facilitate|to address|therefore|because|so)\b",
+         "Purpose or cause wording changed.", False),
+    )
+    warnings = []
+    for pattern, message, normalize_negation in checks:
+        left, right = re.findall(pattern, before), re.findall(pattern, after)
+        if normalize_negation:
+            left = ["not" if word == "no" else word for word in left]
+            right = ["not" if word == "no" else word for word in right]
+        if Counter(left) != Counter(right):
+            warnings.append(message)
+    return warnings
+
+
+def _polish_preview(inv, proposed, error=None):
+    rows, held = [], {}
+    for line in inv.lines:
+        if line.kind != "time" or not (line.description or "").strip():
+            continue
+        text = proposed.get(line.id) or line.description
+        warnings = _polish_warnings(line.description, text)
+        if warnings:
+            held[line.id] = {"text": text, "warnings": warnings}
+            text = line.description
+        rows.append((line, text))
+    return render_template("ai/polish.html", inv=inv, rows=rows, error=None, validation_error=error,
+                           can_apply=_can_apply(inv), held=held,
+                           changed=sum(text != line.description for line, text in rows))
+
+
 @bp.route("/invoice/<int:id>/polish", methods=["POST"])
 @login_required
 def invoice_polish(id):
@@ -127,9 +178,11 @@ def invoice_polish(id):
     payload = [{"id": l.id, "date": l.date.isoformat() if l.date else "", "text": l.description.strip()}
                for l in lines]
     prompt = ("Rewrite each time entry description below as a clear, client-facing narrative in the past tense, "
-              "one or two sentences, so the client understands what was done and why it mattered. Keep every "
+              "one or two sentences, describing only the work explicitly recorded. Keep every "
               "fact. Do not add work that is not described, do not mention hours, rates or amounts, and do not "
-              "change the meaning. Expand obvious abbreviations (re: = regarding, tc = telephone call, w/ = with). "
+              "change the meaning. Preserve negatives, limits such as only, uncertainty and time qualifiers. "
+              "Do not add a purpose, cause, result or temporal phrase such as at this time. "
+              "If a faithful rewrite is uncertain, return the original unchanged. Expand obvious abbreviations (re: = regarding, tc = telephone call, w/ = with). "
               "Return JSON of the form {\"lines\": [{\"id\": <same id>, \"text\": \"<rewritten>\"}]} with one "
               "item per input line.\n\nLines:\n" + json.dumps(payload, ensure_ascii=False))
     try:
@@ -143,10 +196,7 @@ def invoice_polish(id):
             by_id[int(r.get("id"))] = str(r.get("text") or "").strip()
         except (TypeError, ValueError, AttributeError):
             continue
-    rows = [(l, by_id.get(l.id) or l.description) for l in lines]
-    changed = sum(1 for l, t in rows if t != l.description)
-    return render_template("ai/polish.html", inv=inv, rows=rows, error=None, can_apply=_can_apply(inv),
-                           changed=changed)
+    return _polish_preview(inv, by_id)
 
 
 @bp.route("/invoice/<int:id>/polish/apply", methods=["POST"])
@@ -161,9 +211,15 @@ def invoice_polish_apply(id):
         flash("This invoice is one share of a split group. Void the group and rebuild it to change the lines.",
               "error")
         return redirect(url_for("invoices.detail", id=inv.id))
+    proposed = {line.id: request.form.get(f"line_{line.id}", "").strip()
+                for line in inv.lines if line.kind == "time"}
+    if any(text and _polish_warnings(line.description, text)
+           for line in inv.lines if (text := proposed.get(line.id))):
+        return _polish_preview(inv, proposed, error="No descriptions were changed. Review the held suggestions. "
+                               "Use the invoice editor if you intend to change the underlying facts.")
     changed = 0
     for l in inv.lines:
-        v = request.form.get(f"line_{l.id}")
+        v = proposed.get(l.id)
         if v is None:
             continue
         v = v.strip()
