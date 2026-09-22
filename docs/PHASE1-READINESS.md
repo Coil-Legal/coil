@@ -1,5 +1,16 @@
 # Coil Phase 1 completion pass
 
+## Latest: deposition coverage and volume attribution, September 22
+
+Both sites run `16c533f`. Three confirmed defects are fixed: transcript chunks now fit after counting instructions and matter facts; oversized condensation preserves the part summaries instead of losing later text; and a quote before a new volume marker keeps the volume carried from the prior chunk. Three corrected baseline regressions failed. Final full suite: 717 passed; deployment-image suite: 118 passed. Both sites healthy with matching changed-file hashes and SQLite integrity OK.
+
+One real public model call on synthetic matter 3041 (`QA-DEPOSITION-CITATIONS`), transcript 87, deposition 12 passed the short factual/citation sample. The accepted correction from 9:00 to 10:00 was summarized as corrected testimony. The separate green-signal account was flagged against the red-signal PI facts. Exact quotes cited Volume I 1:3 and Volume II 1:2. Internal note 26 and unshared PDF 88 preserved those citations and the discrepancy.
+
+This is sampled acceptance, not a guarantee of factual accuracy. Matter facts retain their existing 1,500-character limit; ambiguous repeated or paraphrased quotes, cross-chunk contradictions, browser/mobile checks and independent QA remain open. Summary/client-update date attribution remains defective. Stripe test access and authentic handset SMS are still required. Phase 1 is not complete.
+
+Grok has the new fixtures and boundary retests: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5770205483. The earlier fixture instruction was corrected: external deposition comparisons use PI facts and confirmed chronology, not ordinary matter notes. Full evidence and backups: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-deposition-context-handoff.md`.
+
+
 ## Latest: public document-date acceptance, September 22
 
 Application release remains `6f3da92`; no code changes or deployment in this run. Synthetic matter 3040 (`QA-DOCUMENT-DATES`) and unshared documents 85/86 were exercised through public authenticated HTTPS with two actual model calls.
