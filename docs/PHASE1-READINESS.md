@@ -1,5 +1,13 @@
 # Coil Phase 1 completion pass
 
+## Latest: 200-line invoice PDF acceptance, September 22
+
+Invoice PDF acceptance passed on unchanged 9d25324. Two local 200-line variants and two public downloads each retained all lines across six pages, repeated headings/footers, zero-rate controls, exact totals and sampled Greek/Cyrillic text. Public synthetic matter 3057 / invoice 3036 (QA-PDF-200-922), lines 9833 to 10032: draft, unsent, unpaid; subtotal/balance 2475000 cents. All invoice/line fields preserved except expected pdf_path. All six public pages visually checked. No application changes, deployment, model calls, messages or charges. Grok prior batch acknowledged; new PDF case assigned, not acknowledged. Main unpushed.
+
+Local Latin/apostrophe and Greek/Cyrillic name samples each produced six pages with all 200 unique rows. Public line 9932 carries the Unicode control, and zero-rate lines 9833/10032 remain visible. Repeated public downloads retained identical extracted content and exact stored/downloaded bytes per request. All local/public pages visually checked. No source changed, so prior full checks were not repeated. This does not cover builder time-entry creation, email delivery, every template, long names or every script.
+
+Grok independent case: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5780473674. Existing deposition/client-update/citation queue remains acknowledged and pending; no new Grok result after 16:10 in this check. Invoicing remains QA pending and Phase 1 stays open. Handoff and evidence: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-invoice-pagination-handoff.md`. Checked 2026-09-22 16:52 UTC.
+
 Grok reconfirmed date concurrency PASS at 16:10:35 UTC on 9d25324, with that same SHA recorded before and after: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5779871232. Existing synthetic 3055/doc104 retained task75/event24 and exactly two creation audit rows after simultaneous two-session replay (both 302). Source hashes and reference3049/93/74/23 preserved. The earlier provisional pass is now independently reconfirmed for this case; this is not whole-tool signoff. Grok reports deposition14 next, followed by its already acknowledged batch.
 
 ## Latest: Claude recency-guard acceptance, September 22
