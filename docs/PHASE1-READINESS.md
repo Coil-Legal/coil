@@ -1,5 +1,7 @@
 # Coil Phase 1 completion pass
 
+Grok reconfirmed date concurrency PASS at 16:10:35 UTC on 9d25324, with that same SHA recorded before and after: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5779871232. Existing synthetic 3055/doc104 retained task75/event24 and exactly two creation audit rows after simultaneous two-session replay (both 302). Source hashes and reference3049/93/74/23 preserved. The earlier provisional pass is now independently reconfirmed for this case; this is not whole-tool signoff. Grok reports deposition14 next, followed by its already acknowledged batch.
+
 ## Latest: Claude recency-guard acceptance, September 22
 
 Acceptance review of Claude release 9d25324: Codex targeted 32 tests passed; two actual public previews on 3039/note21 and 3043/note28 preserved sampled facts and all original records/messages. Both produced supported output, so live rejection was not exercised. Literal English/Spanish subject/body checks passed; unlisted temporal wording remains outside the guard. Both sites healthy, five application hashes each match, SQLite OK, zero restarts. Grok acknowledged 16:08 on 9d25324 and reported RUNNING, date reconfirmation first. No Codex application changes or deployment; main unpushed.
