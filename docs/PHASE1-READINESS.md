@@ -1,5 +1,11 @@
 # Coil Phase 1 completion pass
 
+## Latest: local invoice builder acceptance, September 22 17:31 UTC
+
+2026-09-22 17:31 UTC. Local 200-entry invoice builder acceptance passed on unchanged 9d25324: zero rates, seven-minute rounding, duplicate IDs, four exclusion controls, exact source links and sequential replay. Total 2466389 cents, draft/unpaid, six-page PDF text intact. Existing billing checks 31 passed. Grok PDF case acknowledged 16:59, results pending; requested clarification of model-preview wait (5781028915). No application changes, deployment or public fixture mutation; main unpushed. Handoff: /Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-invoice-builder-handoff.md.
+
+This is local authenticated route evidence using a disposable synthetic SQLite database, with external HTTP blocked. It does not establish public or independent builder acceptance or simultaneous-request safety. First/last zero-rate entries survived; 7 minutes at 33333 cents/hour produced 3889 cents. Unselected, nonbillable, other-matter and previously billed controls stayed excluded and unchanged. One creation audit, no second invoice on sequential replay (400), source columns preserved except invoice_id. Invoicing remains QA pending. Existing public PDF fixture 3057/invoice3036 stays with Grok; provider prerequisites and AI factual gates remain open. No new Grok case PASS this run.
+
 ## Latest: 200-line invoice PDF acceptance, September 22
 
 Invoice PDF acceptance passed on unchanged 9d25324. Two local 200-line variants and two public downloads each retained all lines across six pages, repeated headings/footers, zero-rate controls, exact totals and sampled Greek/Cyrillic text. Public synthetic matter 3057 / invoice 3036 (QA-PDF-200-922), lines 9833 to 10032: draft, unsent, unpaid; subtotal/balance 2475000 cents. All invoice/line fields preserved except expected pdf_path. All six public pages visually checked. No application changes, deployment, model calls, messages or charges. Grok prior batch acknowledged; new PDF case assigned, not acknowledged. Main unpushed.
