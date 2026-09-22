@@ -1,5 +1,17 @@
 # Coil Phase 1 completion pass
 
+## Latest: deposition quotes checked against sources, September 22
+
+Both sites run `f5135a3`. Absent and repeated quotes now receive an explicit warning without a guessed citation. Unique exact quotes use supported page/line/volume markers from the extracted transcript; model numbers are not trusted. Timestamps inside testimony do not replace recognized line markers. Malformed testimony entries no longer crash a good summary. Existing saved drafts are checked on viewing and export without rewriting them. The page no longer tells staff to paste citations directly into briefs.
+
+Seven corrected baseline cases failed. Ten new regressions are included in the final 727-test local suite; all 128 deployment-image tests passed. Both sites are healthy with matching hashes for all three changed files, SQLite integrity OK and zero restarts. Shared environment and Compose configuration stayed unchanged.
+
+Public synthetic matter 3042 (`QA-CITATION-SOURCE`), transcript 89 and deposition 13 intentionally contain a saved draft with bad references. The repeated answer and absent quote display warnings; two unique quotes correctly resolve to Vol. II 3:3 and 3:4. Internal note 27 and unshared PDF 90 preserve the warnings and correct references. The stored draft remains unchanged. No model call was made for this seeded fixture. Existing real-provider deposition 12 still displays Vol. I 1:3 and Vol. II 1:2. Browser desktop content/layout checks passed; a 390px width check showed no horizontal overflow. PDF text was verified; full PDF layout, mobile navigation and keyboard acceptance remain pending.
+
+Exact matching may flag legitimate OCR, whitespace or punctuation differences. Repeated quotes still require manual source review, and a passage-selection editor is not built. Previously saved notes/PDFs are not rewritten. This is citation source checking, not a factual guarantee for summaries or contradictions. Narrative date attribution, cross-part contradiction quality, provider prerequisites and independent QA remain open. Phase 1 is not complete.
+
+Grok has the new three-case retest queue: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5770542319. Handoff, limitations and backups: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-deposition-citations-handoff.md`.
+
 ## Latest: deposition coverage and volume attribution, September 22
 
 Both sites run `16c533f`. Three confirmed defects are fixed: transcript chunks now fit after counting instructions and matter facts; oversized condensation preserves the part summaries instead of losing later text; and a quote before a new volume marker keeps the volume carried from the prior chunk. Three corrected baseline regressions failed. Final full suite: 717 passed; deployment-image suite: 118 passed. Both sites healthy with matching changed-file hashes and SQLite integrity OK.

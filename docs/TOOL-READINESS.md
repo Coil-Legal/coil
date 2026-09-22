@@ -1,6 +1,6 @@
 # Tool readiness register
 
-Current acceptance status, updated September 21, 2026: Phase 1 is still open. See [Phase 1 readiness](PHASE1-READINESS.md) for deployed commits and evidence, [Phase 2 checks](PHASE2-QA-CHECKLIST.md) and [Phase 3 checks](PHASE3-QA-CHECKLIST.md) for the later review queues. Provider prerequisites and independent Grok retests are not complete.
+Current acceptance status, updated September 22, 2026: Phase 1 is still open. See [Phase 1 readiness](PHASE1-READINESS.md) for deployed commits and evidence, [Phase 2 checks](PHASE2-QA-CHECKLIST.md) and [Phase 3 checks](PHASE3-QA-CHECKLIST.md) for the later review queues. Provider prerequisites and independent Grok retests are not complete.
 
 The per-tool descriptions below originated at `c547c9b` on September 12. They record earlier reports and follow-up ideas, not a current release signoff. Findings go to GitHub issues with the `QA finding` template.
 
@@ -129,7 +129,9 @@ Further checks:
 - A disposition after a plea to a lesser charge than the one filed.
 
 ### Discovery and depositions
-Contradictions caught, internal and external, 3 of 3 runs, cited to page and line. Summaries not wiped by an empty save.
+Current September 22 evidence: `16c533f` fixed transcript request coverage and condensation truncation. `f5135a3` checks unique exact quotes against source markers and warns on absent/repeated quotes; old saved drafts receive the same checks on viewing/export. Public fixtures 3041/3042, depositions 12/13, notes 26/27 and PDFs 88/90 passed the documented short samples and artifact text checks. Full local 727 and deployment-image 128 tests passed. Repeated/OCR-modified quotes still require manual source review; cross-part contradiction quality and independent QA remain open. Narrative date attribution is defective. This tool has no complete acceptance signoff.
+
+Earlier report: Contradictions caught, internal and external, 3 of 3 runs, cited to page and line. Summaries not wiped by an empty save.
 
 Further checks:
 - A transcript over 500 pages. Does it clip, and does the page say where?
