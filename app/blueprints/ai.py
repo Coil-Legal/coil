@@ -210,7 +210,7 @@ def _matter_context(m):
     if msgs:
         parts.append("Recent messages (newest first):\n" + "\n".join(
             f"- {x.created_at:%Y-%m-%d} {x.channel} {x.direction}: {(x.subject + ': ') if x.subject else ''}"
-            f"{(x.body or '').strip()[:300]}" for x in msgs))
+            f"{(x.body or '').strip()}" for x in msgs))
     invoices = [i for i in m.invoices if i.status not in ("void",)]
     if invoices:
         parts.append("Invoices: " + "; ".join(f"{i.number} {i.status} {_fmt_money(i.total_cents)} "
@@ -233,7 +233,7 @@ def _matter_context(m):
 @login_required
 def matter_summary(id):
     m = db.session.get(Matter, id) or abort(404)
-    ctx, cut = llm.clip(_matter_context(m), 11000)
+    ctx = _matter_context(m)
     prompt = ("Write a summary of this matter for a lawyer who is picking it up cold: about 150 words, plain "
               "prose, past tense for what happened, present tense for where it stands. If a note mentions "
               "anything that cuts against the client's position, concedes a point, or contradicts an earlier "
@@ -251,17 +251,24 @@ def matter_summary(id):
               "combine or approximate a name, and never guess at a claim type or category ('either X or Y') "
               "when the material states only one. Return JSON "
               "{\"summary\": \"...\", \"open_items\": [\"...\"]}.\n\n" + ctx)
+    # Never send part of a statement: its omitted ending may correct or negate the beginning.
+    # Count the instructions too, because llm.complete otherwise clips the whole prompt again.
+    if len(prompt) > llm.MAX_CONTEXT_CHARS:
+        return render_template("ai/summary.html", m=m, summary=None, items=[], source_context=None,
+                               error="The selected matter records are too long for one summary request. "
+                                     "No AI request was sent. Review the records on the matter directly; "
+                                     "Coil will not cut statements that may contain corrections.")
     try:
         data = llm.complete_json(prompt, SUMMARY_SCHEMA, system=SYSTEM, max_tokens=1200, kind="matter_summary",
                                  entity="matter", entity_id=m.id, user_id=_uid())
     except LLMUnavailable as e:
-        return render_template("ai/summary.html", m=m, summary=None, items=[], error=str(e), cut=cut)
+        return render_template("ai/summary.html", m=m, summary=None, items=[], error=str(e), source_context=ctx)
     summary = str(data.get("summary") or "").strip() if isinstance(data, dict) else ""
     items = [str(x).strip() for x in (data.get("open_items") if isinstance(data, dict) else []) or [] if str(x).strip()]
     if not summary:
-        return render_template("ai/summary.html", m=m, summary=None, items=[], cut=cut,
+        return render_template("ai/summary.html", m=m, summary=None, items=[], source_context=ctx,
                                error="The AI answered in an unexpected format. Nothing was changed. Try again.")
-    return render_template("ai/summary.html", m=m, summary=summary, items=items, error=None, cut=cut)
+    return render_template("ai/summary.html", m=m, summary=summary, items=items, error=None, source_context=ctx)
 
 
 @bp.route("/matter/<int:id>/summary/save", methods=["POST"])

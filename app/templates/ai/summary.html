@@ -2,13 +2,13 @@
 <div class="topbar"><h1>Matter summary <span style="font-weight:500">{{ m.label }}</span></h1>
 <div class="actions" style="margin:0"><a class="btn small secondary" href="/matters/{{ m.id }}">Back to matter</a></div></div>
 {% include "ai/_notice.html" %}
-{% if cut %}<div class="flash">The matter has more history than fits in one request, so the oldest notes and entries were left out of the summary.</div>{% endif %}
+<p class="small muted">Uses matter details, up to 10 notes, 15 recent time entries, 15 open tasks, 8 upcoming events and 10 messages filed to this matter, plus invoices and medical provider statuses. Older history and document contents are not included. Check dates against the original records: a report date may differ from the incident date.</p>
 {% if summary %}
 <form method="post" action="/ai/matter/{{ m.id }}/summary/save">{{ csrf() }}
 <div class="grid c2">
   <div class="card"><h2>Summary</h2>
     <textarea name="summary" style="min-height:220px;width:100%">{{ summary }}</textarea>
-    <p class="small muted">Written from the matter details, notes, recent time, tasks, events and messages. Read it before you rely on it; edit here before saving.</p>
+    <p class="small muted">Compare the draft with the source records below, including corrections and unfavorable facts. Edit here before saving.</p>
   </div>
   <div class="card"><h2>Open items</h2>
     <textarea name="open_items" style="min-height:220px;width:100%">{{ items|join('\n') }}</textarea>
@@ -17,5 +17,11 @@
 </div>
 <div class="actions"><button class="btn">Save as a note on the matter</button><a class="btn secondary" href="/matters/{{ m.id }}">Discard</a></div>
 </form>
+{% endif %}
+{% if source_context %}
+<details class="card" style="margin-top:16px">
+  <summary>Source records supplied to the AI</summary>
+  <pre style="white-space:pre-wrap;overflow-wrap:anywhere;font:inherit">{{ source_context }}</pre>
+</details>
 {% endif %}
 {% endblock %}
