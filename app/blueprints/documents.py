@@ -52,8 +52,22 @@ def extraction_limit_reason(path, ext):
     This checks known extraction limits, not OCR or general extraction accuracy.
     """
     try:
-        if ext in TEXT_EXTENSIONS and os.path.getsize(path) > TEXT_BYTE_CAP:
-            return f"This file exceeds the {TEXT_BYTE_CAP:,}-byte text extraction limit."
+        if ext in TEXT_EXTENSIONS:
+            with open(path, "rb") as source:
+                raw = source.read(TEXT_BYTE_CAP + 1)
+            if len(raw) > TEXT_BYTE_CAP:
+                return f"This file exceeds the {TEXT_BYTE_CAP:,}-byte text extraction limit."
+            # The search index ignores undecodable bytes. That can change a case
+            # name, so never use it for citation verification on such a source.
+            try:
+                decoded = raw.decode("utf-8-sig")
+            except UnicodeDecodeError:
+                return ("This text file is not valid UTF-8. Stored text may omit or alter characters. "
+                        "Re-export the original as UTF-8 or paste its complete readable text.")
+            if "\x00" in decoded:
+                return ("This text file contains NUL characters, which can indicate an unsupported "
+                        "encoding such as UTF-16. Re-export the original as UTF-8 or paste its "
+                        "complete readable text.")
         if ext == "pdf":
             from pypdf import PdfReader
             reader = PdfReader(path)
