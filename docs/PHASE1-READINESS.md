@@ -1,5 +1,16 @@
 # Coil Phase 1 completion pass
 
+## Latest: analysis notes excluded from client drafts, September 22
+
+Both sites run `6f3da92`. Saved deposition summaries and PI case overviews now carry the internal marker. Their original generated formats are also recognized for existing notes, without changing stored content. These notes previously entered the source material for client-update drafts. Ordinary progress notes remain eligible.
+
+Eight baseline cases failed. Final local suite: 714 passed. Deployment-image suite: 115 passed. Both sites healthy with matching changed-file hashes and SQLite integrity OK. Public synthetic matter 3039 (`QA-NOTE-PRIVACY`), deposition 11, notes 21 to 25 verified all four analysis notes remained available to staff while only routine note 21 entered client-update facts. One public client-update preview omitted the analysis. No email was sent.
+
+**Date attribution remains defective in summaries and client updates.** The preview treated the routine note timestamp as the document-receipt date, which the note body did not supply. Source-exclusion checks are not full factual acceptance. Document-date and deposition factual/citation acceptance, Grok's independent checks, Stripe test access and authentic handset SMS remain open. Phase 1 is not complete.
+
+New actionable Grok retest: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5769677525. No new independent findings preceded this run, and previous queues remain pending. Full evidence, exact file list and backups: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-deposition-note-handoff.md`.
+
+
 ## Latest: complete summary inputs, September 22
 
 Both sites run `0a21924`. AI summaries no longer silently cut messages at character 300 or cut the full prompt midway through a record. Oversized requests stop with a clear explanation and make no provider call. This limits large-matter summaries until a verified whole-record selection or chunking workflow exists. The review page shows its existing record-count limits and an expandable copy of the source context.
