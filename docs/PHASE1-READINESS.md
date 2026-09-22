@@ -1,5 +1,25 @@
 # Coil Phase 1 completion pass
 
+## Latest: deposition comparisons held for review, September 22
+
+Checked September 22, 2026 09:16 UTC. Both sites deployed `1a33ddb5f78e020dea75ee6b5d84960b1d16061e`.
+
+Saved deposition comparisons are now divided into Possible contradictions and Comparisons needing review on the page and in newly generated notes/PDFs. Full-string English uncertainty expressions, identical statements, missing statements, unresolved internal quote sources and unknown comparison types are held for review with explanations. Both original statements remain visible. Uniquely sourced first testimony gets its own source citation. Saved draft JSON is not rewritten and old notes/PDFs are not retroactively changed. Existing source-resolution work from `4fdb41b` is preserved.
+
+This is a bounded guard. Unique quotes do not prove shared context, shared time, opposing facts or general AI accuracy. External chronology/PI comparisons keep their prior source handling. Unlisted uncertainty wording, cross-chunk relationships and broader semantic accuracy remain review work. Issue 46's specific presentation is fixed in Codex's sample, with independent retest pending. No whole-tool or Phase 1 signoff.
+
+Seven baseline regressions failed. Final full suite: 778 passed, 126 warnings in 130.32 seconds. Production-image affected suites: 53 passed, 22 warnings in 38.08 seconds. A later eighth regression verifies identical statements are held. The pre-final focused suite passed 40 tests. No new dependencies or schema changes.
+
+Public acceptance on synthetic matter 3047 / document 91 / deposition 14: uncertainty pair retained under Comparisons needing review, no Conflicts with label, first citation Vol. I 1:2, repeated second quote has ambiguity warning. New internal note 31 and unshared PDF 97 preserve the classification and exact quotes. The entire original deposition/source rows and source SHA256 `6fbd7429f754c73a0b0157ffe23c3ddad053cb67a6dd084af80c9019c01b4b1a` stayed unchanged. Zero model calls in this acceptance run. Browser DOM confirmed both sections and explanations. PDF rendered to PNG and visually checked: readable single page, no clipped text.
+
+Both sites healthy, all three changed file hashes match, SQLite integrity OK and zero restarts. Environment and Compose files unchanged. Data backups: testfirm `coil-backup-20260922-091038.tar.gz`, demo `coil-backup-20260922-091251.tar.gz`. Source archives `/home/deploy/backups/coil/<domain>/source-before-1a33ddb.tar.gz`; rollback images `<project>:before-1a33ddb`.
+
+Changed files: `app/blueprints/discovery.py`, `app/templates/discovery/deposition_detail.html`, `tests/test_deposition_review_gates.py`. Isolated checkout `/private/tmp/coil-deposition-review-gates`, baseline `67ca414`, integrated into shared repository after checking for concurrent edits. GitHub main remains unpushed.
+
+Grok acknowledged the prior invoice/concurrency/deposition batch at 08:39 UTC, then reported all cases BLOCKED at 09:13 after detecting the release changed from 0438bad to 1a33ddb. No cases ran and no fixtures were mutated. Blocker report: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5773982836. The new release retains invoice/date fixes unchanged. Retargeted all cases and added deposition page/note/PDF plus a fresh positive-control comparison: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5773994130. Assigned, new acknowledgment and results pending. No duplicate unchanged ping. Fresh synthetic fixtures explicitly allowed; preserve existing references.
+
+Next: Grok's four results; independent Phase 1 review of unsupported client-update claims in issue 45; broader AI factual accuracy and provider prerequisites. Stripe test access and authentic handset checks stay blocked. Phase 2/3 checklist work remains after executable Phase 1 cases. Logs, scripts, PDF and PNG are in the task outputs directory with deposition-review-gates in their names. Google Sheet synchronization is recorded separately.
+
 ## Latest: invoice qualifier guards and independent QA outcomes, September 22
 
 Both sites run `0438bad`. Grok reproduced invoice-polish meaning changes on draft invoice 3035 / line 9832: the proposal dropped `only` and added `at this time`. Prior invoice 3034 / line 9831 had acquired an unsupported purpose. The new guard retains the original editable description when English negation/scope/uncertainty markers or selected timing/purpose phrases change. The rejected suggestion and reasons remain inspectable. Apply repeats the check and rejects the whole batch before any line changes. Only time lines can be changed through this workflow. The prompt now asks for the recorded work only, removing the invitation to explain why it mattered.

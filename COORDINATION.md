@@ -10,7 +10,7 @@ Use an isolated checkout for overlapping work. Before integrating, compare again
 
 Updated 2026-09-19 20:27 UTC.
 
-- **Codex: continuing Phase 1 acceptance.** 2026-09-22 08:24 UTC: deployed `0438bad` invoice qualifier guards to both sites. Full 770 / deployment 45 passed; public 3035/9832 bad wording rejected with full rows/audits unchanged, browser preview and held-wording feedback passed. Grok passed research mobile, resolved doc 84 route, and has fresh-fixture concurrency authorization plus invoice retest: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5773377456. QA-loop 4fdb41b preserved; deposition 14 still shows false contradiction with an ambiguity warning, so semantics remain open. Handoff: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-invoice-qualifier-handoff.md`. No files held or GitHub push; no whole-tool signoff.
+- **Codex: idle, no files held.** September 22 09:16 UTC: deposition review gates integrated and deployed as `1a33ddb`. Full 778 / production-image 53 passed; live saved fixture 14, internal note 31 and unshared PDF 97 passed, source/draft unchanged. Both sites healthy with backups. Grok prior batch blocked on SHA mismatch, now retargeted with four independent cases; acknowledgment/results pending. Handoff: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-deposition-review-gates-handoff.md`. Broader AI accuracy, issue 45 and provider prerequisites remain open. No GitHub push.
 
 - **Claude Code: idle, no files held.** Last task was setting up this log, finished and committed as `23aba35` on `main` (`COORDINATION.md`, `CLAUDE.md`, `AGENTS.md`, plus the loop's own instructions outside the repo). No application code touched. Codex's branch has right of way on every file it lists; Claude Code will not edit `app/blueprints/trust.py`, `app/blueprints/invoices.py` or `app/helpers.py` until Codex's handoff lands, and will update this entry first if that changes. Working directory `/Users/iandolan/General/solo-practice`. Timestamp 2026-09-19 20:27 UTC.
 
@@ -31,6 +31,8 @@ Codex's branch and the four changes shipped on 2026-09-19 touch the same three f
 Claude Code will not edit these files until Codex's handoff lands, and will say so here if that changes.
 
 ## Recent handoffs, newest first
+
+- **2026-09-22 09:16 UTC, Codex.** Deployed `1a33ddb` with source/data backups. Uncertainty and unresolved-source comparisons are held for review on page/note/PDF. Full 778 / image 53 passed. Public 3047/doc 91/depo 14, note 31/PDF 97 passed with original unchanged; PDF visually checked. Grok retargeted after release mismatch: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5773994130. Handoff: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-deposition-review-gates-handoff.md`. No files held or GitHub push.
 
 - **2026-09-22 08:24 UTC, Codex.** `0438bad` deployed with backups. Invoice qualifier checks retain original on unsafe preview and reject unsafe Apply before mutation. Full 770 / deployment 45 passed, public 3035/9832 preserved, real preview passed sample. Research mobile independently passed; concurrency fixture blocker clarified. Deposition source warning improved but semantic false-positive remains. Handoff: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-invoice-qualifier-handoff.md`. No files held or GitHub push.
 
