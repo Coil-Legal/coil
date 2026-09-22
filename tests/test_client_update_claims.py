@@ -75,6 +75,25 @@ def test_subject_claim_is_also_held(app,client,monkeypatch):
     assert subject!='No new developments' and 'AI proposal held for review' in soup.text
 
 
+@pytest.mark.parametrize('claim,lang', [
+    ('Recently, a note was added to the file regarding the incident.', 'en'),
+    ('We recently received an update on your matter.', 'en'),
+    ('Recientemente se agrego una nota al expediente.', 'es'),
+])
+def test_model_recency_claim_is_held_not_saved(app,client,monkeypatch,claim,lang):
+    from app import llm
+    from app.extensions import db
+    from app.models import Contact
+    with app.app_context():
+        db.session.get(Contact,1).language=lang;db.session.commit()
+    note(app,'Initial account: the signal was green. Correction: the witness later reported a red signal, not green. The incident date remains unknown.')
+    monkeypatch.setattr(llm,'complete',lambda *a,**kw:json.dumps({'subject':'Matter update','body':claim}))
+    response=client.post('/ai/matter/1/update-email',data={'_csrf':client.tok})
+    soup,subject,body=fields(response)
+    assert claim not in body
+    assert 'AI proposal held for review' in soup.text and claim in soup.text
+
+
 def test_supported_simple_draft_still_uses_model(app,client,monkeypatch):
     from app import llm
     note(app,'Documents received. Receipt date unknown.')

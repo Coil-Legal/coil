@@ -547,7 +547,7 @@ def _facts_text(m, facts):
              f"Responsible attorney: {m.responsible.name if m.responsible else 'the firm'}",
              f"Status: {m.status}. Practice area: {m.practice_area or ''}"]
     if facts["notes"]:
-        parts.append("Notes recently added to the file (event dates only when stated in the note):\n"
+        parts.append("Notes on the file, undated unless a date is stated in the note text itself:\n"
                      + "\n".join(f"- Note {n.id}: {n.body.strip()}" for n in facts["notes"]))
     if facts["work"]:
         parts.append("Work done recently:\n" + "\n".join(f"- {t.date}: {t.description.strip()}" for t in facts["work"]))
@@ -636,24 +636,31 @@ def template_update(m, facts, lang="en"):
 
 
 def _update_claim_warning(subject, body):
-    """Hold selected English/Spanish absence claims, not validate all model facts.
+    """Hold selected English/Spanish absence and unsupported-recency claims, not validate all model facts.
 
-    Selected records cannot establish that nothing else occurred. Even when a
+    Selected records cannot establish that nothing else occurred, and a note's record
+    date does not establish that the events it describes are recent. Even when a
     source includes such a claim, the template keeps its attribution and scope.
     Staff may revise the template after checking the complete file.
     """
     text = re.sub(r"\s+", " ", f"{subject}\n{body}".casefold())
-    patterns = (
+    absence_patterns = (
         r"\bno (?:new |other |further |additional |recent |significant |material |major )*(?:developments?|updates?|changes?|activity|progress)\b",
         r"\b(?:nothing (?:else|new|further)|no (?:immediate |further |additional |upcoming |pending )*(?:next steps?|action|deadlines?|hearings?|events?))\b",
         r"\b(?:little|limited|minimal) (?:new |recent )?(?:activity|progress|development)\b",
         r"\bno (?:hay |hubo |ha habido |se han producido |se han registrado )?(?:nuev[oa]s? |otr[oa]s? |m[aá]s |ningun[oa]s? )*(?:novedades|avances|cambios|actualizaciones|actividad)\b",
         r"\b(?:nada (?:nuevo|m[aá]s)|no (?:hay |existen )?(?:pr[oó]ximos |otros |nuevos )?(?:pasos|plazos|eventos|audiencias))\b",
     )
-    if any(re.search(pattern, text) for pattern in patterns):
+    if any(re.search(pattern, text) for pattern in absence_patterns):
         return ("The AI proposal makes an absence or completeness claim. The selected records "
                 "cannot establish that nothing else happened or that no other action is needed. "
                 "The editable draft uses the source-based template. Check the full file before adding such a claim.")
+    recency_patterns = (r"\brecently\b", r"\brecientemente\b")
+    if any(re.search(pattern, text) for pattern in recency_patterns):
+        return ("The AI proposal describes something as recent. A note's record date does not "
+                "establish that the events it describes are recent, and the selected records do not "
+                "otherwise support that timing. The editable draft uses the source-based template. "
+                "Check the full file before adding such a claim.")
     return None
 
 
@@ -674,12 +681,13 @@ def matter_update_email(id):
     attorney = m.responsible.name if m.responsible else firm.name
     ctx = _facts_text(m, facts)
     prompt = (f"Write a short status update email from the law firm to its "
-              f"client about the matter below, in {language}. Address the client by name, say plainly what has "
-              "been recorded recently, what was completed, and what is coming up with dates. "
-              "A note being recorded recently does not date the events it describes. Keep report dates "
-              "separate from event dates; do not infer an event date, today or yesterday when none is given. Use only "
-              "the facts given. These selected records are incomplete: never infer no new developments, "
-              "no other activity, no upcoming dates or no action needed from an absence of records. "
+              f"client about the matter below, in {language}. Address the client by name, say plainly what was "
+              "recorded, what was completed, and what is coming up with dates. "
+              "A note being added to the file recently does not date the events it describes, so do not "
+              "call anything 'recent' or 'recently' unless a date given in the facts actually supports that. Keep "
+              "report dates separate from event dates; do not infer an event date, today or yesterday when none is "
+              "given. Use only the facts given. These selected records are incomplete: never infer no new "
+              "developments, no other activity, no upcoming dates or no action needed from an absence of records. "
               "Keep a sparse update brief; do not add status claims to fill space. Never mention fees, hours, rates, "
               "invoices or internal opinions. Use plain text with blank lines between paragraphs. "
               f"Be concise. Sign off as {attorney}, {firm.name}. "
