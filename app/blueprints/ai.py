@@ -635,10 +635,32 @@ def template_update(m, facts, lang="en"):
     return T["subject"].format(matter=m.name), "\n".join(lines)
 
 
-def _update_page(m, subject, body, source, error=None, source_context=None):
+def _update_claim_warning(subject, body):
+    """Hold selected English/Spanish absence claims, not validate all model facts.
+
+    Selected records cannot establish that nothing else occurred. Even when a
+    source includes such a claim, the template keeps its attribution and scope.
+    Staff may revise the template after checking the complete file.
+    """
+    text = re.sub(r"\s+", " ", f"{subject}\n{body}".casefold())
+    patterns = (
+        r"\bno (?:new |other |further |additional |recent |significant |material |major )*(?:developments?|updates?|changes?|activity|progress)\b",
+        r"\b(?:nothing (?:else|new|further)|no (?:immediate |further |additional |upcoming |pending )*(?:next steps?|action|deadlines?|hearings?|events?))\b",
+        r"\b(?:little|limited|minimal) (?:new |recent )?(?:activity|progress|development)\b",
+        r"\bno (?:hay |hubo |ha habido |se han producido |se han registrado )?(?:nuev[oa]s? |otr[oa]s? |m[aá]s |ningun[oa]s? )*(?:novedades|avances|cambios|actualizaciones|actividad)\b",
+        r"\b(?:nada (?:nuevo|m[aá]s)|no (?:hay |existen )?(?:pr[oó]ximos |otros |nuevos )?(?:pasos|plazos|eventos|audiencias))\b",
+    )
+    if any(re.search(pattern, text) for pattern in patterns):
+        return ("The AI proposal makes an absence or completeness claim. The selected records "
+                "cannot establish that nothing else happened or that no other action is needed. "
+                "The editable draft uses the source-based template. Check the full file before adding such a claim.")
+    return None
+
+
+def _update_page(m, subject, body, source, error=None, source_context=None, held_proposal=None, review_warning=None):
     return render_template("ai/update_email.html", m=m, subject=subject, body=body, source=source, error=error,
                            to=(m.client.email if m.client else "") or "", lang=lang_for(m.client),
-                           source_context=source_context)
+                           source_context=source_context, held_proposal=held_proposal, review_warning=review_warning)
 
 
 @bp.route("/matter/<int:id>/update-email", methods=["POST"])
@@ -656,9 +678,11 @@ def matter_update_email(id):
               "been recorded recently, what was completed, and what is coming up with dates. "
               "A note being recorded recently does not date the events it describes. Keep report dates "
               "separate from event dates; do not infer an event date, today or yesterday when none is given. Use only "
-              "the facts given; if there is little activity, say so honestly. Never mention fees, hours, rates, "
-              "invoices or internal opinions. Warm, professional, no marketing, no jargon, about 120 to 180 "
-              f"words, plain text with blank lines between paragraphs. Sign off as {attorney}, {firm.name}. "
+              "the facts given. These selected records are incomplete: never infer no new developments, "
+              "no other activity, no upcoming dates or no action needed from an absence of records. "
+              "Keep a sparse update brief; do not add status claims to fill space. Never mention fees, hours, rates, "
+              "invoices or internal opinions. Use plain text with blank lines between paragraphs. "
+              f"Be concise. Sign off as {attorney}, {firm.name}. "
               "Return JSON {\"subject\": \"...\", \"body\": \"...\"}.\n\n" + ctx)
     if len(prompt) > llm.MAX_CONTEXT_CHARS:
         subject, body = template_update(m, facts, lang)
@@ -673,6 +697,12 @@ def matter_update_email(id):
         if not body:
             raise llm.LLMBadOutput("The AI answered in an unexpected format.")
         subject = subject or template_update(m, facts, lang)[0]
+        warning = _update_claim_warning(subject, body)
+        if warning:
+            held = {"subject": subject, "body": body}
+            subject, body = template_update(m, facts, lang)
+            return _update_page(m, subject, body, source="template", source_context=ctx,
+                                held_proposal=held, review_warning=warning)
         return _update_page(m, subject, body, source="model", source_context=ctx)
     except LLMUnavailable as e:
         subject, body = template_update(m, facts, lang)
