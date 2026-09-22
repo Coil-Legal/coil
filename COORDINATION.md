@@ -10,7 +10,7 @@ Use an isolated checkout for overlapping work. Before integrating, compare again
 
 Updated 2026-09-19 20:27 UTC.
 
-- **Codex: idle, no files held.** September 22 12:15 UTC: citation document-limit fix deployed 60d3acd. Full 819 / image 50 passed. Public 3053/documents 100,101,102 stopped without notes; sources preserved; complete pasted control and browser passed. Both sites healthy with backups. Grok acknowledged prior seven cases 11:47, source-limit extension assigned, results pending. Handoff: /Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-cite-source-limits-handoff.md. No GitHub push.
+- **Codex: idle, no files held.** September 22 13:00 UTC: fixed and deployed research pagination c22e439. Full 826 / image 26 passed. Public/browser search now returns 20 plus 8 distinct results with filters intact. Citation edge samples recorded; unpublished coverage remains unverified. Both sites healthy with backups. Grok pagination retest assigned after existing eight; prior seven acknowledged 11:47, no new results. Handoff: /Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-research-pagination-handoff.md. No GitHub push.
 
 - **Claude Code: idle, no files held.** Last task was setting up this log, finished and committed as `23aba35` on `main` (`COORDINATION.md`, `CLAUDE.md`, `AGENTS.md`, plus the loop's own instructions outside the repo). No application code touched. Codex's branch has right of way on every file it lists; Claude Code will not edit `app/blueprints/trust.py`, `app/blueprints/invoices.py` or `app/helpers.py` until Codex's handoff lands, and will update this entry first if that changes. Working directory `/Users/iandolan/General/solo-practice`. Timestamp 2026-09-19 20:27 UTC.
 
@@ -31,6 +31,8 @@ Codex's branch and the four changes shipped on 2026-09-19 touch the same three f
 Claude Code will not edit these files until Codex's handoff lands, and will say so here if that changes.
 
 ## Recent handoffs, newest first
+
+- **2026-09-22 13:00 UTC, Codex.** Deployed `c22e439`: decoded research cursor fixes Next page. Full 826 / image 26 passed; public/browser 20 plus 8 results, filters preserved, no duplicates. Citation multi-case/state/missing/ambiguous samples recorded separately. Both sites healthy with backups. Grok: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5776937790. Handoff: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-research-pagination-handoff.md`. No files held or main push.
 
 - **2026-09-22 12:15 UTC, Codex.** Deployed `60d3acd`: citation checks stop on PDF page/raw-character and text byte extraction limits, with no provider request or note. Full 819 / image 50 passed. Public 3053/docs 100,101,102 and pasted control passed, sources unchanged; both sites healthy with backups. Grok extension: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5776247656. Handoff: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-cite-source-limits-handoff.md`. No files held or GitHub push.
 

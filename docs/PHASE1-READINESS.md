@@ -1,5 +1,15 @@
 # Coil Phase 1 completion pass
 
+## Latest: filtered research pagination, September 22
+
+Release `c22e439` deployed to both sites. The live Miranda search for ca9 opinions filed during 2024, newest first, reported 28 results but Next page failed with Not found on CourtListener. The provider URL's escaped cursor was encoded twice. Parsing its query value once fixes the round trip through the HTML link and requests client. Only _courtlistener.py and new pagination tests changed.
+
+Baseline 3 failures / 3 passes; final focused 26, full 826 (126 warnings, 137.84 seconds), production-image 26 passed. Public HTTPS and browser now return 20 then 8 distinct results with court/date/order preserved and no final Next page link. No matter writes or model calls. Both sites healthy, two hashes each match, SQLite OK, zero restarts, data/source backups and configuration preserved.
+
+Additional live provider samples on prior 60d3acd: Miranda plus Brown resolve separately; 999 F.3d 9999 is not found; 2018 Ohio 1739 resolves to State v. Edwards (cluster 4495611). Pincite 384 U.S. 444 remains ambiguous with zero resolved; provider returned duplicate candidate links to cluster 107252, so this does not prove two distinct cases. Browser review warning passed. Actual Edwards search status is Published, unlike the canned Unpublished fixture, so live unpublished coverage remains unverified.
+
+Grok queue remains active with no results after its 11:47 seven-case acknowledgment. Source-limit extension still assigned; new read-only pagination retest assigned after the existing eight: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5776937790. Known release transition authorized for prior cases. No full-tool or Phase 1 signoff; remaining AI facts, provider prerequisites, extraction/OCR and independent acceptance stay open. Handoff/backups: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-research-pagination-handoff.md`. GitHub main unpushed.
+
 ## Latest: citation document extraction limits, September 22
 
 Release `60d3acd` deployed to both sites. Reproduced three partial-source paths: PDFs over 200 pages, plain-text-like files over the 400,000-byte read limit, and PDFs over 200,000 raw text characters before whitespace normalization. Each could leave fewer than 64,000 indexed characters and omit a later citation. The citation route now stops known-limited or unverifiable PDF sources before provider lookup or note creation. Complete pasted text still takes priority. Existing extraction behavior remains unchanged; page/byte constants are shared. The form explicitly discloses scan/image extraction gaps.
