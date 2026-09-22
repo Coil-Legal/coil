@@ -883,6 +883,47 @@ def chunk_transcript(text, size=CHUNK_CHARS):
     return out
 
 
+def _source_testimony(text, k):
+    """Locate a unique literal quote and derive its citation from the extracted transcript.
+
+    Missing or repeated text remains visible for review but gets no guessed reference.
+    Only recognize explicit page markers and page:line markers at a line start, after
+    a Page marker, or before Q./A. This avoids treating a time inside testimony as a cite.
+    """
+    quote = str(k.get("quote") or "").strip()
+    item = {"quote": quote, "topic": str(k.get("topic") or "").strip(), "page": 0, "line": 0}
+    pos = text.find(quote) if quote else -1
+    if pos < 0:
+        item["citation_warning"] = "Quote not found in transcript. Check the source before use."
+        return item
+    if text.find(quote, pos + 1) >= 0:
+        item["citation_warning"] = "Quote occurs more than once. Select the source passage before use."
+        return item
+    volume_matches = list(_VOLUME_RE.finditer(text, 0, pos))
+    start = volume_matches[-1].end() if volume_matches else 0
+    if _is_multi_volume(text):
+        if not volume_matches:
+            item["citation_warning"] = "Volume could not be determined. Check the source before use."
+            return item
+        item["volume"] = volume_matches[-1].group(1).upper()
+    pages = list(_PAGE_RE.finditer(text, start, pos))
+    page_start = pages[-1].end() if pages else start
+    if pages:
+        item["page"] = int(pages[-1].group(1))
+    for marker in _PL_RE.finditer(text, page_start, pos):
+        before = text[text.rfind("\n", 0, marker.start()) + 1:marker.start()]
+        after = text[marker.end():marker.end() + 32]
+        if (not before.strip() or re.search(r"\b(?:Page|PAGE)\s+\d{1,4}\s*$", before)
+                or re.match(r"[ \t]+[QA][.:]?(?:[ \t]|$)", after)):
+            page, line = int(marker.group(1)), int(marker.group(2))
+            if page > 0 and line > 0 and (not pages or page == item["page"]):
+                item["page"], item["line"] = page, line
+    if not item["page"]:
+        item.pop("volume", None)
+        item["citation_warning"] = "No supported page marker found. Check the source before use."
+    return item
+
+
 def summarize_transcript(dep, text):
     """Run the model over the transcript in chunks. Returns (summary, key_testimony, contradictions).
     Raises LLMUnavailable when nothing could be produced."""
@@ -925,12 +966,7 @@ def summarize_transcript(dep, text):
     if size < 1:
         raise LLMUnavailable("The deposition context is too long. No transcript was sent.")
     chunks = chunk_transcript(text, size=size)
-    volume = None
     for i, chunk in enumerate(chunks, 1):
-        incoming_volume = volume
-        labels = _volume_labels(chunk)
-        if labels:
-            volume = labels[-1]
         prompt = prompt_prefix + f"Transcript part {i} of {len(chunks)}:\n{chunk}"
         data = llm.complete_json(prompt, DEPO_SCHEMA, system=SYSTEM, max_tokens=2500, kind="deposition_summary",
                                  entity="deposition_summary", entity_id=dep.id, user_id=_uid())
@@ -939,19 +975,8 @@ def summarize_transcript(dep, text):
         if data.get("summary"):
             summaries.append(str(data["summary"]).strip())
         for k in data.get("key_testimony") or []:
-            quote = str(k.get("quote") or "").strip()
-            if isinstance(k, dict) and quote:
-                item = {"page": _int(k.get("page")) or 0, "line": _int(k.get("line")) or 0,
-                        "quote": quote, "topic": str(k.get("topic") or "").strip()}
-                if multi_volume:
-                    # A quote's own position in the chunk tells its volume; a chunk can itself span a
-                    # volume break, so the chunk's last-seen label (`volume`) is only a fallback for a
-                    # quote the model paraphrased enough that it can't be found verbatim.
-                    pos = chunk.find(quote)
-                    item_volume = (_volume_at(chunk, pos) or incoming_volume) if pos >= 0 else None
-                    if item_volume or volume:
-                        item["volume"] = item_volume or volume
-                key.append(item)
+            if isinstance(k, dict) and str(k.get("quote") or "").strip():
+                key.append(_source_testimony(text, k))
         for c in data.get("contradictions") or []:
             if isinstance(c, dict) and (c.get("testimony") or "").strip():
                 kind = str(c.get("kind") or "external").strip().lower()
@@ -981,9 +1006,9 @@ def summarize_transcript(dep, text):
 
 
 def cite(dep, k):
-    """Copy-ready citation: "Depo. Tr. 12:5", "Vol. II, Depo. Tr. 12:5" when the transcript names more than one
-    volume (page numbers restart per volume, so the volume alone tells two otherwise-identical cites apart), or
-    "Depo. Tr. p. 12" when there is no line."""
+    """Format a source reference or an explicit warning for an unresolved quote."""
+    if k.get("citation_warning"):
+        return k["citation_warning"]
     p, l = _int(k.get("page")) or 0, _int(k.get("line")) or 0
     prefix = f"Vol. {k['volume']}, " if k.get("volume") else ""
     if p and l:
@@ -1064,6 +1089,10 @@ def _dep_lists(dep):
         contras = json.loads(dep.contradictions_json or "[]")
     except ValueError:
         contras = []
+    # Recheck old summaries against their current source without rewriting saved drafts.
+    text = (dep.document.extracted_text if dep.document else "") or ""
+    key = [_source_testimony(text, k) for k in key if isinstance(k, dict)] if isinstance(key, list) else []
+    contras = [c for c in contras if isinstance(c, dict)] if isinstance(contras, list) else []
     return key, contras
 
 

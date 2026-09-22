@@ -30,9 +30,9 @@
 {% if rows %}
 <table>
   <tr><th>Cite</th><th>Topic</th><th>Testimony</th></tr>
-  {% for k, c in rows %}<tr><td><code style="white-space:nowrap">{{ c }}</code></td><td>{{ k.topic }}</td><td>"{{ k.quote }}"</td></tr>{% endfor %}
+  {% for k, c in rows %}<tr><td><code style="white-space:normal">{{ c }}</code></td><td>{{ k.topic }}</td><td>"{{ k.quote }}"</td></tr>{% endfor %}
 </table>
-<p class="small muted">Cites are copy-ready: paste the code cell into a brief as written.</p>
+<p class="small muted">References use unique exact quotes and supported markers in the extracted transcript. Missing or repeated quotes need source review. Check the original transcript before using any quote in a brief.</p>
 {% else %}<div class="empty">No key testimony recorded.</div>{% endif %}
 </div>
 
