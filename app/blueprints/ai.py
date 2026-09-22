@@ -6,13 +6,15 @@ search, a plain substring search that always works.
 """
 import json
 import re
+import time
+from sqlalchemy.exc import OperationalError
 from datetime import date, datetime, timedelta
 from html import escape
 from flask import Blueprint, render_template, request, redirect, url_for, flash, abort, current_app
 from ..extensions import db
 from ..models import (Matter, Contact, Invoice, TimeEntry, Expense, Task, CalendarEvent, Document, Note, Message,
                       User, TrustTransaction, Firm, AiRun, audit, now, MedicalProvider, PiCase)
-from ..helpers import login_required, current_user, parse_date
+from ..helpers import login_required, current_user, parse_date, LOCK_RETRIES, is_lock_error
 from ..services.mail import send_email
 from ..i18n import lang_for
 from .. import llm
@@ -374,6 +376,25 @@ def document_dates(id):
 @bp.route("/document/<int:id>/dates/create", methods=["POST"])
 @login_required
 def document_dates_create(id):
+    # A concurrent accept can invalidate the duplicate-check read snapshot. Retry the
+    # complete transaction so it sees the winner's rows; never retry only the insert.
+    for attempt in range(LOCK_RETRIES):
+        try:
+            return _create_document_dates(id)
+        except OperationalError as exc:
+            db.session.rollback()
+            if not is_lock_error(exc):
+                raise
+            if attempt + 1 == LOCK_RETRIES:
+                return render_template(
+                    "error.html", code=503,
+                    message="The dates could not be saved because another change is being saved. "
+                            "Nothing was saved by this attempt. Return to the date review and retry."
+                ), 503
+            time.sleep(0.05 * (attempt + 1))
+
+
+def _create_document_dates(id):
     d = db.session.get(Document, id) or abort(404)
     m = d.matter
     f = request.form
