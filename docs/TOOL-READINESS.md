@@ -141,7 +141,7 @@ Further checks:
 - A witness who contradicts himself and corrects it in the next answer. Should be reported as corrected, not as a contradiction.
 
 ### Research and cite check
-Current September 22 evidence: Grok passed keyboard search, court filter, opinion, save/note and literal memo text on 94d4c21, matter 3050/authority 2/document 94. Its 390px saved-authority overflow is fixed in `146ed23`, deployed to both sites. Codex passed 320px, 390px, 1280px and keyboard save/export; document 95 is unshared and its authenticated download preserves literal text. Full 752 and deployment-image 26 tests passed. Independent mobile retest is assigned, not yet acknowledged. Reference document 84 was reported missing; cause remains unestablished. Edge citations and complete research signoff remain open.
+Current September 22 evidence: Grok passed keyboard search, court filter, opinion, save/note and literal memo text on 94d4c21, matter 3050/authority 2/document 94. Its 390px saved-authority overflow is fixed in `146ed23`, deployed to both sites. Codex passed 320px, 390px, 1280px and keyboard save/export; document 95 is unshared and its authenticated download preserves literal text. Full 752 and deployment-image 26 tests passed. Independent mobile retest is assigned, not yet acknowledged. Read-only current-release checks found reference document 84 present with working download and navigation links; documents 84/94/95 returned exact stored PDF bytes and literal notes, all unshared. Earlier 404 cause remains unestablished pending Grok's exact URL/session evidence. Edge citations and complete research signoff remain open.
 
 Resolved, not found, and the wrong-case pincite trap all correct. States plainly that it cannot say whether a case is still good law.
 

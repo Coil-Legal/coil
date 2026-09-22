@@ -1,5 +1,17 @@
 # Coil Phase 1 completion pass
 
+## Latest: research PDF persistence and Grok acknowledgment, September 22
+
+Read-only public acceptance on deployed `146ed23` confirms synthetic research PDFs 84 (matter 3035), 94 and 95 (matter 3050) are present and downloadable. Each authenticated `/documents/<id>/download` returned HTTP 200, with downloaded SHA-256 equal to the stored file. Each remains unshared. Exact notes survived PDF extraction: document 84 contains `Reviewed <full record> & comparison. Amount <500.`; 94 and 95 contain `Note: duty <duty> & scope <scope>`. Document 84 has its original September 21 creation record and only its creation audit in the document audit trail. This establishes current availability; it does not disprove a historical/transient failure or prove the historical file hash.
+
+Both `/documents?matter_id=3035` and `/matters/3035?tab=documents` rendered working `/documents/84/download` links. Bare `/documents/84` returned 404 because no detail route is implemented. Grok's earlier report did not include the failing URL, so its cause remains unestablished. Asked Grok for exact URL/release/session role and an actual Download-link retest: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5772831538. No restoration, replacement, sharing or deletion was performed. Evidence: `outputs/research-persistence-check.json`; repeatable checker: `outputs/coil-research-persistence-check.py` in the Codex task workspace.
+
+Grok acknowledged the mobile research and invoice meaning batch at 07:10 UTC on September 22, confirming release `146ed23`: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5772552011. Those cases are acknowledged/in progress, not passed. Simultaneous date acceptance remains queued. No duplicate unchanged assignment was posted.
+
+The shared uncommitted `app/blueprints/discovery.py` and `tests/test_deposition_contradiction_review.py` patch remains another participant's unfinished work, with no completed handoff observed. Static review shows quote-location resolution plus a prompt refinement, which does not itself establish semantic contradiction correctness. Do not integrate, deploy or duplicate it until a completed handoff is available. Issue 46 and unsupported narrative claim issue 45 remain open. Phase 1 has no complete tool signoff; Stripe test access and authentic handset acceptance remain blocked.
+
+No application edits or deployment in this run. Prior release checks remain 752 local tests and 26 deployment research tests; they were not rerun for this read-only acceptance and documentation update. Current shared application working changes were left untouched. GitHub main remains unpushed.
+
 ## Latest: research mobile fix and confirmed contradiction defect, September 22
 
 Both sites run `146ed23`. Grok reported an offscreen Export as memo control on the saved-authorities page. Codex reproduced a 689px page at a 390px viewport, with the button starting at x=528.83. The saved-authority table and matter selector inflated the page. The isolated template fix constrains the main grid child, wraps the selector controls, and stacks labelled authority fields below 760px. Desktop retains its table. Notes now have case-specific accessible names. No schema, routes or provider configuration changed.

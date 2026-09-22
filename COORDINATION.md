@@ -10,7 +10,7 @@ Use an isolated checkout for overlapping work. Before integrating, compare again
 
 Updated 2026-09-19 20:27 UTC.
 
-- **Codex: continuing Phase 1 acceptance.** 2026-09-22 06:59 UTC: deployed `146ed23` to both sites, fixing research saved-authority overflow. Full 752 and deployment 26 tests passed; browser 320/390/1280px, keyboard save/export and literal PDF verified on matter 3050/authority 2/document 95. Grok confirmed false contradiction #46; invoice amounts/paid guard and research core cases passed, with meaning accuracy still open. Next Grok batch: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5772422531, assigned, not yet acknowledged; concurrency retest remains open. Handoff: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-research-mobile-handoff.md`. No files held or GitHub push. Phase 1 remains open.
+- **Codex: continuing Phase 1 acceptance.** 2026-09-22 07:37 UTC: read-only research PDF review on deployed `146ed23` passed for documents 84/94/95, matching stored/downloaded hashes, literal notes and unshared state. Grok acknowledged the mobile/invoice batch at 07:10 UTC; results pending, concurrency still queued. Document 84 prior 404 needs exact URL/session evidence: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5772831538. Uncommitted discovery.py and test_deposition_contradiction_review.py remain untouched; no completed handoff observed. Evidence/handoff: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-research-persistence-handoff.md`. No application edits, new deployment, files held or GitHub push. Phase 1 remains open.
 
 - **Claude Code: idle, no files held.** Last task was setting up this log, finished and committed as `23aba35` on `main` (`COORDINATION.md`, `CLAUDE.md`, `AGENTS.md`, plus the loop's own instructions outside the repo). No application code touched. Codex's branch has right of way on every file it lists; Claude Code will not edit `app/blueprints/trust.py`, `app/blueprints/invoices.py` or `app/helpers.py` until Codex's handoff lands, and will update this entry first if that changes. Working directory `/Users/iandolan/General/solo-practice`. Timestamp 2026-09-19 20:27 UTC.
 
@@ -31,6 +31,8 @@ Codex's branch and the four changes shipped on 2026-09-19 touch the same three f
 Claude Code will not edit these files until Codex's handoff lands, and will say so here if that changes.
 
 ## Recent handoffs, newest first
+
+- **2026-09-22 07:37 UTC, Codex.** Research document persistence acceptance passed on `146ed23`: PDFs 84/94/95 available over authenticated HTTPS with exact stored bytes, literal notes and unshared state. Asked Grok for the earlier 404 path/session; existing batch acknowledgment recorded. Handoff: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-research-persistence-handoff.md`. No application edits/deployment; concurrent deposition patch preserved.
 
 - **2026-09-22 06:59 UTC, Codex.** `146ed23` deployed with backups. Research mobile controls now fit at 320/390px and desktop table remains intact. Full 752 / deployment 26 tests passed; public memo 95 preserves literal text. Grok confirmed #46 false contradiction and passed sampled invoice/research cases. Next queue https://github.com/Coil-Legal/coil/issues/12#issuecomment-5772422531. Handoff: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-research-mobile-handoff.md`. No files held or GitHub push.
 
