@@ -1132,7 +1132,7 @@ def deposition_note_text(dep):
 @login_required
 def deposition_note(id):
     dep = _dep_or_404(id)
-    n = Note(matter_id=dep.matter_id, user_id=_uid(), body=deposition_note_text(dep))
+    n = Note(matter_id=dep.matter_id, user_id=_uid(), body="[internal] " + deposition_note_text(dep))
     db.session.add(n)
     db.session.flush()
     audit("create", "note", n.id, f"deposition summary of {dep.deponent}", _uid())

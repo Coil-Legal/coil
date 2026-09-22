@@ -363,7 +363,7 @@ def test_overview_generated_and_saved_as_note(app, owner, monkeypatch, no_keys):
     assert b"Overview saved as a note" in r.data
     with app.app_context():
         n = Note.query.filter_by(matter_id=mid).order_by(Note.id.desc()).first()
-        assert n.body.startswith("Case overview (") and "Open questions" in n.body and "attorney review" in n.body
+        assert n.body.startswith("[internal] Case overview (") and "Open questions" in n.body and "attorney review" in n.body
 
 
 def test_overview_plain_fallback(app, owner, monkeypatch, no_keys):

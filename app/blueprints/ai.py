@@ -42,7 +42,16 @@ _MONEY_NOTE = re.compile(
 
 
 def _is_internal(note):
-    return (note.body or "").lstrip().lower().startswith(INTERNAL_PREFIX)
+    body = (note.body or "").strip().lower()
+    if body.startswith(INTERNAL_PREFIX):
+        return True
+    # Earlier generated analysis notes lacked the marker. Recognize their original format
+    # when reading, so existing records stay unchanged and out of client-facing drafts.
+    if body.startswith("deposition summary:") and body.endswith("ai draft for attorney review."):
+        return True
+    first_line = body.split("\n", 1)[0]
+    return (first_line.startswith("case overview (")
+            and "this is a draft for attorney review and may contain errors." in first_line)
 
 
 def _client_safe_note(note):

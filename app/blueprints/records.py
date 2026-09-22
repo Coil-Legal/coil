@@ -762,7 +762,7 @@ def overview_note(matter_id):
         flash("Generate the overview first.", "error")
         return redirect(url_for("pi.case", matter_id=m.id) + "#overview")
     n = Note(matter_id=m.id, user_id=_uid(),
-             body=f"Case overview ({(c.overview_at or now()):%b %-d, %Y}). {DRAFT_LINE}\n\n{c.overview_text.strip()}")
+             body=f"[internal] Case overview ({(c.overview_at or now()):%b %-d, %Y}). {DRAFT_LINE}\n\n{c.overview_text.strip()}")
     db.session.add(n)
     db.session.flush()
     audit("create", "note", n.id, f"case overview saved on {m.number}", _uid())
