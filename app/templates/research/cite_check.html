@@ -1,14 +1,15 @@
 {% extends "base.html" %}{% block title %}Citation check{% endblock %}{% block content %}
 <div class="topbar"><h1>Citation check</h1>
 <div class="actions" style="margin:0"><a class="btn small secondary" href="/research">Search case law</a><a class="btn small secondary" href="/research/saved">Saved authorities</a></div></div>
-<p class="small">Paste a brief, a memo, or an AI draft, or pick a document on a matter. Every case citation is looked up on CourtListener. A citation that does not resolve may be mistyped, may be too new or too obscure for the database, or may not exist at all, so verify it before filing. {% if not has_token %}This check needs a free CourtListener token under Settings.{% endif %}</p>
+<p class="small">Paste a brief, a memo, or an AI draft, or pick a document on a matter. Recognised case citations are looked up on CourtListener. A citation that does not resolve may be mistyped, may be too new or too obscure for the database, or may not exist at all, so verify it before filing. {% if not has_token %}This check needs a free CourtListener token under Settings.{% endif %}</p>
 <p class="small"><strong>This checks whether a citation resolves, not whether a case is still good law.</strong> CourtListener is not a citator and this page cannot tell you if a resolved case has been overruled, reversed, or otherwise stopped being good law. It is not a replacement for Shepard's or KeyCite.</p>
 {% include "research/_disclaimer.html" %}
 {% include "research/_notice.html" %}
 <div class="card">
   <form method="post" action="/research/cite-check">{{ csrf() }}
-    <label>Text to check (up to about 50 pages)</label>
+    <label>Text to check (up to 64,000 characters)</label>
     <textarea name="text" rows="8" style="width:100%" placeholder="As the court held in Miranda v. Arizona, 384 U.S. 436 (1966)...">{{ text }}</textarea>
+    <p class="small muted">The limit also applies to extracted document text. Longer sources are not checked. Split them into sections, keeping case names and citations together, and check every section.</p>
     <div class="row">
       <div><label>Or pick a document (used when the text box is empty)</label><select name="document_id"><option value="">None</option>{% for d in documents %}<option value="{{ d.id }}" {{ 'selected' if d.id == document_id }}>{{ d.matter.number }}: {{ d.name }}</option>{% endfor %}</select></div>
       <div><label>Save the result as a note on</label><select name="matter_id"><option value="">Do not save</option>{% for m in matters %}<option value="{{ m.id }}" {{ 'selected' if m.id == matter_id }}>{{ m.label }}{% if m.status == 'closed' %} (closed){% endif %}</option>{% endfor %}</select></div>

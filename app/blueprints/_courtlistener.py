@@ -335,7 +335,7 @@ def _candidate(c):
 # sit immediately in front of each citation so they can be compared with the case the
 # reporter page actually belongs to.
 _NAME_BEFORE_CITE = re.compile(
-    r"([A-Z][\w.'&-]*(?:\s+[A-Za-z.'&-]+){0,7}?\s+v\.?\s+[A-Z][\w.'&-]*(?:\s+[A-Za-z.'&-]+){0,7}?)"
+    r"(?<![\w.'&-])([A-Z][\w.'&-]*(?:\s+[A-Za-z.'&-]+){0,7}?\s+v\.?\s+[A-Z][\w.'&-]*(?:\s+[A-Za-z.'&-]+){0,7}?)"
     r"\s*,\s*(?=\d)")
 
 
@@ -391,7 +391,12 @@ def citation_lookup(text):
     citation matched more than one case (CourtListener answers 300 for those, and occasionally 200 with
     several clusters), "not_found" for anything else including a 404. Only "resolved" means the reader
     can stop checking; ambiguous and not_found both still need verifying before filing."""
-    text = (text or "")[:CITE_TEXT_CAP]
+    text = text or ""
+    if len(text) > CITE_TEXT_CAP:
+        return _error("input_too_long", f"This input contains {len(text):,} characters. The limit is "
+                      f"{CITE_TEXT_CAP:,} characters per check. No citation lookup was sent and no text was "
+                      "discarded. No result note was saved. Split the source into smaller sections, "
+                      "keeping each case name and its complete citation together, and check every section.")
     if not text.strip():
         return {"ok": True, "citations": []}
     out = _post("/citation-lookup/", {"text": text})
