@@ -1,5 +1,16 @@
 # Coil Phase 1 completion pass
 
+## Latest: public document-date acceptance, September 22
+
+Application release remains `6f3da92`; no code changes or deployment in this run. Synthetic matter 3040 (`QA-DOCUMENT-DATES`) and unshared documents 85/86 were exercised through public authenticated HTTPS with two actual model calls.
+
+The short source returned exactly the October 12 hearing, October 15 response deadline and October 20 meeting. It skipped the historical letter date and a service-based deadline whose anchor was unknown. The reviewed submission deselected the meeting and changed the filing deadline to October 16. Tasks 54/55 saved correctly; repeating the same submission kept exactly two tasks. Creating the meeting separately produced all-day event 13; repeating it kept exactly one event. The 11,916-character file returned no date from beyond character 10,500 and showed the scan-limit warning.
+
+These sampled extraction, edited-selection, sequential-replay and disclosure checks passed. Concurrent submissions, jurisdictional calculations and independent keyboard/mobile acceptance are not established by this run. The prior 714-test local and 115-test deployment suites still describe the unchanged code and were not repeated. The initial harness whitespace expectation was corrected to match extraction behavior; exact uploaded bytes were verified separately.
+
+Grok received the prepared fixtures for the existing independent case: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5769916333. Handoff and evidence: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-document-dates-handoff.md`. Next executable review: deposition factual/citation acceptance and source-linked date handling. Summary/client-update date attribution remains defective; Stripe test access, authentic handset SMS and independent QA are still required. Phase 1 is not complete.
+
+
 ## Latest: analysis notes excluded from client drafts, September 22
 
 Both sites run `6f3da92`. Saved deposition summaries and PI case overviews now carry the internal marker. Their original generated formats are also recognized for existing notes, without changing stored content. These notes previously entered the source material for client-update drafts. Ordinary progress notes remain eligible.
