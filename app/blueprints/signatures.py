@@ -420,6 +420,9 @@ def sign(token):
     name = request.form.get("signer_name", "").strip()
     email = request.form.get("signer_email", "").strip()
     agree = request.form.get("agree") == "1"
+    if len(name) > 200:
+        error = t("sign.err_name_long", lang_for(s.contact))
+        return render_template("signatures/sign.html", name=name, email=email, error=error, **_ctx(s)), 400
     if not name or not agree:
         lang = lang_for(s.contact)
         error = t("sign.err_name", lang) if not name else t("sign.err_agree_doc", lang)
@@ -427,7 +430,7 @@ def sign(token):
     ts = now()
     ip = client_ip()
     s.signature_hash = hashlib.sha256(f"{s.document_hash}{name}{ip}{ts.isoformat()}".encode("utf-8")).hexdigest()
-    s.signer_name = name[:200]
+    s.signer_name = name
     s.signer_email = email[:200]
     s.signer_ip = ip
     s.signer_ua = request.headers.get("User-Agent", "")[:300]

@@ -15,6 +15,7 @@ from ..models import (Firm, Matter, LetterTemplate, Engagement, EngagementEvent,
 from ..helpers import login_required, current_user, client_ip, cents_to_str
 from ..services.mail import send_email
 from ..services import pdf as pdfsvc
+from ..i18n import t, lang_for
 
 bp = Blueprint("engagements", __name__)
 
@@ -537,6 +538,9 @@ def sign(token):
     name = request.form.get("signer_name", "").strip()
     email = request.form.get("signer_email", "").strip()
     agree = request.form.get("agree") == "1"
+    if len(name) > 200:
+        error = t("sign.err_name_long", lang_for(e.contact))
+        return render_template("engagements/sign.html", e=e, name=name, email=email, error=error), 400
     if not name or not agree:
         error = "Type your full name and tick the box to confirm you agree." if not name else \
             "Please tick the box to confirm you have read the letter and agree to its terms."

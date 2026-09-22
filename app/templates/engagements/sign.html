@@ -7,7 +7,7 @@
   {% if error %}<div class="flash error">{{ error }}</div>{% endif %}
   <form method="post" action="/sign/{{ e.token }}">
     <div class="row">
-      <div><label>{{ t('sign.name', lang) }}</label><input type="text" name="signer_name" value="{{ name }}" required autocomplete="name"></div>
+      <div><label>{{ t('sign.name', lang) }}</label><input type="text" name="signer_name" value="{{ name }}" maxlength="200" required autocomplete="name"></div>
       <div><label>{{ t('sign.email', lang) }}</label><input type="email" name="signer_email" value="{{ email }}" autocomplete="email"></div>
     </div>
     <label style="display:flex;gap:8px;align-items:flex-start;color:var(--ink);margin-top:14px"><input type="checkbox" name="agree" value="1" style="margin-top:4px"> {{ t('sign.agree_letter', lang) }}</label>

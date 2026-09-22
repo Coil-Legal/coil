@@ -104,6 +104,7 @@ T = {
         "sign.decline_confirm_letter": "Decline this engagement letter?",
         "sign.record_note": "Your name, IP address, browser, and the time of signing are recorded and attached to the signed copy.",
         "sign.err_name": "Type your full name and tick the box to confirm you agree.",
+        "sign.err_name_long": "Enter a signer name of 200 characters or fewer. Nothing has been signed.",
         "sign.err_agree_doc": "Please tick the box to confirm you have read the document and agree to sign it.",
         "sign.err_document_changed": "This document changed or is no longer available. Ask the firm to send a new signature request.",
         "sign.err_agree_letter": "Please tick the box to confirm you have read the letter and agree to its terms.",
@@ -281,6 +282,7 @@ T = {
         "sign.record_note": "Su nombre, dirección IP, navegador y la hora de la firma quedan registrados y se adjuntan a la "
                             "copia firmada.",
         "sign.err_name": "Escriba su nombre completo y marque la casilla para confirmar que está de acuerdo.",
+        "sign.err_name_long": "Escriba un nombre de 200 caracteres o menos. No se ha firmado nada.",
         "sign.err_agree_doc": "Marque la casilla para confirmar que ha leído el documento y acepta firmarlo.",
         "sign.err_document_changed": "Este documento cambió o ya no está disponible. Pida al despacho que envíe una nueva solicitud de firma.",
         "sign.err_agree_letter": "Marque la casilla para confirmar que ha leído la carta y acepta sus términos.",
