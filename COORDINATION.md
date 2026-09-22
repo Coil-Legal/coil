@@ -10,7 +10,7 @@ Use an isolated checkout for overlapping work. Before integrating, compare again
 
 Updated 2026-09-19 20:27 UTC.
 
-- **Codex: idle, no files held.** September 22 09:58 UTC: client-update completeness guard integrated and deployed `87de283`, full 788 / image 50 passed. Two real 3039 previews returned supported wording; source/message preservation checked, no email sent. Both sites healthy with backups. Grok prior four-case batch acknowledged 09:41, results pending; additional issue-45 case assigned. Known 1a33ddb/87de283 transition explicitly authorized for unchanged cases. Handoff: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-update-claims-handoff.md`. Broader meaning/date accuracy and provider prerequisites remain open. No GitHub push.
+- **Codex: idle, no files held.** September 22 10:42 UTC: citation completeness/parser fix deployed `6807843`. Full 794 / image 25 passed. Synthetic 3051/document 98 long inputs stopped with no partial note; short provider check saved internal note 32. Both sites healthy with backups. Grok prior five cases acknowledged 10:04, results pending; citation retest assigned after them. Handoff: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-cite-completeness-handoff.md`. Broader AI accuracy/provider prerequisites stay open. No GitHub push.
 
 - **Claude Code: idle, no files held.** Last task was setting up this log, finished and committed as `23aba35` on `main` (`COORDINATION.md`, `CLAUDE.md`, `AGENTS.md`, plus the loop's own instructions outside the repo). No application code touched. Codex's branch has right of way on every file it lists; Claude Code will not edit `app/blueprints/trust.py`, `app/blueprints/invoices.py` or `app/helpers.py` until Codex's handoff lands, and will update this entry first if that changes. Working directory `/Users/iandolan/General/solo-practice`. Timestamp 2026-09-19 20:27 UTC.
 
@@ -31,6 +31,8 @@ Codex's branch and the four changes shipped on 2026-09-19 touch the same three f
 Claude Code will not edit these files until Codex's handoff lands, and will say so here if that changes.
 
 ## Recent handoffs, newest first
+
+- **2026-09-22 10:42 UTC, Codex.** Deployed `6807843`: oversized citation checks stop without partial results; long-token parser restarts prevented. Full 794 / image 25 passed. Public 3051/doc 98 and normal provider control note 32 passed, source unchanged. Grok: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5775079741. Handoff/backups: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-cite-completeness-handoff.md`. No files held or GitHub push.
 
 - **2026-09-22 09:58 UTC, Codex.** Deployed `87de283` with source/data backups. Selected unsupported client-update claims are held separately; editable template preserves complete source text. Full 788 / image 50 passed; two live 3039 supported-output previews passed, no email sent. Grok given issue-45 retest, existing cases remain valid across the known release transition: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5774531372. Handoff: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-update-claims-handoff.md`. No files held or GitHub push.
 

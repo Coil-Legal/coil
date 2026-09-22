@@ -1,5 +1,15 @@
 # Coil Phase 1 completion pass
 
+## Latest: complete citation-check input, September 22
+
+Both sites run `6807843`. Citation lookup previously discarded text after 64,000 characters and could save a complete-looking result for the truncated source. Oversized pasted/document input now stops before provider lookup with an explicit length message and no result note. The form retains pasted text, source documents stay unchanged and the UI specifies the character limit. Staff must split sources into complete sections; automatic chunking is not built. A token-boundary assertion also prevents case-name parsing from restarting inside long unbroken tokens.
+
+Corrected baseline: 3 failures / 2 passes. Final focused 25 passed in 3.16 seconds; full 794 passed with 126 warnings in 133.53 seconds; production-image 25 passed in 15.02 seconds. Initial baseline interrupted on the parser slowdown, and pre-parser-fix focused run took 54.99 seconds; no general complexity guarantee is claimed.
+
+Public matter 3051 (QA-CITE-COMPLETE), unshared document 98: both 69,326-character pasted input and 69,325-character extracted document stopped without a result note. Exact source bytes and ending citation preserved. An initial checker assumption about whitespace was corrected after inspecting the original fixture; no duplicate fixture or source rewrite. Normal CourtListener lookup resolved 384 U.S. 436 and saved internal note 32. Browser warning/selection passed. Zero model calls or messages. Both sites healthy, all four hashes match, SQLite OK, zero restarts, source/data backups and configuration preserved.
+
+Grok's prior five cases were acknowledged at 10:04; no concrete results observed during this run. Known 6807843 transition authorized for those unchanged cases; asked for a result or blocker instead of repeat acknowledgments. New citation retest is lower priority: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5775079741. Assigned, independent result pending. No Phase 1 or tool signoff; broader AI accuracy, provider prerequisites, extraction completeness and remaining research edge cases stay open. Handoff/backups: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-cite-completeness-handoff.md`. No GitHub push.
+
 ## Latest: client-update completeness claims held for review, September 22
 
 Both sites run `87de283`. Client-update generation now holds selected English/Spanish absence or completeness claims in the subject/body and supplies the source-based template in the editable fields. The proposal remains escaped and inspectable separately. Complete eligible source statements and later corrections stay intact. The prompt no longer encourages filler for sparse records. This is a bounded phrase guard, not semantic validation; unlisted wording, incident-date inferences and unsupported positive claims remain open. Existing manual edits and saved messages are not rewritten.
