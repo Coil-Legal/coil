@@ -1,5 +1,11 @@
 # Coil Phase 1 completion pass
 
+## Latest: public invoice builder and independent PDF pass, September 22 18:07 UTC
+
+2026-09-22 18:07 UTC. Public 200-entry builder acceptance passed on unchanged 9d25324. New matter3058/control3059, invoice3038 (INV-1039), time41348 to41547 and lines10033 to10232: exact links/money, zero rates, seven-minute rounding, four controls and sequential replay passed. Draft/unpaid, 2466389 cents, six-page PDF text intact. Grok independently passed prior PDF case5781045202. New short no-model queue plus builder-result inspection assigned5781519971, not acknowledged. No application changes or deployment; main unpushed. Handoff: /Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-invoice-builder-live-handoff.md.
+
+The public form created the invoice from synthetic source entries. Exactly one creation audit; replay400, no duplicate invoice/lines. Four exclusion controls41548/41549/41550/41551 and synthetic prior invoice3037 preserved. No email, model call or charge. Prior PDF invoice3036 on matter3057 passed all three Grok sections at17:32:40 with identical before/after9d25324. Invoicing stays QA pending: independent builder creation, concurrency, long descriptions, template variants, split/resend and broader narrative checks remain. Existing Phase1 provider/AI gates remain open.
+
 ## Latest: local invoice builder acceptance, September 22 17:31 UTC
 
 2026-09-22 17:31 UTC. Local 200-entry invoice builder acceptance passed on unchanged 9d25324: zero rates, seven-minute rounding, duplicate IDs, four exclusion controls, exact source links and sequential replay. Total 2466389 cents, draft/unpaid, six-page PDF text intact. Existing billing checks 31 passed. Grok PDF case acknowledged 16:59, results pending; requested clarification of model-preview wait (5781028915). No application changes, deployment or public fixture mutation; main unpushed. Handoff: /Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-invoice-builder-handoff.md.

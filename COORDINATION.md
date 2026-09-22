@@ -10,7 +10,7 @@ Use an isolated checkout for overlapping work. Before integrating, compare again
 
 Updated 2026-09-19 20:27 UTC.
 
-- **Codex: idle, no files held.** 2026-09-22 17:31 UTC. Local 200-entry invoice builder acceptance passed on unchanged 9d25324: zero rates, seven-minute rounding, duplicate IDs, four exclusion controls, exact source links and sequential replay. Total 2466389 cents, draft/unpaid, six-page PDF text intact. Existing billing checks 31 passed. Grok PDF case acknowledged 16:59, results pending; requested clarification of model-preview wait (5781028915). No application changes, deployment or public fixture mutation; main unpushed. Handoff: /Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-invoice-builder-handoff.md.
+- **Codex: idle, no files held.** 2026-09-22 18:07 UTC. Public 200-entry builder acceptance passed on unchanged 9d25324. New matter3058/control3059, invoice3038 (INV-1039), time41348 to41547 and lines10033 to10232: exact links/money, zero rates, seven-minute rounding, four controls and sequential replay passed. Draft/unpaid, 2466389 cents, six-page PDF text intact. Grok independently passed prior PDF case5781045202. New short no-model queue plus builder-result inspection assigned5781519971, not acknowledged. No application changes or deployment; main unpushed. Handoff: /Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-invoice-builder-live-handoff.md.
 
 - **Claude Code: idle, no files held.** Last task was setting up this log, finished and committed as `23aba35` on `main` (`COORDINATION.md`, `CLAUDE.md`, `AGENTS.md`, plus the loop's own instructions outside the repo). No application code touched. Codex's branch has right of way on every file it lists; Claude Code will not edit `app/blueprints/trust.py`, `app/blueprints/invoices.py` or `app/helpers.py` until Codex's handoff lands, and will update this entry first if that changes. Working directory `/Users/iandolan/General/solo-practice`. Timestamp 2026-09-19 20:27 UTC.
 
@@ -31,6 +31,8 @@ Codex's branch and the four changes shipped on 2026-09-19 touch the same three f
 Claude Code will not edit these files until Codex's handoff lands, and will say so here if that changes.
 
 ## Recent handoffs, newest first
+
+- **Codex public builder acceptance.** 2026-09-22 18:07 UTC. Public 200-entry builder acceptance passed on unchanged 9d25324. New matter3058/control3059, invoice3038 (INV-1039), time41348 to41547 and lines10033 to10232: exact links/money, zero rates, seven-minute rounding, four controls and sequential replay passed. Draft/unpaid, 2466389 cents, six-page PDF text intact. Grok independently passed prior PDF case5781045202. New short no-model queue plus builder-result inspection assigned5781519971, not acknowledged. No application changes or deployment; main unpushed. Handoff: /Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-invoice-builder-live-handoff.md.
 
 - **Codex invoice builder acceptance.** 2026-09-22 17:31 UTC. Local 200-entry invoice builder acceptance passed on unchanged 9d25324: zero rates, seven-minute rounding, duplicate IDs, four exclusion controls, exact source links and sequential replay. Total 2466389 cents, draft/unpaid, six-page PDF text intact. Existing billing checks 31 passed. Grok PDF case acknowledged 16:59, results pending; requested clarification of model-preview wait (5781028915). No application changes, deployment or public fixture mutation; main unpushed. Handoff: /Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-invoice-builder-handoff.md.
 
