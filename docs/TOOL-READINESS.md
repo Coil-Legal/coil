@@ -129,6 +129,8 @@ Further checks:
 - A disposition after a plea to a lesser charge than the one filed.
 
 ### Discovery and depositions
+Current deployed evidence: QA loop source-resolution fix 4fdb41b is included in 0438bad. Codex still sees the false scarlet-door/uncertainty contradiction on deposition 14, now with an ambiguity warning. Citation correction is not semantic acceptance. Issue 46 remains a known semantic defect; separate Grok retest assigned.
+
 Current September 22 independent result: Grok confirmed false contradiction #46 on matter 3047/document 91/deposition 14. Citation and PDF case passes remain valid, but contradiction semantics are defective. Both statements need source-context validation; existing draft preserved. See current Phase 1 readiness.
 
 Current September 22 evidence: `16c533f` fixed transcript request coverage and condensation truncation. `f5135a3` checks unique exact quotes against source markers and warns on absent/repeated quotes; old saved drafts receive the same checks on viewing/export. Public fixtures 3041/3042, depositions 12/13, notes 26/27 and PDFs 88/90 passed the documented short samples and artifact text checks. Full local 727 and deployment-image 128 tests passed. Repeated/OCR-modified quotes still require manual source review; cross-part contradiction quality and independent QA remain open. Narrative date attribution is defective. This tool has no complete acceptance signoff.
@@ -141,6 +143,8 @@ Further checks:
 - A witness who contradicts himself and corrects it in the next answer. Should be reported as corrected, not as a contradiction.
 
 ### Research and cite check
+Current independent acceptance: Grok passed 390px/320px and keyboard save/export on 146ed23, unshared memo 96. Doc 84's earlier 404 was the bare unsupported URL; actual download passed. Edge citations and complete-tool signoff remain open.
+
 Current September 22 evidence: Grok passed keyboard search, court filter, opinion, save/note and literal memo text on 94d4c21, matter 3050/authority 2/document 94. Its 390px saved-authority overflow is fixed in `146ed23`, deployed to both sites. Codex passed 320px, 390px, 1280px and keyboard save/export; document 95 is unshared and its authenticated download preserves literal text. Full 752 and deployment-image 26 tests passed. Independent mobile retest is assigned, not yet acknowledged. Read-only current-release checks found reference document 84 present with working download and navigation links; documents 84/94/95 returned exact stored PDF bytes and literal notes, all unshared. Earlier 404 cause remains unestablished pending Grok's exact URL/session evidence. Edge citations and complete research signoff remain open.
 
 Resolved, not found, and the wrong-case pincite trap all correct. States plainly that it cannot say whether a case is still good law.
@@ -238,3 +242,7 @@ Further checks:
 ## Blocked on Ian, unchanged
 
 The GHCR package is private, so nobody can install Coil. `github.com/orgs/Coil-Legal/packages`, web UI only.
+
+## Invoice polish qualifier guard, September 22
+
+Release `0438bad` holds suggestions that change protected English qualifier markers and rechecks Apply atomically. Full 770 / deployment 45 tests passed. Public invoice 3035/line 9832 preserved complete rows and audits on unsafe submission; one real browser preview retained the sample limits and negatives. This is bounded phrase validation, not general semantic equivalence. Independent retest and broader factual acceptance remain open. See current Phase 1 readiness.
