@@ -316,12 +316,10 @@ def _cite_documents():
 
 
 def _cite_counts(items):
-    """(resolved, ambiguous, not found, wrong case). Four buckets, because they are four
-    different problems. "Wrong case" is the dangerous one: the reporter page is real and
-    belongs to some other case entirely, which is what a fabricated citation looks like."""
+    """Count database matches separately from uncertain source attribution."""
     res = [c["resolution"] for c in items]
     return (res.count("resolved"), res.count("ambiguous"), res.count("not_found"),
-            res.count("name_mismatch"))
+            res.count("name_mismatch"), res.count("source_uncertain"))
 
 
 def _candidate_label(c):
@@ -329,17 +327,22 @@ def _candidate_label(c):
 
 
 def _cite_note_body(items, source_label):
-    resolved, ambiguous, missing, mismatched = _cite_counts(items)
+    resolved, ambiguous, missing, mismatched, uncertain = _cite_counts(items)
     # [internal] marks this as attorney work product so it is never quoted into a client-facing draft
     # (app/blueprints/ai.py:update_facts reads that prefix).
     lines = [f"[internal] Citation check (CourtListener) on {date.today().strftime('%b %-d, %Y')}, "
              f"source: {source_label}.",
              f"{len(items)} citation{'s' if len(items) != 1 else ''} found, {resolved} resolved, "
              f"{ambiguous} ambiguous, {missing} not found"
-             + (f", {mismatched} pointing at a DIFFERENT case." if mismatched else ".")]
+             + (f", {mismatched} pointing at a DIFFERENT case" if mismatched else "")
+             + (f", {uncertain} source occurrences needing review" if uncertain else "") + "."]
     for c in items:
         if c["resolution"] == "resolved":
             tail = _candidate_label(c) or c["case_name"]
+        elif c["resolution"] == "source_uncertain":
+            tail = ("SOURCE OCCURRENCE NEEDS REVIEW. The database match could not be tied to "
+                    "a specific citation occurrence in the source. Check the case name and citation "
+                    "at each occurrence before filing.")
         elif c["resolution"] == "name_mismatch":
             tail = (f"WRONG CASE. This reporter page is real but belongs to "
                     f"{c['case_name']}, not {c.get('claimed_name') or 'the case named here'}. "
@@ -395,9 +398,10 @@ def cite_check():
         n = Note(matter_id=m.id, user_id=_uid(), body=_cite_note_body(items, source_label))
         db.session.add(n)
         db.session.flush()
-        resolved, ambiguous, missing, mismatched = _cite_counts(items)
+        resolved, ambiguous, missing, mismatched, uncertain = _cite_counts(items)
         audit("create", "note", n.id, f"citation check saved on {m.label}: {len(items)} citations, "
-              f"{ambiguous} ambiguous, {missing} not found, {mismatched} wrong case", _uid())
+              f"{ambiguous} ambiguous, {missing} not found, {mismatched} wrong case, "
+              f"{uncertain} source occurrences needing review", _uid())
         db.session.commit()
         ctx["note"] = n
     return render_template("research/cite_check.html", **ctx)

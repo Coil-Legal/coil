@@ -352,12 +352,28 @@ def _claimed_names(text):
     return [(m.end(), m.group(1).strip()) for m in _NAME_BEFORE_CITE.finditer(text or "")]
 
 
-def _name_for(text, citation, claims):
-    """The case name written just before this citation in the source text, if any."""
+def _citation_start(text, citation, start_index=None):
+    """Locate a specific occurrence, or a unique exact match when offsets are absent.
+
+    Never guess which repeated citation a provider result describes. Verify offsets
+    against the submitted text before using them, including Unicode character offsets.
+    """
+    text = text or ""
     if not citation:
-        return ""
-    i = (text or "").find(citation)
-    if i == -1:
+        return None
+    if (type(start_index) is int and 0 <= start_index < len(text)
+            and text.startswith(citation, start_index)):
+        return start_index
+    first = text.find(citation)
+    if first < 0 or text.find(citation, first + 1) >= 0:
+        return None
+    return first
+
+
+def _name_for(text, citation, claims, start_index=None):
+    """The case name immediately before a verified citation occurrence, if any."""
+    i = _citation_start(text, citation, start_index)
+    if i is None:
         return ""
     before = [(end, name) for end, name in claims if end <= i and i - end < 6]
     if not before:
@@ -389,8 +405,8 @@ def citation_lookup(text):
 
     `resolution` is the one to read: "resolved" for a confident single match, "ambiguous" when the
     citation matched more than one case (CourtListener answers 300 for those, and occasionally 200 with
-    several clusters), "not_found" for anything else including a 404. Only "resolved" means the reader
-    can stop checking; ambiguous and not_found both still need verifying before filing."""
+    several clusters), "not_found" for anything else including a 404. "source_uncertain" means the result could not be tied to a specific source occurrence.
+    "resolved" confirms a database match only; every citation still needs review before filing."""
     text = text or ""
     if len(text) > CITE_TEXT_CAP:
         return _error("input_too_long", f"This input contains {len(text):,} characters. The limit is "
@@ -424,18 +440,21 @@ def citation_lookup(text):
         # because it tells an attorney a fabricated cite has been checked.
         cite_str = it.get("citation") or (norm[0] if norm else "")
         actual_name = first.get("case_name") or first.get("case_name_full") or ""
-        claimed_name = _name_for(text, cite_str, claims)
+        source_index = _citation_start(text, cite_str, it.get("start_index"))
+        claimed_name = _name_for(text, cite_str, claims, source_index)
+        source_uncertain = resolved and source_index is None
         mismatch = bool(resolved and claimed_name and actual_name
                         and not _names_agree(claimed_name, actual_name))
-        if mismatch:
+        if mismatch or source_uncertain:
             resolved = False
         found.append({
             "claimed_name": claimed_name,
             "name_mismatch": mismatch,
+            "source_uncertain": source_uncertain,
             "citation": it.get("citation") or (norm[0] if norm else ""),
             "normalized": norm[0] if norm else (it.get("citation") or ""),
             "status": status,
-            "resolution": ("name_mismatch" if mismatch else
+            "resolution": ("source_uncertain" if source_uncertain else "name_mismatch" if mismatch else
                            "resolved" if resolved else ("ambiguous" if ambiguous else "not_found")),
             "found": resolved or ambiguous,
             "ambiguous": ambiguous,
