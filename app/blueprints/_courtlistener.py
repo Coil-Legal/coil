@@ -263,7 +263,9 @@ def search(q, court="", filed_after="", filed_before="", order_by="score desc", 
     q = (q or "").strip()
     if not q:
         return {"ok": True, "results": [], "count": 0, "next_cursor": ""}
-    params = {"q": q, "type": "o"}
+    # CourtListener otherwise searches only published opinions, even though our
+    # search page promises published and unpublished coverage.
+    params = {"q": q, "type": "o", "stat_Published": "on", "stat_Unpublished": "on"}
     court = " ".join(c for c in (court or "").replace(",", " ").split() if c)
     if court:
         params["court"] = court
@@ -287,7 +289,8 @@ def search(q, court="", filed_after="", filed_before="", order_by="score desc", 
 
 def search_cluster(cluster_id):
     """Metadata and snippet for one cluster through the search endpoint, which works without a token."""
-    out = _get("/search/", {"q": f"cluster_id:{int(cluster_id)}", "type": "o"})
+    out = _get("/search/", {"q": f"cluster_id:{int(cluster_id)}", "type": "o",
+                            "stat_Published": "on", "stat_Unpublished": "on"})
     if not out.get("ok"):
         return out
     results = (out["data"] or {}).get("results") or []

@@ -166,6 +166,7 @@ def test_client_builds_request_with_token_header(app, monkeypatch):
         assert out["ok"] and out["count"] == 2 and out["next_cursor"] == "abc123"
         assert seen["url"] == "https://www.courtlistener.com/api/rest/v4/search/"
         assert seen["params"] == {"q": "custodial interrogation", "type": "o", "court": "scotus",
+                                  "stat_Published": "on", "stat_Unpublished": "on",
                                   "filed_after": "1960-01-01", "filed_before": "1970-12-31", "order_by": "dateFiled desc"}
         assert seen["headers"]["Authorization"] == "Token firm-token-123"
         assert seen["timeout"] == 20
