@@ -1,5 +1,13 @@
 # Coil Phase 1 completion pass
 
+## Latest: citation party-name review, September 22
+
+Both sites run `1589dda`. The real provider and browser previously marked Zyx v. Arizona and Miranda v. Qwerty resolved against Miranda v. Arizona, 384 U.S. 436. A shared token anywhere in a caption hid a changed opposing party. Recognized captions now require a normalized name overlap on each corresponding side; partial/short/reversed comparisons that cannot meet this check receive name_uncertain and found=false. Page, internal note and audit counts retain the review status. Wholly different names keep their existing separate warning. No schema or provider-setting changes.
+
+Baseline 7 failures / 4 controls; focused 50, full 839 (126 warnings, 148.08 seconds), production-image 50 passed. Actual public original/reversed/Unicode four-case checks returned one resolved, two name reviews and one wrong case. Synthetic 3054 (QA-CITE-PARTIES), unshared document 103, internal note 34, audit 2671: warnings persisted and source row/bytes unchanged. Browser prior three-case sample now shows one resolved/two reviews. Zero model calls or external messages. Both sites healthy with backups, four exact hashes each, SQLite OK, zero restarts. All 421 staged tracked files matched the tested Git tree before deployment. Claude's unfinished ai.py and test_client_update_claims.py changes were preserved and excluded.
+
+Grok acknowledged all previous cases and publication extension at 14:11:47 on 1bf98d6 (5778068395). No concrete result arrived by the final check. New party-name retest assigned after that queue: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5778526975. Prior release transitions authorized; existing priorities preserved. The earlier invoice-result/blocker request was not repeated. This remains a bounded token comparison, not general case identity or good-law verification. Caption variants, shared words within both parties, extraction/OCR, broader AI facts and external prerequisites remain open. No tool or Phase 1 signoff. Handoff/backups: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-party-handoff.md`. Main unpushed.
+
 ## Latest: unpublished research coverage, September 22
 
 Both sites run `1bf98d6`. Search promised published and unpublished opinions but omitted CourtListener's explicit status flags, so the provider default excluded unpublished results. Regular search and search_cluster now request both categories. No routes, templates, schema or provider settings changed.
