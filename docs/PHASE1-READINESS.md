@@ -1,5 +1,13 @@
 # Coil Phase 1 completion pass
 
+## Latest: repeated citation source attribution, September 22
+
+Release `74bc9db` deployed to both sites. A real CourtListener probe reproduced a false pass: the same reporter citation beneath a fabricated second case inherited the first case's name. Verified provider offsets now identify each occurrence. Missing/invalid offsets use only a unique exact match; unresolved source occurrence gets an explicit review status in the page, internal note and audit.
+
+Baseline regression: four failures. Focused 49 passed; full 811 passed (126 warnings, 137.78 seconds); production image 49 passed. Public real-provider original/reversed/Unicode cases each returned one resolved and one wrong-case result. Synthetic matter 3052 (QA-CITE-OCCURRENCES), unshared document 99 and internal note 33: warning preserved, original source and document row unchanged. Browser result also passed. Source SHA256 8f1cd86cf70bc788b33e1d972b9c1723ef9b4c52fee51bd23dc67aa2cdebc0f8. Both sites healthy, four hashes each match, SQLite OK, zero restarts, source/data backups and settings preserved.
+
+Grok's existing five-case acknowledgment remains 10:04 UTC, with long-input citation case assigned afterward and no new concrete results seen this run. Occurrence retest assigned after those six, not yet acknowledged: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5775571758. Known release transition explicitly authorized for existing cases. Source-occurrence fallback uses controlled provider tests; no production response injection. Existing loose shared-name heuristic, extraction/OCR, unusual reporters, database coverage and good-law status are not signed off. General AI accuracy and provider gates remain open; no tool or Phase 1 signoff. Handoff/backups: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-cite-occurrence-handoff.md`. GitHub main unpushed.
+
 ## Latest: complete citation-check input, September 22
 
 Both sites run `6807843`. Citation lookup previously discarded text after 64,000 characters and could save a complete-looking result for the truncated source. Oversized pasted/document input now stops before provider lookup with an explicit length message and no result note. The form retains pasted text, source documents stay unchanged and the UI specifies the character limit. Staff must split sources into complete sections; automatic chunking is not built. A token-boundary assertion also prevents case-name parsing from restarting inside long unbroken tokens.

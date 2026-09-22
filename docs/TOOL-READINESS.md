@@ -6,7 +6,7 @@ Current deposition acceptance: `1a33ddb` holds uncertain, identical or source-un
 
 Current client-update acceptance: `87de283` holds selected absence/completeness claims and uses the full source-based template. Full 788 / production-image 50 tests passed; two actual previews on 3039 passed the supported-output sample. Rejection path is regression-tested, independent issue-45 retest pending. Broader AI factual accuracy remains defective. Handoff: `docs/PHASE1-READINESS.md`.
 
-Current research acceptance: `6807843` rejects oversized citation inputs without partial notes, preserves sources and avoids long-token parser restarts. Public 3051/document 98 and normal control note 32 passed; full 794 / image 25 tests passed. Grok retest pending; citation resolution is not good-law or full-tool signoff. Automatic chunking and extraction/OCR completeness remain outside this fix.
+Current research acceptance: `74bc9db` matches repeated reporter citations to their verified source occurrence; absent/invalid unresolvable positions are held for source review on page/note/audit. Real-provider original/reversed/Unicode and 3052/document 99/internal note 33 checks passed. Full 811 / image 49 tests passed. Prior long-input/parser fix and 3051/doc 98 remain intact. Grok both citation retests pending. Existing loose name comparison, extraction/OCR, unusual reporters and good-law status remain outside signoff. Latest queue: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5775571758.
 
 The per-tool descriptions below originated at `c547c9b` on September 12. They record earlier reports and follow-up ideas, not a current release signoff. Findings go to GitHub issues with the `QA finding` template.
 
