@@ -1,5 +1,16 @@
 # Coil Phase 1 completion pass
 
+## Latest: complete summary inputs, September 22
+
+Both sites run `0a21924`. AI summaries no longer silently cut messages at character 300 or cut the full prompt midway through a record. Oversized requests stop with a clear explanation and make no provider call. This limits large-matter summaries until a verified whole-record selection or chunking workflow exists. The review page shows its existing record-count limits and an expandable copy of the source context.
+
+Full local suite: 705 passed. Deployment-image suite: 93 passed. Both sites healthy, all three changed-file hashes match and SQLite integrity is OK. Four regression cases failed before the fix. Public fixture 3038 (`QA-AI-OVERFLOW`) returned the limit explanation with zero new model calls. Browser keyboard generation and source expansion passed on fixture 3037 (`QA-AI-CONTEXT`), retaining the full 512-character message and its later red-light correction.
+
+**Date attribution remains defective.** The latest live sample preserved the unknown incident date but assigned the message-record date to the earlier account and correction. Showing sources helps staff review; it is not an automatic factual validator. No full AI acceptance or Phase 1 completion is claimed. Next work is source-linked output design plus the remaining date-extraction/deposition checks.
+
+Grok has two new actionable retests: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5769344162. The earlier eight-case queue remains pending. Handoff and backups: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-summary-context-handoff.md`. Stripe test access, authentic handset SMS and independent acceptance gates are unchanged. The user-facing QA workbook is a dated snapshot at `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-qa-tracker/Coil-Legal-QA-Tracker.xlsx`.
+
+
 ## Latest: AI source isolation and research exports, September 21
 
 Both sites run `c2a413c`, including the `98ee5ca` fixes. Matter summaries use only messages filed to that matter, preventing another matter for the same client from supplying facts or displacing relevant messages. Research PDFs now preserve literal angle brackets and ampersands in names, notes and excerpts. No schema or provider changes.
