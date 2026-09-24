@@ -18,7 +18,8 @@ from jinja2 import TemplateError
 from ..extensions import db
 from ..models import (Firm, User, Contact, Matter, MatterParty, FlatFeeMilestone, ConflictCheck, IntakeLead,
                       LetterTemplate, FollowUpSequence, LeadSequence, Message, audit, now)
-from ..helpers import login_required, current_user, client_ip, parse_money, parse_date
+from sqlalchemy.exc import IntegrityError
+from ..helpers import login_required, current_user, client_ip, parse_money, parse_date, LOCK_RETRIES, is_lock_error
 from ..services.mail import send_email
 from .engagements import build_engagement, send_engagement
 
@@ -608,6 +609,13 @@ def _next_matter_number():
     return f"{prefix}{n}"
 
 
+def _is_matter_number_conflict(e):
+    """Two conversions (or two matters opened any other way) racing to read Firm.next_matter_number
+    before either commits can mint the same number; the loser's commit fails the unique constraint
+    on matters.number rather than a plain lock error. Worth the same retry as a lock."""
+    return isinstance(e, IntegrityError) and "matters.number" in str(getattr(e, "orig", None) or e)
+
+
 def _split_name(name):
     parts = (name or "").strip().split()
     if not parts:
@@ -666,135 +674,161 @@ def convert(id):
         flash("This lead was already converted.", "error")
         return redirect(url_for("intake.detail", id=lead.id))
 
-    # 1. contact
     mode = f.get("contact_mode", "new")
-    if mode == "existing":
-        contact = db.session.get(Contact, f.get("contact_id", type=int) or 0)
-        if not contact:
-            flash("Pick an existing contact or create a new one.", "error")
-            return redirect(url_for("intake.detail", id=lead.id))
-        contact.is_client = True
-        if not contact.email and lead.email:
-            contact.email = lead.email
-        if not contact.phone and lead.phone:
-            contact.phone = lead.phone
-        contact_created = False
-    else:
-        first, last = f.get("first_name", "").strip(), f.get("last_name", "").strip()
-        if not (first or last):
-            first, last = _split_name(lead.name)
-        contact = Contact(kind="person", first_name=first, last_name=last, email=f.get("email", lead.email).strip(),
-                          phone=f.get("phone", lead.phone).strip(), address=f.get("address", "").strip(),
-                          is_client=True, notes=f"From intake lead #{lead.id} ({lead.source})")
-        db.session.add(contact)
-        db.session.flush()
-        contact_created = True
-
-    # 2. conflict search, before the new matter and party exist
     adverse = f.get("adverse_party", lead.adverse_party).strip()
-    query_names = [lead.name, contact.display_name, adverse]
-    try:
-        hits = fuzzy_hits(query_names, exclude_contact_id=contact.id, exclude_lead_id=lead.id)
-    except ValueError as exc:
-        db.session.rollback()
-        flash(str(exc), "error")
-        return redirect(url_for("intake.detail", id=lead.id) + "#conflict")
-
-    # 2a. A conflict search that finds something has to be answered by a person before a
-    # matter exists. Opening one over an unresolved conflict is the kind of thing that ends
-    # in front of a disciplinary board, and "the software let me" is not a defence. The way
-    # past this is a waiver with a reason attached to a named user, not a warning nobody
-    # reads. A false positive is common and clearing one takes a sentence.
-    if hits and f.get("conflict_ack") != "1":
-        db.session.rollback()
-        names = ", ".join(sorted({h.get("name", "") for h in hits if h.get("name")})[:4])
-        flash(f"The conflict search found {len(hits)} possible hit{'s' if len(hits) != 1 else ''}"
-              + (f" ({names})" if names else "")
-              + ". Nothing was created. Review them, then convert again with the conflict box "
-                "ticked and a reason, which is recorded against your name.", "error")
-        return redirect(url_for("intake.detail", id=lead.id) + "#conflict")
-    waiver_reason = (f.get("conflict_reason") or "").strip()[:500] if hits else ""
-
-    if hits and not waiver_reason:
-        db.session.rollback()
-        flash("Enter a reason for the conflict waiver. Nothing was created.", "error")
-        return redirect(url_for("intake.detail", id=lead.id) + "#conflict")
-
-    # 3. matter
-    number = _next_matter_number()
     billing = f.get("billing_type", "flat")
     if billing not in ("flat", "hourly", "contingency", "hybrid"):
         billing = "flat"
-    matter = Matter(number=number, client_id=contact.id, name=f.get("matter_name", "").strip() or lead.name,
-                    practice_area=f.get("practice_area", "").strip() or lead.matter_type, status="open",
-                    opened_on=date.today(), responsible_user_id=f.get("responsible_user_id", type=int) or u.id,
-                    billing_type=billing, description=f.get("description", lead.description).strip(),
-                    sol_date=parse_date(f.get("sol_date")), sol_basis=f.get("sol_basis", "").strip())
-    flat = parse_money(f.get("flat_fee")) if billing in ("flat", "hybrid") else 0
-    matter.flat_fee_cents = flat
-    matter.hourly_rate_cents = parse_money(f.get("hourly_rate")) if billing in ("hourly", "hybrid") else 0
-    try:
-        matter.contingency_pct = float(f.get("contingency_pct") or 0) if billing in ("contingency", "hybrid") else 0.0
-    except ValueError:
-        matter.contingency_pct = 0.0
-    db.session.add(matter)
-    db.session.flush()
 
-    # 4. milestones
-    milestones_made = 0
-    if flat and f.get("split_milestones") == "1":
-        m1 = parse_money(f.get("milestone1_amount"))
-        m2 = parse_money(f.get("milestone2_amount"))
-        if not m1 and not m2:
-            m1 = flat // 2
-            m2 = flat - m1
-        elif not m2:
-            m2 = max(0, flat - m1)
-        elif not m1:
-            m1 = max(0, flat - m2)
-        db.session.add(FlatFeeMilestone(matter_id=matter.id, description=f.get("milestone1_desc", "").strip() or "Retainer on signing",
-                                        amount_cents=m1, sort=0, due_on=parse_date(f.get("milestone1_due"))))
-        db.session.add(FlatFeeMilestone(matter_id=matter.id, description=f.get("milestone2_desc", "").strip() or "Balance",
-                                        amount_cents=m2, sort=1, due_on=parse_date(f.get("milestone2_due"))))
-        milestones_made = 2
+    # Two owners (or two tabs) converting the same lead, or simply opening two matters at the same
+    # instant, can both read Firm.next_matter_number before either commits and mint the same matter
+    # number. SQLite then refuses whichever commit loses the race: a transient lock error, or a
+    # UNIQUE constraint violation on matters.number once the winner's row has already landed. Both
+    # are worth a few quick retries, redone from scratch against fresh data, rather than an
+    # unhandled 500 for whichever request lost the race.
+    for attempt in range(LOCK_RETRIES):
+        try:
+            db.session.refresh(lead)
+            if lead.status == "converted":
+                flash("Someone else converted this lead a moment ago.", "error")
+                return redirect(f"/matters/{lead.matter_id}" if lead.matter_id
+                                else url_for("intake.detail", id=lead.id))
 
-    # 5. adverse party
-    if adverse:
-        db.session.add(MatterParty(matter_id=matter.id, name=adverse, role="adverse", notes="From intake"))
+            # 1. contact
+            if mode == "existing":
+                contact = db.session.get(Contact, f.get("contact_id", type=int) or 0)
+                if not contact:
+                    flash("Pick an existing contact or create a new one.", "error")
+                    return redirect(url_for("intake.detail", id=lead.id))
+                contact.is_client = True
+                if not contact.email and lead.email:
+                    contact.email = lead.email
+                if not contact.phone and lead.phone:
+                    contact.phone = lead.phone
+                contact_created = False
+            else:
+                first, last = f.get("first_name", "").strip(), f.get("last_name", "").strip()
+                if not (first or last):
+                    first, last = _split_name(lead.name)
+                contact = Contact(kind="person", first_name=first, last_name=last, email=f.get("email", lead.email).strip(),
+                                  phone=f.get("phone", lead.phone).strip(), address=f.get("address", "").strip(),
+                                  is_client=True, notes=f"From intake lead #{lead.id} ({lead.source})")
+                db.session.add(contact)
+                db.session.flush()
+                contact_created = True
 
-    # 6. conflict check record
-    check = ConflictCheck(run_by_id=u.id, query="\n".join(n for n in [lead.name, adverse] if n),
-                          results_json=json.dumps(hits), matter_id=matter.id, contact_id=contact.id,
-                          outcome="waived" if hits else "clear",
-                          notes=(f"Run automatically when converting intake lead #{lead.id}."
-                                 + (f" Cleared to proceed by {u.name}: {waiver_reason}"
-                                    if hits else "")))
-    db.session.add(check)
-    db.session.flush()
+            # 2. conflict search, before the new matter and party exist
+            query_names = [lead.name, contact.display_name, adverse]
+            try:
+                hits = fuzzy_hits(query_names, exclude_contact_id=contact.id, exclude_lead_id=lead.id)
+            except ValueError as exc:
+                db.session.rollback()
+                flash(str(exc), "error")
+                return redirect(url_for("intake.detail", id=lead.id) + "#conflict")
 
-    # 7. lead
-    lead.status = "converted"
-    lead.stage = "won"
-    lead.lost_reason = ""
-    lead.contact_id = contact.id
-    lead.matter_id = matter.id
-    lead.conflict_check_id = check.id
+            # 2a. A conflict search that finds something has to be answered by a person before a
+            # matter exists. Opening one over an unresolved conflict is the kind of thing that ends
+            # in front of a disciplinary board, and "the software let me" is not a defence. The way
+            # past this is a waiver with a reason attached to a named user, not a warning nobody
+            # reads. A false positive is common and clearing one takes a sentence.
+            if hits and f.get("conflict_ack") != "1":
+                db.session.rollback()
+                names = ", ".join(sorted({h.get("name", "") for h in hits if h.get("name")})[:4])
+                flash(f"The conflict search found {len(hits)} possible hit{'s' if len(hits) != 1 else ''}"
+                      + (f" ({names})" if names else "")
+                      + ". Nothing was created. Review them, then convert again with the conflict box "
+                        "ticked and a reason, which is recorded against your name.", "error")
+                return redirect(url_for("intake.detail", id=lead.id) + "#conflict")
+            waiver_reason = (f.get("conflict_reason") or "").strip()[:500] if hits else ""
 
-    audit("create", "contact" if contact_created else "contact_link", contact.id, f"intake lead #{lead.id}", u.id)
-    audit("create", "matter", matter.id, f"{matter.number} {matter.name} from intake lead #{lead.id}", u.id)
-    audit("create", "conflict_check", check.id,
-          f"{check.outcome}, {len(hits)} hit(s)" + (f", waived: {waiver_reason}" if hits else ""), u.id)
-    audit("convert", "intake_lead", lead.id, f"contact {contact.id}, matter {matter.id}", u.id)
+            if hits and not waiver_reason:
+                db.session.rollback()
+                flash("Enter a reason for the conflict waiver. Nothing was created.", "error")
+                return redirect(url_for("intake.detail", id=lead.id) + "#conflict")
 
-    # 8. engagement letter
+            # 3. matter
+            number = _next_matter_number()
+            matter = Matter(number=number, client_id=contact.id, name=f.get("matter_name", "").strip() or lead.name,
+                            practice_area=f.get("practice_area", "").strip() or lead.matter_type, status="open",
+                            opened_on=date.today(), responsible_user_id=f.get("responsible_user_id", type=int) or u.id,
+                            billing_type=billing, description=f.get("description", lead.description).strip(),
+                            sol_date=parse_date(f.get("sol_date")), sol_basis=f.get("sol_basis", "").strip())
+            flat = parse_money(f.get("flat_fee")) if billing in ("flat", "hybrid") else 0
+            matter.flat_fee_cents = flat
+            matter.hourly_rate_cents = parse_money(f.get("hourly_rate")) if billing in ("hourly", "hybrid") else 0
+            try:
+                matter.contingency_pct = float(f.get("contingency_pct") or 0) if billing in ("contingency", "hybrid") else 0.0
+            except ValueError:
+                matter.contingency_pct = 0.0
+            db.session.add(matter)
+            db.session.flush()
+
+            # 4. milestones
+            milestones_made = 0
+            if flat and f.get("split_milestones") == "1":
+                m1 = parse_money(f.get("milestone1_amount"))
+                m2 = parse_money(f.get("milestone2_amount"))
+                if not m1 and not m2:
+                    m1 = flat // 2
+                    m2 = flat - m1
+                elif not m2:
+                    m2 = max(0, flat - m1)
+                elif not m1:
+                    m1 = max(0, flat - m2)
+                db.session.add(FlatFeeMilestone(matter_id=matter.id, description=f.get("milestone1_desc", "").strip() or "Retainer on signing",
+                                                amount_cents=m1, sort=0, due_on=parse_date(f.get("milestone1_due"))))
+                db.session.add(FlatFeeMilestone(matter_id=matter.id, description=f.get("milestone2_desc", "").strip() or "Balance",
+                                                amount_cents=m2, sort=1, due_on=parse_date(f.get("milestone2_due"))))
+                milestones_made = 2
+
+            # 5. adverse party
+            if adverse:
+                db.session.add(MatterParty(matter_id=matter.id, name=adverse, role="adverse", notes="From intake"))
+
+            # 6. conflict check record
+            check = ConflictCheck(run_by_id=u.id, query="\n".join(n for n in [lead.name, adverse] if n),
+                                  results_json=json.dumps(hits), matter_id=matter.id, contact_id=contact.id,
+                                  outcome="waived" if hits else "clear",
+                                  notes=(f"Run automatically when converting intake lead #{lead.id}."
+                                         + (f" Cleared to proceed by {u.name}: {waiver_reason}"
+                                            if hits else "")))
+            db.session.add(check)
+            db.session.flush()
+
+            # 7. lead
+            lead.status = "converted"
+            lead.stage = "won"
+            lead.lost_reason = ""
+            lead.contact_id = contact.id
+            lead.matter_id = matter.id
+            lead.conflict_check_id = check.id
+
+            audit("create", "contact" if contact_created else "contact_link", contact.id, f"intake lead #{lead.id}", u.id)
+            audit("create", "matter", matter.id, f"{matter.number} {matter.name} from intake lead #{lead.id}", u.id)
+            audit("create", "conflict_check", check.id,
+                  f"{check.outcome}, {len(hits)} hit(s)" + (f", waived: {waiver_reason}" if hits else ""), u.id)
+            audit("convert", "intake_lead", lead.id, f"contact {contact.id}, matter {matter.id}", u.id)
+
+            db.session.commit()
+            break
+        except Exception as e:
+            db.session.rollback()
+            if (is_lock_error(e) or _is_matter_number_conflict(e)) and attempt < LOCK_RETRIES - 1:
+                time.sleep(0.05 * (attempt + 1))
+                continue
+            flash("Another session converted a lead into a matter at the same moment and took this "
+                  "matter number. Nothing was created here; check the lead's status, then try "
+                  "converting again.", "error")
+            return redirect(url_for("intake.detail", id=lead.id))
+
+    # 8. engagement letter, only once the contact/matter/lead are safely committed, and only once
     engagement = None
     if f.get("send_engagement") == "1":
         db.session.expire(matter, ["milestones", "client", "responsible"])
         template = db.session.get(LetterTemplate, f.get("template_id", type=int) or 0)
         engagement = build_engagement(matter, template, scope=f.get("scope", "").strip(), user=u)
         engagement = send_engagement(engagement, u)
-
-    db.session.commit()
+        db.session.commit()
 
     bits = [f"{'Created' if contact_created else 'Linked'} client {contact.display_name}",
             f"opened matter {matter.number}"]
