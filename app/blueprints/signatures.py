@@ -10,12 +10,13 @@ remove the hook in portal.py.
 import hashlib
 import io
 import os
+import time
 from flask import Blueprint, render_template, request, redirect, url_for, flash, abort, current_app, send_file, Response
 from markupsafe import escape
 from ..extensions import db
 from ..models import (Firm, Contact, Matter, MatterParty, Document, DocumentSignature, DocumentSignatureEvent,
                       new_token, audit, now)
-from ..helpers import login_required, current_user, client_ip
+from ..helpers import login_required, current_user, client_ip, LOCK_RETRIES, is_lock_error
 from ..services.mail import send_email
 from ..services import pdf as pdfsvc
 from ..i18n import t, lang_for
@@ -162,7 +163,17 @@ def build_certificate_pdf(s):
     """Certificate of electronic signature: document identity, signer block, event log. Saved to PDF_DIR."""
     f = Firm.get()
     doc = s.document
+    matter = doc.matter if doc else None
     pdf = pdfsvc.DocPDF(f, title="Signature certificate")
+    # A typed signer name is free-text from a public form, so it is routinely outside cp1252
+    # (a Cyrillic or CJK name, an accented name past the invoice builders never see here).
+    # Decide the font before anything is written, same as every other PDF builder, or
+    # pdfsvc._clean() below falls back to latin-1 and prints question marks for it.
+    pdfsvc.reset_unicode()
+    pdfsvc.enable_unicode(pdf, f.name, doc.name if doc else "", matter.name if matter else "",
+                          s.signer_name, s.signer_email, s.signer_ua, s.sent_to,
+                          s.created_by.name if s.created_by else "",
+                          *[ev.detail for ev in s.events])
     pdf.add_page()
     pdf.set_font("Helvetica", "B", 14)
     pdf.cell(0, 8, "Certificate of electronic signature", new_x="LMARGIN", new_y="NEXT")
@@ -178,7 +189,6 @@ def build_certificate_pdf(s):
             pdf.multi_cell(0, 5, pdfsvc._clean(str(v or "")), new_x="LMARGIN", new_y="NEXT")
         pdf.ln(3)
 
-    matter = doc.matter if doc else None
     rows("Document", [
         ("Title", _display_title(s)), ("File name", doc.name if doc else ""),
         ("File size", f"{doc.size or 0} bytes" if doc else ""), ("Type", doc.mime if doc else ""),
@@ -429,19 +439,39 @@ def sign(token):
         return render_template("signatures/sign.html", name=name, email=email, error=error, **_ctx(s)), 400
     ts = now()
     ip = client_ip()
-    s.signature_hash = hashlib.sha256(f"{s.document_hash}{name}{ip}{ts.isoformat()}".encode("utf-8")).hexdigest()
-    s.signer_name = name
-    s.signer_email = email[:200]
-    s.signer_ip = ip
-    s.signer_ua = request.headers.get("User-Agent", "")[:300]
-    s.signed_at = ts
-    s.status = "signed"
-    db.session.add(DocumentSignatureEvent(signature_id=s.id, event="signed", ip=ip, ua=s.signer_ua,
-                                          detail=f"signed by {name}"))
-    audit("sign", "document_signature", s.id, f"{name} from {ip}")
-    db.session.flush()
-    s.certificate_pdf_path = build_certificate_pdf(s)
-    db.session.commit()
+    ua = request.headers.get("User-Agent", "")[:300]
+    # A signer can double-click Sign, or have the link open in two tabs, so two POSTs for the
+    # same token can commit at nearly the same instant. SQLite can refuse either one with a
+    # transient lock error even though nothing here actually conflicts; retry like the other
+    # money/record paths instead of a bare 500. Re-checking status inside the loop also covers
+    # the case where the other request simply won the race outright: rollback() expires `s`,
+    # so the recheck sees "signed" and this request shows the normal signed page instead of
+    # writing a second signature.
+    for attempt in range(LOCK_RETRIES):
+        try:
+            if s.status in ("signed", "void", "declined", "draft"):
+                return render_template("signatures/sign_status.html", **_ctx(s))
+            s.signature_hash = hashlib.sha256(f"{s.document_hash}{name}{ip}{ts.isoformat()}".encode("utf-8")).hexdigest()
+            s.signer_name = name
+            s.signer_email = email[:200]
+            s.signer_ip = ip
+            s.signer_ua = ua
+            s.signed_at = ts
+            s.status = "signed"
+            db.session.add(DocumentSignatureEvent(signature_id=s.id, event="signed", ip=ip, ua=ua,
+                                                  detail=f"signed by {name}"))
+            audit("sign", "document_signature", s.id, f"{name} from {ip}")
+            db.session.flush()
+            s.certificate_pdf_path = build_certificate_pdf(s)
+            db.session.commit()
+            break
+        except Exception as e:
+            db.session.rollback()
+            if is_lock_error(e) and attempt < LOCK_RETRIES - 1:
+                time.sleep(0.05 * (attempt + 1))
+                continue
+            error = t("sign.err_retry", lang_for(s.contact))
+            return render_template("signatures/sign.html", name=name, email=email, error=error, **_ctx(s)), 409
     _email_signed_copies(s, data)
     return render_template("signatures/sign_done.html", **_ctx(s))
 

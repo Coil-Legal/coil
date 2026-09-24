@@ -108,6 +108,7 @@ T = {
         "sign.err_agree_doc": "Please tick the box to confirm you have read the document and agree to sign it.",
         "sign.err_document_changed": "This document changed or is no longer available. Ask the firm to send a new signature request.",
         "sign.err_agree_letter": "Please tick the box to confirm you have read the letter and agree to its terms.",
+        "sign.err_retry": "This could not be saved because of a temporary conflict. Please try again.",
         "sign.done.title": "Signed",
         "sign.done.thanks": "Thank you, {name}",
         "sign.done.recorded_letter": "Your signature was recorded on {when} UTC. A signed copy has been emailed to {email} and to {firm}.",
@@ -286,6 +287,7 @@ T = {
         "sign.err_agree_doc": "Marque la casilla para confirmar que ha leído el documento y acepta firmarlo.",
         "sign.err_document_changed": "Este documento cambió o ya no está disponible. Pida al despacho que envíe una nueva solicitud de firma.",
         "sign.err_agree_letter": "Marque la casilla para confirmar que ha leído la carta y acepta sus términos.",
+        "sign.err_retry": "No se pudo guardar debido a un conflicto temporal. Vuelva a intentarlo.",
         "sign.done.title": "Firmado",
         "sign.done.thanks": "Gracias, {name}",
         "sign.done.recorded_letter": "Su firma quedó registrada el {when} UTC. Se ha enviado una copia firmada por correo "
