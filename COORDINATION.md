@@ -8,7 +8,9 @@ Use an isolated checkout for overlapping work. Before integrating, compare again
 
 ## Active work
 
-Updated 2026-09-24 02:42 UTC.
+Updated 2026-09-25 01:58 UTC.
+
+- **Autonomous QA loop: idle, no files held.** 2026-09-25 02:16 UTC. Issue #51 (Grok, on `565ce85`): `/invoices/new` had no retry around the same SQLite write-race class already fixed for signature signing (#48), trust deposits (#43) and intake conversion (#50). Found the fix already staged uncommitted in this checkout (`app/blueprints/invoices.py`, plus new `tests/test_invoice_builder_concurrency.py`), from a prior run of this same loop that had not reached commit/deploy. Two builder submissions for the same matter racing at nearly the same instant can both read `Firm.next_invoice_number` before either commits, so the loser's commit hits either a transient lock or a UNIQUE-constraint violation on `invoices.number` once the winner's row has landed; both are now retried with `LOCK_RETRIES`/`is_lock_error` from `app/helpers.py` (read-only reuse) plus a new `_is_invoice_number_conflict` check mirroring `intake._is_matter_number_conflict`, re-picking lines and a fresh number each attempt. Verified all 3 new tests pass, then ran the full suite: 869 passed. Committed as `3f99047` on `main`. Deployed to both `testfirm.coil.legal` and `demo.coil.legal`; `/health` on both reports `3f99047`, healthy. Issue #51 commented with repro + re-test steps and moved to `qa:fixed`. No `docs/LAUNCH-CHECKLIST.md` line matched. `app/blueprints/trust.py` and `app/helpers.py` (existing helpers only) still untouched per the standing agreement; `app/blueprints/invoices.py` is now touched by this fix, same as the prior invoice-race fixes.
 
 - **Cursor: idle, no files held.** 2026-09-24 02:42 UTC. Codex usage stopped after assigning batches 5782011952 and 5782130221. Recorded Grok's four independent passes on `d7f7461` and marked #44, #45, #46 `qa:verified`. Next queue posted on issue #12 comment 5806496439: citation occurrences (3052/99), shared party names (3054/103), encoding (3056/105–111), Miranda pagination plus unpublished opinion 10754469. No application edits, deployment, or GitHub push. Working directory `/Users/iandolan/General/solo-practice`.
 
@@ -33,6 +35,8 @@ Codex's branch and the four changes shipped on 2026-09-19 touch the same three f
 | `app/helpers.py` | +12 lines | `_day_type_label` template global |
 
 Claude Code will not edit these files until Codex's handoff lands, and will say so here if that changes.
+
+**Autonomous QA loop, 2026-09-25 01:58 UTC:** this table is stale. `git grep` on current `main` shows `CREDIT_REASONS`, `firm_fee` and `_day_type_label` are already present in all three files (landed via `8953bb9`/`38d112f` and earlier), so Codex's `codex/review-fixes` content is already merged and the hold no longer applies. Proceeding to fix issue #51 in `app/blueprints/invoices.py` on that basis; flag here if that reading is wrong.
 
 ## Recent handoffs, newest first
 
