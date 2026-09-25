@@ -3,6 +3,7 @@ approval workflow, interest on overdue balances, detail, edit, send, PDF, public
 import json
 import os
 import secrets
+import time
 from datetime import date, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 from html import escape
@@ -11,12 +12,13 @@ from flask import (Blueprint, render_template, request, redirect, url_for, flash
                    send_file, Response)
 from fpdf.fonts import FontFace
 from werkzeug.datastructures import MultiDict
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
 from ..extensions import db
 from ..models import (Firm, Matter, Invoice, InvoiceLine, InvoiceEvent, CreditNote, TimeEntry, Expense,
                       FlatFeeMilestone, User, audit, now)
 from ..helpers import (login_required, current_user, parse_money, parse_date, client_ip, cents_to_str,
-                        UNUSUAL_INVOICE_CENTS, CURRENCY_SYMBOLS)
+                        UNUSUAL_INVOICE_CENTS, CURRENCY_SYMBOLS, LOCK_RETRIES, is_lock_error)
 from ..i18n import lang_for
 from ..services.mail import send_email
 from ..services.pdf import DocPDF, save_pdf, enable_unicode, reset_unicode, unicode_on, mark_unsupported
@@ -107,6 +109,13 @@ def _next_number(firm):
     number = f"{firm.invoice_prefix or ''}{firm.next_invoice_number}"
     firm.next_invoice_number = (firm.next_invoice_number or 1000) + 1
     return number
+
+
+def _is_invoice_number_conflict(e):
+    """Two builder submissions racing to read Firm.next_invoice_number before either commits can
+    mint the same number; the loser's commit fails the unique constraint on invoices.number rather
+    than a plain lock error. Worth the same retry as a lock (see intake._is_matter_number_conflict)."""
+    return isinstance(e, IntegrityError) and "invoices.number" in str(getattr(e, "orig", None) or e)
 
 
 # ---------------------------------------------------------------- invoice template (Settings > Invoice template)
@@ -621,9 +630,28 @@ def new():
     if not ctx["payers_ok"]:
         flash("Split payers on this matter do not add up to 100%. Fix the payers on the matter first.", "error")
         return render_template("invoices/new.html", **ctx), 400
-    created = create_invoices(matter, u, lines, picked_time, picked_expenses, picked_milestones, issued_on, due_on,
-                              notes=(f.get("notes") or "").strip())
-    db.session.commit()
+
+    # Two builder submissions for the same matter at nearly the same instant (a double-click, or
+    # two tabs) can both read Firm.next_invoice_number before either commits. SQLite then refuses
+    # whichever commit loses the race: a transient lock error, or a unique constraint violation on
+    # invoices.number once the winner's row has already landed. Both are worth a few quick retries
+    # against a fresh number rather than an unhandled 500 for whoever lost the race.
+    for attempt in range(LOCK_RETRIES):
+        try:
+            if attempt:
+                lines, picked_time, picked_expenses, picked_milestones = _lines_from_form(matter, ctx, f, issued_on)
+            created = create_invoices(matter, u, lines, picked_time, picked_expenses, picked_milestones, issued_on,
+                                      due_on, notes=(f.get("notes") or "").strip())
+            db.session.commit()
+            break
+        except Exception as e:
+            db.session.rollback()
+            if (is_lock_error(e) or _is_invoice_number_conflict(e)) and attempt < LOCK_RETRIES - 1:
+                time.sleep(0.05 * (attempt + 1))
+                continue
+            flash("Another session created an invoice for this matter at the same moment and took "
+                  "this invoice number. Nothing was created here; try again.", "error")
+            return render_template("invoices/new.html", **ctx), 400
     inv = created[0]
     if len(created) > 1:
         flash(f"Built {len(created)} split invoices ({', '.join(i.number for i in created)}) as drafts.", "ok")
