@@ -7,7 +7,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from sqlalchemy import func
 from ..extensions import db
 from ..models import Invoice, InvoiceEvent, Payment, TrustTransaction, Contact, Firm, audit
-from ..helpers import login_required, current_user, parse_money, parse_date, cents_to_str, client_ip
+from ..helpers import login_required, current_user, parse_money, parse_date, cents_to_str, fmt_money, client_ip
 from . import _stripe
 
 bp = Blueprint("payments", __name__)
@@ -77,7 +77,7 @@ def record():
         flash("Method must be check, cash, wire or other. Card and bank payments come in through Stripe.", "error")
         return back
     if amount > inv.balance_cents:
-        flash(f"That is more than the invoice balance of {cents_to_str(inv.balance_cents)}. "
+        flash(f"That is more than the invoice balance of {fmt_money(inv.balance_cents, inv.currency)}. "
               f"Record the balance and note the overpayment separately.", "error")
         return back
     uid = current_user().id
@@ -88,10 +88,11 @@ def record():
     inv.payments.append(p)
     db.session.flush()
     inv.recalc()
-    db.session.add(InvoiceEvent(invoice_id=inv.id, event="paid", detail=f"{cents_to_str(amount)} by {method}"))
-    audit("payment_record", "invoice", inv.id, f"{cents_to_str(amount)} {method} {p.reference}", uid)
+    db.session.add(InvoiceEvent(invoice_id=inv.id, event="paid",
+                                detail=f"{fmt_money(amount, inv.currency)} by {method}"))
+    audit("payment_record", "invoice", inv.id, f"{fmt_money(amount, inv.currency)} {method} {p.reference}", uid)
     db.session.commit()
-    flash(f"Recorded {cents_to_str(amount)} {method} payment on {inv.number}.", "ok")
+    flash(f"Recorded {fmt_money(amount, inv.currency)} {method} payment on {inv.number}.", "ok")
     return back
 
 
