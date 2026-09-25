@@ -78,6 +78,25 @@ def sent_invoice(app):
         return inv.id
 
 
+@pytest.fixture
+def sent_eur_invoice(app):
+    """A sent EUR 500 invoice with nothing paid on it."""
+    from app.extensions import db
+    from app.models import Invoice, InvoiceLine, Matter
+    with app.app_context():
+        m = Matter.query.first()
+        inv = Invoice(number=f"CNE-{next(_seq):04d}", matter_id=m.id,
+                      client_id=m.client_id, status="sent", issued_on=date.today(), tax_cents=0,
+                      currency="EUR")
+        db.session.add(inv)
+        db.session.flush()
+        db.session.add(InvoiceLine(invoice_id=inv.id, description="Services", amount_cents=50000, kind="fee"))
+        db.session.flush()
+        inv.recalc()
+        db.session.commit()
+        return inv.id
+
+
 def _inv(app, iid):
     from app.models import Invoice
     from app.extensions import db
@@ -244,3 +263,41 @@ def test_the_invoice_page_shows_credits_apart_from_payments(app, client, sent_in
     page = client.get(f"/invoices/{sent_invoice}").data.decode()
     assert "Credited" in page and "not collected" in page
     assert "Goodwill on the May bill" in page
+
+
+# ------------------------------------------------------------------ non-USD invoices
+def test_credit_flash_uses_the_invoice_currency(app, client, sent_eur_invoice):
+    """A credit on a EUR invoice must be reported in EUR, not defaulted to USD."""
+    r = post(client, f"/invoices/{sent_eur_invoice}/credit", {"amount": "50.00", "reason": "courtesy"})
+    body = r.data.decode()
+    assert "now shows €450.00 outstanding" in body
+
+
+def test_void_credit_flash_uses_the_invoice_currency(app, client, sent_eur_invoice):
+    from app.models import CreditNote
+    post(client, f"/invoices/{sent_eur_invoice}/credit", {"amount": "50.00", "reason": "courtesy"})
+    with app.app_context():
+        cid = CreditNote.query.order_by(CreditNote.id.desc()).first().id
+    r = post(client, f"/invoices/credit/{cid}/void", {})
+    body = r.data.decode()
+    assert "€50.00 is owed again" in body
+
+
+def test_paid_in_full_and_below_zero_errors_use_the_invoice_currency(app, client, sent_eur_invoice):
+    from app.extensions import db
+    from app.models import Invoice, Payment
+    r = post(client, f"/invoices/{sent_eur_invoice}/credit", {"amount": "600.00", "reason": "courtesy"})
+    body = r.data.decode()
+    assert "below zero" in body
+    assert "has €500.00 outstanding" in body
+    with app.app_context():
+        inv = db.session.get(Invoice, sent_eur_invoice)
+        db.session.add(Payment(invoice_id=inv.id, matter_id=inv.matter_id, client_id=inv.client_id,
+                               amount_cents=50000, method="check", account="operating"))
+        db.session.flush()
+        inv.recalc()
+        db.session.commit()
+    r = post(client, f"/invoices/{sent_eur_invoice}/credit", {"amount": "10.00", "reason": "courtesy"})
+    body = r.data.decode()
+    assert "paid in full" in body
+    assert "refunding €500.00" in body

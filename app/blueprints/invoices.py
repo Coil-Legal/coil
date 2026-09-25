@@ -1059,12 +1059,12 @@ def credit(id):
         # refund yet, and pretending otherwise would leave the books claiming a reduction
         # the client never received.
         flash(f"{inv.number} is paid in full. Reducing it now means refunding "
-              f"{cents_to_str(inv.paid_cents)}, which moves real money, so Coil will not do it "
+              f"{fmt_money(inv.paid_cents, inv.currency)}, which moves real money, so Coil will not do it "
               f"with a credit note. Record the refund through the account it was paid into.", "error")
         return back
     if amount > inv.balance_cents:
-        flash(f"{inv.number} has {cents_to_str(inv.balance_cents)} outstanding. A credit of "
-              f"{cents_to_str(amount)} would take it below zero, which would leave the client "
+        flash(f"{inv.number} has {fmt_money(inv.balance_cents, inv.currency)} outstanding. A credit of "
+              f"{fmt_money(amount, inv.currency)} would take it below zero, which would leave the client "
               f"holding a credit balance. Credit the balance, or refund the difference.", "error")
         return back
     if reason not in dict(CREDIT_REASONS):
@@ -1080,10 +1080,11 @@ def credit(id):
     db.session.expire(inv, ["credit_notes"])
     inv.recalc()
     audit("credit_note", "invoice", inv.id,
-          f"{cn.number}: {cents_to_str(amount)} against {inv.number} ({dict(CREDIT_REASONS)[reason]})"
+          f"{cn.number}: {fmt_money(amount, inv.currency)} against {inv.number} ({dict(CREDIT_REASONS)[reason]})"
           + (f" - {note}" if note else ""), current_user().id)
     db.session.commit()
-    flash(f"{cn.number} issued. {inv.number} now shows {cents_to_str(inv.balance_cents)} outstanding.", "ok")
+    flash(f"{cn.number} issued. {inv.number} now shows {fmt_money(inv.balance_cents, inv.currency)} outstanding.",
+          "ok")
     return back
 
 
@@ -1102,9 +1103,10 @@ def void_credit(cid):
     db.session.expire(inv, ["credit_notes"])
     inv.recalc()
     audit("credit_note_void", "invoice", inv.id,
-          f"{cn.number} voided, {cents_to_str(cn.total_cents)} back onto {inv.number}", current_user().id)
+          f"{cn.number} voided, {fmt_money(cn.total_cents, inv.currency)} back onto {inv.number}",
+          current_user().id)
     db.session.commit()
-    flash(f"{cn.number} voided. {cents_to_str(cn.total_cents)} is owed again on {inv.number}.", "ok")
+    flash(f"{cn.number} voided. {fmt_money(cn.total_cents, inv.currency)} is owed again on {inv.number}.", "ok")
     return redirect(url_for("invoices.detail", id=inv.id))
 
 
