@@ -16,7 +16,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
 from ..extensions import db
 from ..models import (Firm, Matter, Invoice, InvoiceLine, InvoiceEvent, CreditNote, TimeEntry, Expense,
-                      FlatFeeMilestone, User, audit, now)
+                      FlatFeeMilestone, PaymentPlan, User, audit, now)
 from ..helpers import (login_required, current_user, parse_money, parse_date, client_ip, cents_to_str,
                         UNUSUAL_INVOICE_CENTS, CURRENCY_SYMBOLS, LOCK_RETRIES, is_lock_error)
 from ..i18n import lang_for
@@ -1082,6 +1082,12 @@ def credit(id):
     audit("credit_note", "invoice", inv.id,
           f"{cn.number}: {fmt_money(amount, inv.currency)} against {inv.number} ({dict(CREDIT_REASONS)[reason]})"
           + (f" - {note}" if note else ""), current_user().id)
+    if inv.balance_cents <= 0:
+        plan = PaymentPlan.query.filter(PaymentPlan.invoice_id == inv.id,
+                                        PaymentPlan.status.in_(["active", "paused", "failed"])).first()
+        if plan:
+            plan.status = "completed"
+            audit("plan_completed_by_credit", "payment_plan", plan.id, inv.number, current_user().id)
     db.session.commit()
     flash(f"{cn.number} issued. {inv.number} now shows {fmt_money(inv.balance_cents, inv.currency)} outstanding.",
           "ok")
@@ -1106,7 +1112,13 @@ def void_credit(cid):
           f"{cn.number} voided, {fmt_money(cn.total_cents, inv.currency)} back onto {inv.number}",
           current_user().id)
     db.session.commit()
-    flash(f"{cn.number} voided. {fmt_money(cn.total_cents, inv.currency)} is owed again on {inv.number}.", "ok")
+    msg = (f"{cn.number} voided. {fmt_money(cn.total_cents, inv.currency)} is owed again on {inv.number}.")
+    # A plan completed because this credit settled the invoice stays completed. Reopening it
+    # silently would restart reminders the client was told had ended; the attorney decides.
+    if PaymentPlan.query.filter_by(invoice_id=inv.id, status="completed").first() and inv.balance_cents > 0:
+        msg += (" The payment plan on this invoice stays completed. Set up a new plan if the client is "
+                "paying the rest in installments.")
+    flash(msg, "ok")
     return redirect(url_for("invoices.detail", id=inv.id))
 
 

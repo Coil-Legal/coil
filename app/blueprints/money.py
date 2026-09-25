@@ -743,6 +743,9 @@ def plan_remind_now(plan_id):
     if plan.status not in ("active", "paused", "failed"):
         flash(f"The plan is {plan.status}.", "error")
         return back
+    if plan.invoice and plan.invoice.balance_cents <= 0:
+        flash("This invoice has nothing left to pay. There is no reminder to send.", "error")
+        return back
     to = send_plan_reminder(plan)
     if not to:
         flash("The client has no email address.", "error")
