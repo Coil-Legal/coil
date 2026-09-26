@@ -566,7 +566,8 @@ def invoices():
 def invoice_create():
     """Draft only, same as the bulk-invoice screen: every unbilled time entry, expense
     and due milestone on the matter. Never sends; status is always 'draft'."""
-    from .invoices import build_for_matter
+    from .invoices import build_for_matter, _is_invoice_number_conflict
+    from ..helpers import LOCK_RETRIES, is_lock_error
     b = _body()
     u = g.api_user
     try:
@@ -590,13 +591,27 @@ def invoice_create():
             return _error(400, f"{field} must be a valid date in YYYY-MM-DD format.")
         dates[field] = parsed
     issued_on, due_on = dates["issued_on"], dates["due_on"]
-    try:
-        created = build_for_matter(m, u, issued_on, due_on)
-    except ValueError as e:
-        return _error(400, str(e))
-    if not created:
-        return _error(400, "Nothing unbilled on this matter to invoice.")
-    db.session.commit()
+    # Two simultaneous POSTs for the same matter can both read Firm.next_invoice_number before
+    # either commits, same race already retried on the builder screen (#51). Re-read what is
+    # unbilled on every attempt: the loser's retry will see nothing left once the winner lands.
+    for attempt in range(LOCK_RETRIES):
+        try:
+            created = build_for_matter(m, u, issued_on, due_on)
+        except ValueError as e:
+            return _error(400, str(e))
+        if not created:
+            return _error(400, "Nothing unbilled on this matter to invoice.")
+        try:
+            db.session.commit()
+            break
+        except Exception as e:
+            db.session.rollback()
+            if (is_lock_error(e) or _is_invoice_number_conflict(e)) and attempt < LOCK_RETRIES - 1:
+                _time.sleep(0.05 * (attempt + 1))
+                continue
+            return _error(400, "Another request created an invoice for this matter at the same "
+                                "moment and took this invoice number. Nothing was created here; "
+                                "try again.")
     return jsonify({"invoices": [invoice_json(i) for i in created]}), 201
 
 
