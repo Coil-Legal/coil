@@ -592,18 +592,21 @@ def invoice_create():
         dates[field] = parsed
     issued_on, due_on = dates["issued_on"], dates["due_on"]
     # Two simultaneous POSTs for the same matter can both read Firm.next_invoice_number before
-    # either commits, same race already retried on the builder screen (#51). Re-read what is
-    # unbilled on every attempt: the loser's retry will see nothing left once the winner lands.
+    # either commits, same race already retried on the builder screen (#51). The number collision
+    # can surface either at commit or, since build_for_matter() flushes to get the new invoice's
+    # id, during build_for_matter() itself, so both are covered by the one try below rather than
+    # splitting the call from the commit. Re-read what is unbilled on every attempt: the loser's
+    # retry will see nothing left once the winner lands.
     for attempt in range(LOCK_RETRIES):
         try:
             created = build_for_matter(m, u, issued_on, due_on)
-        except ValueError as e:
-            return _error(400, str(e))
-        if not created:
-            return _error(400, "Nothing unbilled on this matter to invoice.")
-        try:
+            if not created:
+                return _error(400, "Nothing unbilled on this matter to invoice.")
             db.session.commit()
             break
+        except ValueError as e:
+            db.session.rollback()
+            return _error(400, str(e))
         except Exception as e:
             db.session.rollback()
             if (is_lock_error(e) or _is_invoice_number_conflict(e)) and attempt < LOCK_RETRIES - 1:

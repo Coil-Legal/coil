@@ -87,6 +87,32 @@ def test_a_number_collision_is_retried_not_500(app, monkeypatch):
         assert len(rows) == 1, "the retry must not leave a duplicate invoice behind"
 
 
+def test_a_number_collision_at_flush_is_retried_not_500(app, monkeypatch):
+    """Cursor's retest of the first fix (comment 5844281606): create_invoices() flushes right after
+    adding the new Invoice, to get its id, before the route ever reaches db.session.commit(). A
+    number collision can raise there, inside build_for_matter(), not only at the final commit. The
+    first fix wrapped only commit() in the retry, so this path was still an unhandled 500."""
+    from app.extensions import db
+    client, headers = invoice_client(app)
+    real_flush = db.session.flush
+    calls = {"n": 0}
+
+    def flaky_flush():
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise IntegrityError("flush", {}, Exception("UNIQUE constraint failed: invoices.number"))
+        return real_flush()
+
+    monkeypatch.setattr(db.session, "flush", flaky_flush)
+    r = post_invoice(client, headers)
+    assert r.status_code == 201, r.data[:300]
+
+    from app.models import Invoice
+    with app.app_context():
+        rows = Invoice.query.filter_by(matter_id=1).all()
+        assert len(rows) == 1, "the retry must not leave a duplicate invoice behind"
+
+
 def test_retries_exhausted_is_a_clean_error_not_a_crash(app, monkeypatch):
     """When every retry loses the race, the caller gets a normal 400, never an unhandled exception,
     and no partial invoice is left behind."""
