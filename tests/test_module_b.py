@@ -298,6 +298,16 @@ def test_detail_shows_payment_and_trust_forms(app, client):
     assert r.status_code == 200 and b"read-only" in r.data
 
 
+def test_topbar_actions_wrap_instead_of_running_off_a_390px_screen(client):
+    """Found on the invoice detail page at 390px: Send and Void ran off the right edge because
+    .main (a CSS grid column) has an automatic min-width equal to its widest line of content,
+    so the wide row of action buttons blew out the grid track instead of wrapping. min-width:0
+    lets the track shrink to the assigned column width so the already-flex-wrap .actions row
+    wraps within it, the same fix already used for research/saved.html."""
+    css = client.get("/static/app.css").data.decode()
+    assert re.search(r"\.main\{[^}]*min-width:0", css)
+
+
 def test_builder_hybrid_and_contingency(app, client):
     db, M = _models()
     with app.app_context():

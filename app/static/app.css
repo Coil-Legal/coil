@@ -9,7 +9,7 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 .sidebar a.nav:hover,.sidebar a.nav.active{background:#26364a;color:#fff;text-decoration:none}
 .sidebar .sec{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:#7f8c9b;margin:14px 10px 4px}
 .sidebar .user{margin-top:18px;border-top:1px solid #2c3a4b;padding-top:12px;font-size:.85rem;color:#9fb0c2}
-.main{padding:22px 28px;max-width:1300px;width:100%}
+.main{padding:22px 28px;max-width:1300px;width:100%;min-width:0}
 .topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px;flex-wrap:wrap}
 h1{font-size:1.45rem;margin:0}h2{font-size:1.15rem;margin:0 0 10px}h3{font-size:1rem;margin:0 0 8px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;margin-bottom:16px}
