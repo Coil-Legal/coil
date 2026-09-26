@@ -118,6 +118,13 @@ def _is_invoice_number_conflict(e):
     return isinstance(e, IntegrityError) and "invoices.number" in str(getattr(e, "orig", None) or e)
 
 
+def _is_credit_note_number_conflict(e):
+    """Same race, one table over: two credit requests against the same invoice can both read
+    Firm.next_credit_note_number before either commits, so the loser's commit fails the unique
+    constraint on credit_notes.number rather than a plain lock error."""
+    return isinstance(e, IntegrityError) and "credit_notes.number" in str(getattr(e, "orig", None) or e)
+
+
 # ---------------------------------------------------------------- invoice template (Settings > Invoice template)
 COLUMN_KEYS = ["date", "description", "timekeeper", "code", "qty", "rate", "amount"]
 COLUMN_TITLES = {"date": "Date", "description": "Description", "timekeeper": "Tk", "code": "Code", "qty": "Qty",
@@ -1053,42 +1060,62 @@ def credit(id):
     if amount <= 0:
         flash("Enter a positive amount to credit.", "error")
         return back
-    if (inv.paid_cents or 0) >= (inv.total_cents or 0):
-        # Crediting money that already arrived is a promise to send it back. That is a
-        # refund: it moves cash and reverses posted income. Coil has no operating-account
-        # refund yet, and pretending otherwise would leave the books claiming a reduction
-        # the client never received.
-        flash(f"{inv.number} is paid in full. Reducing it now means refunding "
-              f"{fmt_money(inv.paid_cents, inv.currency)}, which moves real money, so Coil will not do it "
-              f"with a credit note. Record the refund through the account it was paid into.", "error")
-        return back
-    if amount > inv.balance_cents:
-        flash(f"{inv.number} has {fmt_money(inv.balance_cents, inv.currency)} outstanding. A credit of "
-              f"{fmt_money(amount, inv.currency)} would take it below zero, which would leave the client "
-              f"holding a credit balance. Credit the balance, or refund the difference.", "error")
-        return back
     if reason not in dict(CREDIT_REASONS):
         reason = "other"
     firm = Firm.get()
-    cn = CreditNote(number=_next_credit_number(firm), invoice_id=inv.id, matter_id=inv.matter_id,
-                    client_id=inv.client_id, issued_on=date.today(), total_cents=amount,
-                    reason=reason, note=note, status="issued", created_by_id=current_user().id)
-    db.session.add(cn)
-    db.session.flush()
-    # The backref is loaded eagerly, so the invoice is still holding the list from before
-    # this credit existed. Drop it or recalc will not see the money come off.
-    db.session.expire(inv, ["credit_notes"])
-    inv.recalc()
-    audit("credit_note", "invoice", inv.id,
-          f"{cn.number}: {fmt_money(amount, inv.currency)} against {inv.number} ({dict(CREDIT_REASONS)[reason]})"
-          + (f" - {note}" if note else ""), current_user().id)
-    if inv.balance_cents <= 0:
-        plan = PaymentPlan.query.filter(PaymentPlan.invoice_id == inv.id,
-                                        PaymentPlan.status.in_(["active", "paused", "failed"])).first()
-        if plan:
-            plan.status = "completed"
-            audit("plan_completed_by_credit", "payment_plan", plan.id, inv.number, current_user().id)
-    db.session.commit()
+    uid = current_user().id
+
+    # Two credit requests against the same invoice at nearly the same instant can both read
+    # inv.balance_cents and Firm.next_credit_note_number before either commits. The loser's
+    # commit then fails: a transient lock, or a UNIQUE constraint on credit_notes.number once
+    # the winner's row has landed, and by then the winner's credit has already moved the balance
+    # the loser checked against. Retry from a fresh read rather than bubbling either up as a 500,
+    # and recheck the guards each time since the answer can change between attempts.
+    for attempt in range(LOCK_RETRIES):
+        try:
+            db.session.refresh(inv)
+            if (inv.paid_cents or 0) >= (inv.total_cents or 0):
+                # Crediting money that already arrived is a promise to send it back. That is a
+                # refund: it moves cash and reverses posted income. Coil has no operating-account
+                # refund yet, and pretending otherwise would leave the books claiming a reduction
+                # the client never received.
+                flash(f"{inv.number} is paid in full. Reducing it now means refunding "
+                      f"{fmt_money(inv.paid_cents, inv.currency)}, which moves real money, so Coil will not do it "
+                      f"with a credit note. Record the refund through the account it was paid into.", "error")
+                return back
+            if amount > inv.balance_cents:
+                flash(f"{inv.number} has {fmt_money(inv.balance_cents, inv.currency)} outstanding. A credit of "
+                      f"{fmt_money(amount, inv.currency)} would take it below zero, which would leave the client "
+                      f"holding a credit balance. Credit the balance, or refund the difference.", "error")
+                return back
+            cn = CreditNote(number=_next_credit_number(firm), invoice_id=inv.id, matter_id=inv.matter_id,
+                            client_id=inv.client_id, issued_on=date.today(), total_cents=amount,
+                            reason=reason, note=note, status="issued", created_by_id=uid)
+            db.session.add(cn)
+            db.session.flush()
+            # The backref is loaded eagerly, so the invoice is still holding the list from before
+            # this credit existed. Drop it or recalc will not see the money come off.
+            db.session.expire(inv, ["credit_notes"])
+            inv.recalc()
+            audit("credit_note", "invoice", inv.id,
+                  f"{cn.number}: {fmt_money(amount, inv.currency)} against {inv.number} ({dict(CREDIT_REASONS)[reason]})"
+                  + (f" - {note}" if note else ""), uid)
+            if inv.balance_cents <= 0:
+                plan = PaymentPlan.query.filter(PaymentPlan.invoice_id == inv.id,
+                                                PaymentPlan.status.in_(["active", "paused", "failed"])).first()
+                if plan:
+                    plan.status = "completed"
+                    audit("plan_completed_by_credit", "payment_plan", plan.id, inv.number, uid)
+            db.session.commit()
+            break
+        except Exception as e:
+            db.session.rollback()
+            if (is_lock_error(e) or _is_credit_note_number_conflict(e)) and attempt < LOCK_RETRIES - 1:
+                time.sleep(0.05 * (attempt + 1))
+                continue
+            flash("Another credit was posted against this invoice at the same moment and took this "
+                  "credit note number. Nothing was created here; try again.", "error")
+            return back
     flash(f"{cn.number} issued. {inv.number} now shows {fmt_money(inv.balance_cents, inv.currency)} outstanding.",
           "ok")
     return back
