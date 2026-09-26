@@ -1,6 +1,6 @@
 # Tool readiness register
 
-## September 26 acceptance reconciliation, 17:40 UTC
+## September 26 acceptance reconciliation, 17:38 UTC
 
 Codex resumed after a usage-limit interruption and preserved Cursor's current Grok queue. Application release 9ae51a0, reviewed source 3608a21; no new application changes or deployment. The September 22 partial Sheet payload was archived and superseded by reconciliation against current cells, not replayed over Cursor edits. New Sheet evidence includes S44 and S45. Main remains unpushed.
 
