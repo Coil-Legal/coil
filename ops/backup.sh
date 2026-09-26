@@ -34,6 +34,9 @@ found=0
 
 log() { echo "$(date -u '+%F %T') $*"; }
 run() { if [ "$DRY_RUN" = 1 ]; then echo "  would: $*"; else "$@"; fi; }
+# SQLite may leave sidecars when its backup fails. These paths belong only to
+# this invocation's unique snapshot; never remove another job's files.
+cleanup_snapshot() { rm -f "$snap" "$snap-journal" "$snap-wal" "$snap-shm"; }
 
 # A Coil instance is an app directory whose data dir holds the app's database.
 for dir in "$APPS_DIR"/*/; do
@@ -70,7 +73,7 @@ with dst:
 dst.close(); src.close()
 " "/app/data/${snap##*/}" 2>/dev/null; then
       log "  ERROR: snapshot failed for $firm, skipping (database NOT backed up)"
-      failures=$((failures + 1)); rm -f "$snap"; continue
+      failures=$((failures + 1)); cleanup_snapshot; continue
     fi
   else
     log "  ERROR: no running container for $firm, skipping (a file copy could be torn)"
@@ -81,7 +84,7 @@ dst.close(); src.close()
   # A failed retry in the same second must not truncate or delete a good backup.
   if ! temp_archive=$(mktemp "$dest/.$firm-$STAMP.partial.XXXXXX"); then
     log "  ERROR: cannot create temporary archive for $firm"
-    failures=$((failures + 1)); rm -f "$snap"; continue
+    failures=$((failures + 1)); cleanup_snapshot; continue
   fi
   archive="$dest/$firm-$STAMP-${temp_archive##*.}.tar.gz"
   archive_args=(-C "$dir/data" --transform 's|^[.]backup-snapshot[.][[:alnum:]]*$|practice.db|' "${snap##*/}")
@@ -95,9 +98,9 @@ dst.close(); src.close()
     log "  ok $archive ($size)"
   else
     log "  ERROR: archive creation or publication failed for $firm"
-    failures=$((failures + 1)); rm -f "$temp_archive" "$snap"; continue
+    failures=$((failures + 1)); rm -f "$temp_archive"; cleanup_snapshot; continue
   fi
-  rm -f "$snap"
+  cleanup_snapshot
 
   # Retention: keep the last N dailies, and Sunday archives for N weeks.
   ls -1t "$dest"/$firm-*.tar.gz 2>/dev/null | tail -n +$((KEEP_DAILY + 1)) | while read -r old; do
