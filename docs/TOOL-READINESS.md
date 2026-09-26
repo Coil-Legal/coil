@@ -1,5 +1,17 @@
 # Tool readiness register
 
+## September 26 local retention acceptance and credit-race defect, 23:10 UTC
+
+Local retention case **QA-BACKUP-RETENTION-20260926** passed on unchanged backup **6762c9b** and restore **68809b3**. Two overlapping jobs at14-daily/8-week capacity began with22 old synthetic archives and kept exactly17 expected archives: two new, twelve recent old and three older Sunday controls. The55-day Sunday stayed; the62-day Sunday expired. All17 restored with SQLite integrity OK and exact12345 cents. Retained hashes/source unchanged; no temporary leftovers. Actual GNU tar/date/SQLite, with local Docker/offsite doubles. This covers one controlled interleaving and local retention, not remote retention or arbitrary concurrency. No source change, deployment or new full-suite run.
+
+Grok case31 is defective despite its PASS label: result5850552410 recorded HTTP500 on the second simultaneous credit request. Cursor filed issue58. CN-1015 was created and the balance held at25 cents, but response handling failed. Invoicing is now **Known defect** in the Sheet; earlier individual passes remain. Case32 single oversized-credit refusal independently PASS5850729530, ACK5850722552. Invoice3051 / INV-1052 remains sent at25 cents due, Paid0/Credited75 cents; CN-1013/CN-1015 issued, CN-1014 void.
+
+The shared invoice blueprint and new concurrency test are uncommitted work for the autonomous fix queue. Codex left them untouched; no completed handoff or deployment claimed. Cursor owns the browser queue. Priority: completed issue58 fix, then independent concurrency retest on an authorized fixture. Do not repeat the race on protected fixtures.
+
+Both apps remain healthy **9ae51a0**. Recovery stays QA pending. Next executable operational review: backup/update overlap. Offsite/remote retention, operator acceptance, version compatibility, whole-host root exhaustion, power loss and forced-termination cleanup remain open. Phase1 provider and broader AI gates remain. No GitHub push or phase signoff.
+
+Handoff: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-backup-retention-handoff.md`. Evidence: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5850764600 and https://github.com/Coil-Legal/coil/issues/58. Sheet source **S53**, seven ranges/31 cells verified; existing evidence, formulas and OverviewB2 preserved. Schedule remains30 minutes.
+
 ## September 26 source-volume exhaustion fix, 22:33 UTC
 
 Deployed backup **6762c9b** with rollback copies to the active nightly script and both installed app copies. Actual SQLite disk-full failure previously left a1024-byte rollback journal after deleting its partial snapshot. Cleanup now removes only that invocation's exact snapshot and sidecar paths. A regression protects another job's journal. Baseline failed; focused21 passed/1 GNU-only skip; full **911 passed,1 skipped**.
