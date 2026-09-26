@@ -11,12 +11,15 @@ deliveries with backoff, up to MAX_ATTEMPTS. There are no routes here; the CRUD 
 """
 import hashlib
 import hmac
+import ipaddress
 import json
 import logging
+import socket
 from datetime import date, datetime, timedelta
+from urllib.parse import urlsplit
 
 import requests
-from flask import Blueprint
+from flask import Blueprint, current_app
 from sqlalchemy import event, inspect as sa_inspect
 from sqlalchemy.orm import Session, object_session
 
@@ -63,6 +66,45 @@ def hook_events(hook):
     return [e.strip() for e in (hook.events or "").split(",") if e.strip()]
 
 
+def _is_unsafe_ip(ip_str):
+    try:
+        ip = ipaddress.ip_address(ip_str)
+    except ValueError:
+        return False
+    return (ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved
+            or ip.is_multicast or ip.is_unspecified)
+
+
+def _resolved_addrs(host):
+    """Every address `host` resolves to, or None if the lookup itself failed (not our concern:
+    the request will fail on its own with a normal connection error)."""
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except socket.gaierror:
+        return None
+    return {info[4][0] for info in infos}
+
+
+def unsafe_url_reason(url, allow_private=False):
+    """None if `url` is fine for a webhook to reach, else a plain-sentence refusal reason."""
+    if allow_private:
+        return None
+    host = urlsplit(url).hostname
+    if not host:
+        return "that address has no host."
+    addrs = _resolved_addrs(host)
+    if addrs and any(_is_unsafe_ip(a) for a in addrs):
+        return "that address is on a private network."
+    return None
+
+
+def _webhooks_allow_private():
+    try:
+        return bool(current_app.config.get("COIL_WEBHOOKS_ALLOW_PRIVATE"))
+    except RuntimeError:  # no app context; default to the safe behavior
+        return False
+
+
 def _j(v):
     if isinstance(v, (datetime, date)):
         return v.isoformat()
@@ -94,15 +136,24 @@ def attempt_delivery(delivery, hook):
     }
     delivery.attempts = (delivery.attempts or 0) + 1
     delivery.last_at = now()
+    reason = unsafe_url_reason(hook.url, allow_private=_webhooks_allow_private())
+    if reason:
+        delivery.response_code = None
+        delivery.status = "failed"
+        delivery.last_error = f"Refused: {reason}"[:300]
+        return False
     try:
-        r = requests.post(hook.url, data=body, headers=headers, timeout=TIMEOUT_SECONDS)
+        r = requests.post(hook.url, data=body, headers=headers, timeout=TIMEOUT_SECONDS, allow_redirects=False)
         delivery.response_code = getattr(r, "status_code", None)
         if delivery.response_code is not None and 200 <= delivery.response_code < 300:
             delivery.status = "ok"
             delivery.last_error = ""
             return True
         delivery.status = "failed"
-        delivery.last_error = f"HTTP {delivery.response_code}"[:300]
+        if delivery.response_code is not None and 300 <= delivery.response_code < 400:
+            delivery.last_error = f"HTTP {delivery.response_code}, redirected to {r.headers.get('Location', '(no Location header)')}"[:300]
+        else:
+            delivery.last_error = f"HTTP {delivery.response_code}"[:300]
     except Exception as e:  # network errors, timeouts, bad URLs
         delivery.response_code = None
         delivery.status = "failed"

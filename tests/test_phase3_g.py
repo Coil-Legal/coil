@@ -473,7 +473,7 @@ def test_webhooks_signed_delivery_and_retry(app, client, monkeypatch):
         hid = h.id
     calls = []
 
-    def fake_post(url, data=None, headers=None, timeout=None):
+    def fake_post(url, data=None, headers=None, timeout=None, allow_redirects=None):
         calls.append((url, data, headers, timeout))
         return _Resp(200)
     monkeypatch.setattr(requests, "post", fake_post)
@@ -504,7 +504,7 @@ def test_webhooks_signed_delivery_and_retry(app, client, monkeypatch):
         assert WebhookDelivery.query.filter_by(event="matter.created").count() == 0
 
     # now the endpoint is down: delivery fails and is picked up by the retry command
-    def broken_post(url, data=None, headers=None, timeout=None):
+    def broken_post(url, data=None, headers=None, timeout=None, allow_redirects=None):
         raise requests.ConnectionError("connection refused")
     monkeypatch.setattr(requests, "post", broken_post)
     with app.app_context():
@@ -540,7 +540,7 @@ def test_webhook_cli_and_other_events(app, monkeypatch):
     from app.models import Webhook, WebhookDelivery, Task, Matter
     from app.cli import main
     calls = []
-    monkeypatch.setattr(requests, "post", lambda url, data=None, headers=None, timeout=None: (calls.append(headers), _Resp(204))[1])
+    monkeypatch.setattr(requests, "post", lambda url, data=None, headers=None, timeout=None, allow_redirects=None: (calls.append(headers), _Resp(204))[1])
     with app.app_context():
         h = Webhook.query.one()
         h.events = "task.completed,matter.closed,matter.created"

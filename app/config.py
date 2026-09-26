@@ -62,6 +62,12 @@ class Config:
     # headers get logged by proxies.
     COIL_QA_HEADERS = os.environ.get("COIL_QA_HEADERS", "0") == "1"
 
+    # Outgoing webhooks default to refusing any URL that resolves to a private, loopback,
+    # link-local, reserved, multicast or unspecified address, so a webhook cannot be used to
+    # probe the server's own network. Self-hosters who genuinely run a receiver on their own
+    # LAN (an n8n instance, say) can set this to get that back.
+    COIL_WEBHOOKS_ALLOW_PRIVATE = os.environ.get("COIL_WEBHOOKS_ALLOW_PRIVATE", "0") == "1"
+
     # Email filing
     IMAP_HOST = os.environ.get("IMAP_HOST", "")
     IMAP_PORT = int(os.environ.get("IMAP_PORT", "993") or 993)

@@ -905,11 +905,15 @@ def webhooks():
 @permission_required("settings")
 def webhook_new():
     from ..models import Webhook, new_token
-    from .webhooks_out import EVENT_NAMES
+    from .webhooks_out import EVENT_NAMES, unsafe_url_reason
     url = (request.form.get("url") or "").strip()
     events = [e for e in request.form.getlist("events") if e in EVENT_NAMES]
     if not url.lower().startswith(("http://", "https://")):
         flash("Enter a full http(s) URL.", "error")
+        return redirect(url_for("settings.webhooks"))
+    reason = unsafe_url_reason(url, allow_private=current_app.config.get("COIL_WEBHOOKS_ALLOW_PRIVATE"))
+    if reason:
+        flash(f"Refused: {reason}", "error")
         return redirect(url_for("settings.webhooks"))
     if not events:
         flash("Pick at least one event.", "error")
