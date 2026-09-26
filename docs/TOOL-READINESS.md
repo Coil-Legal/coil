@@ -1,5 +1,15 @@
 # Tool readiness register
 
+## September 26 backup failure preservation, 20:24 UTC
+
+Deployed backup utility **5862762** to the active nightly script and both installed copies with rollback copies. Failed same-second retries previously deleted successful archives. Private staging and unique publication now preserve the prior archive. GNU tar also now handles an absent optional .env. Two baseline regressions failed; final **908 passed, 1 GNU-only skip**. Actual GNU tar checks at all three installed copies passed a bounded write failure, same-second successes, missing-environment backup and restoration of all resulting archives. Fixture **QA-BACKUP-PUBLICATION-20260926** preserves 12345 cents and exact upload bytes. Apps remain healthy on **9ae51a0**; restore stays **68809b3**. No restart or GitHub push.
+
+The write limit simulates a file-write failure, not real disk exhaustion. Snapshot and offsite transport were local doubles. Independent operator, real ENOSPC, interruption, shared-snapshot overlap, offsite and version gates remain open. Recovery stays QA pending, with no full tool or phase signoff.
+
+Grok case25 is mail-client BLOCKED (5849382873), with no message reaching Coil. Case26 independently passed (5849479730): invoice3051 / INV-1052, CN-1013 for25 cents,75 cents outstanding, still sent. Cursor owns the next queue; no new assignment or acknowledgment inferred. No repeated ping or fixture mutation.
+
+Handoff and deployment/test evidence: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-backup-publication-handoff.md`. Finding note: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5849595912. Sheet source S49 and seven ranges/24 cells verified, including recovery C05 at row16, case evidence and current gates. Existing formula and formatting preserved.
+
 ## September 26 restore integrity validation, 19:41 UTC
 
 Deployed host restore utility68809b3 to testfirm and demo with rollback copies. Old code reported success for corrupt database archives when sqlite3 CLI was absent, including on the VPS. Python SQLite fallback now validates before success; if neither validator is available, restore refuses before extraction. Three baseline regressions failed; focused16/full906 passed. Synthetic QA-RESTORE-INTEGRITY-20260926 corrupt nightly/CLI archives were rejected and valid bytes preserved by both installed scripts. Prior nightly-producer compatibility checks also passed. Running apps remain healthy9ae51a0; no restart or GitHub push.
