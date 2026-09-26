@@ -18,7 +18,7 @@ def run_backup(tmp_path, mode, real_tar=False):
     commands.mkdir(exist_ok=True)
     stubs = {
         'date': "print('20260926T200000Z' if '+%Y%m%dT%H%M%SZ' in sys.argv else '6')",
-        'docker': "\nif sys.argv[1] == 'compose': print('synthetic-container')\nelse: pathlib.Path(os.environ['FIXTURE_FIRM'], 'data/.backup-snapshot.db').write_bytes(b'snapshot')",
+        'docker': "\nif sys.argv[1] == 'compose': print('synthetic-container')\nelse: pathlib.Path(os.environ['FIXTURE_FIRM'], 'data/' + pathlib.Path(sys.argv[-1]).name).write_bytes(b'snapshot')",
         'tar': "\np=pathlib.Path(sys.argv[sys.argv.index('-czf')+1]); p.write_bytes(b'partial' if os.environ['FAIL_ARCHIVE']=='1' else b'complete synthetic archive'); sys.exit(int(os.environ['FAIL_ARCHIVE']))",
         'rclone': "\nwith open(os.environ['FIXTURE_CALLS'],'a') as f: f.write(sys.argv[1]+'\\n')",
     }

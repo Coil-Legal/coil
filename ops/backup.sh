@@ -54,17 +54,21 @@ for dir in "$APPS_DIR"/*/; do
   # Consistent snapshot of the live database. sqlite3 is not installed on this host, so
   # use the container's python, which is the same SQLite the app writes with.
   container="$(cd "$dir" && docker compose ps -q web 2>/dev/null | head -1)"
-  snap="$dir/data/.backup-snapshot.db"
-  rm -f "$snap"
   if [ -n "$container" ]; then
+    # Every invocation owns its snapshot, including cleanup after a failed run.
+    # A concurrent backup must never replace or delete this run's database.
+    if ! snap=$(mktemp "$dir/data/.backup-snapshot.XXXXXX"); then
+      log "  ERROR: cannot create snapshot file for $firm"
+      failures=$((failures + 1)); continue
+    fi
     if ! docker exec "$container" python -c "
-import sqlite3
+import sqlite3, sys
 src = sqlite3.connect('/app/data/practice.db')
-dst = sqlite3.connect('/app/data/.backup-snapshot.db')
+dst = sqlite3.connect(sys.argv[1])
 with dst:
     src.backup(dst)          # SQLite online backup: safe against concurrent writers
 dst.close(); src.close()
-" 2>/dev/null; then
+" "/app/data/${snap##*/}" 2>/dev/null; then
       log "  ERROR: snapshot failed for $firm, skipping (database NOT backed up)"
       failures=$((failures + 1)); rm -f "$snap"; continue
     fi
@@ -80,7 +84,7 @@ dst.close(); src.close()
     failures=$((failures + 1)); rm -f "$snap"; continue
   fi
   archive="$dest/$firm-$STAMP-${temp_archive##*.}.tar.gz"
-  archive_args=(-C "$dir/data" --transform 's|^\.backup-snapshot\.db$|practice.db|' .backup-snapshot.db)
+  archive_args=(-C "$dir/data" --transform 's|^[.]backup-snapshot[.][[:alnum:]]*$|practice.db|' "${snap##*/}")
   [ ! -d "$dir/data/uploads" ] || archive_args+=(uploads)
   [ ! -d "$dir/data/pdf" ] || archive_args+=(pdf)
   [ ! -f "$dir/.env" ] || archive_args+=(-C "$dir" .env)
