@@ -1,5 +1,17 @@
 # Coil Phase 1 completion pass
 
+## September 26 overlapping backup snapshots, 21:12 UTC
+
+Deployed backup utility **552a8b9** to the active nightly script and both installed copies, with prior-hash guards and rollback copies. Two jobs previously shared one SQLite snapshot: the second job deleted the first job's snapshot, whether the second succeeded or failed. Every invocation now owns a separate snapshot; archive layout stays compatible. Two baseline regressions failed. Final **910 passed, 1 GNU-only skip**; focused20 passed/1 skip. Actual Linux archive checks passed at all three installed scripts, and the candidate passed using disposable network-disabled Docker containers with synthetic data.
+
+Fixture **QA-BACKUP-OVERLAP-20260926** retained distinct100/200-cent snapshots; a failing second snapshot left the first100-cent archive intact. Earlier bounded write-failure, same-second archive publication, missing-environment and restore checks still pass. Running apps remain healthy **9ae51a0**, restore utility **68809b3**, without restart or GitHub push. Cursor's work preserved.
+
+Recovery remains QA pending. Offsite retrieval, interruption, real disk exhaustion, concurrent retention at capacity, backup/update overlap, version compatibility and independent operator acceptance remain open. Killed jobs can leave temporary files. No full-tool or Phase1 signoff; provider and broader AI gates remain.
+
+Grok case27 over-balance refusal PASS5849688206 and case28 zero-credit refusal PASS5849910197, acknowledged5849906092. Invoice3051 / INV-1052 remains sent at75 cents due, CN-1013 issued. Cursor retains the browser queue; no duplicate assignment. Independent operator retest criteria posted, access pending.
+
+Handoff: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-backup-overlap-handoff.md`. Finding: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5849923926. Sheet source **S50**, seven ranges/24 cells read back exactly; formulas, formatting and OverviewB2 preserved. The30-minute schedule remains unchanged.
+
 ## September 26 backup failure preservation, 20:24 UTC
 
 Deployed backup utility **5862762** to the active nightly script and both installed copies with rollback copies. Failed same-second retries previously deleted successful archives. Private staging and unique publication now preserve the prior archive. GNU tar also now handles an absent optional .env. Two baseline regressions failed; final **908 passed, 1 GNU-only skip**. Actual GNU tar checks at all three installed copies passed a bounded write failure, same-second successes, missing-environment backup and restoration of all resulting archives. Fixture **QA-BACKUP-PUBLICATION-20260926** preserves 12345 cents and exact upload bytes. Apps remain healthy on **9ae51a0**; restore stays **68809b3**. No restart or GitHub push.
