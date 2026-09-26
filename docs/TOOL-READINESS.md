@@ -1,5 +1,15 @@
 # Tool readiness register
 
+## September 26 restore integrity validation, 19:41 UTC
+
+Deployed host restore utility68809b3 to testfirm and demo with rollback copies. Old code reported success for corrupt database archives when sqlite3 CLI was absent, including on the VPS. Python SQLite fallback now validates before success; if neither validator is available, restore refuses before extraction. Three baseline regressions failed; focused16/full906 passed. Synthetic QA-RESTORE-INTEGRITY-20260926 corrupt nightly/CLI archives were rejected and valid bytes preserved by both installed scripts. Prior nightly-producer compatibility checks also passed. Running apps remain healthy9ae51a0; no restart or GitHub push.
+
+Recovery remains QA pending. This is not atomic restore: files extracted before failed validation remain for operator review. Independent operator, offsite, interrupted/disk-full/overlap and version checks remain open. Provider and broader AI gates still prevent Phase1 completion.
+
+Grok Unicode case24 independently passed5849078483 at19:14:53, with message292/document128 on matter3088, original display name, unshared state and exact24-byte download/hash. Cursor case25 assigned5849215845, acknowledged5849259343 at19:37:58, result pending. No repeated ping or mail send. Cursor owns queue.
+
+Handoff, hashes, backup paths and logs: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-restore-integrity-handoff.md`. Finding note: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5849282648. Sheet S48 and seven ranges/28 cells verified; recovery case C05 uses previously empty QA row16, preserving Cursor result rows203/204 and existing formulas. No full-tool or phase signoff.
+
 ## September 26 nightly restore compatibility, 18:59 UTC
 
 Deployed host recovery utility ec3750c to testfirm and demo with script backups. Nightly root-layout archives previously failed to restore; an existing environment could be overwritten before failure. Restore now supports root and CLI data-prefix layouts, refuses ambiguous archives before writing, and preserves existing .env/database files. Three baseline failures reproduced; full suite902 passed. Actual producer/GNU tar/restore synthetic fixture QA-RESTORE-NIGHTLY-20260926 passed against both installed scripts, preserving row12345 cents and exact upload/PDF/environment bytes. Snapshot transport and offsite copy were mocked. Running apps remain healthy on9ae51a0 without restart. No GitHub push.
