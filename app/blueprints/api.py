@@ -189,7 +189,17 @@ def _authenticate():
     g.user = tok.user  # so audit()/current_user() attribute writes to the token's owner
     if not tok.last_used_at or (now() - tok.last_used_at).total_seconds() > 60:
         tok.last_used_at = now()
-        db.session.commit()
+        try:
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            # Two calls on fresh or long-idle tokens can both reach this commit at nearly the
+            # same moment (Coil QA #56: the route's own retry around build_for_matter()/commit()
+            # never ran, because this unrelated bookkeeping commit crashed first). last_used_at is
+            # telemetry, not correctness; skip it for this request rather than 500 the whole call.
+            from ..helpers import is_lock_error
+            if not is_lock_error(e):
+                raise
 
 
 def scope_required(scope):

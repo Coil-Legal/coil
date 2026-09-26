@@ -8,6 +8,7 @@ entry, one call landed INV-1059 and the other came back a bare 500 with no invoi
 
 Run: .venv/bin/python -m pytest tests/test_api_invoice_concurrency.py -q
 """
+import threading
 from datetime import date
 
 import pytest
@@ -111,6 +112,47 @@ def test_a_number_collision_at_flush_is_retried_not_500(app, monkeypatch):
     with app.app_context():
         rows = Invoice.query.filter_by(matter_id=1).all()
         assert len(rows) == 1, "the retry must not leave a duplicate invoice behind"
+
+
+def test_two_fresh_tokens_racing_at_authenticate_dont_crash(app):
+    """Cursor's second retest (comment 5844499103): both fixes to invoice_create() itself were
+    correct, but the crash was never in that route. Every call in Grok's repro used a brand-new
+    or long-idle token, so `_authenticate()`'s own `tok.last_used_at = now(); db.session.commit()`
+    ran first, with no retry of its own. Two such commits at nearly the same instant can hit the
+    same "database is locked" SQLite contention as the invoice-number race, and this one had no
+    guard at all: real threads, real SQLite, no mocking, reproduces a raw 500 before the fix."""
+    from app.extensions import db
+    from app.models import User, TimeEntry
+    from app.blueprints.api import create_token
+    with app.app_context():
+        user = db.session.get(User, 1)
+        db.session.add(TimeEntry(matter_id=1, user_id=1, date=date(2026, 1, 2), minutes=30,
+                                 rate_cents=20000, description="Synthetic review", billable=True))
+        _, raw_a = create_token(user, "QA race token A", "invoices:write,invoices:read")
+        _, raw_b = create_token(user, "QA race token B", "invoices:write,invoices:read")
+        db.session.commit()
+
+    results = {}
+    barrier = threading.Barrier(2)
+
+    def call(name, raw):
+        client = app.test_client()
+        barrier.wait()
+        r = client.post("/api/v1/invoices", headers={"Authorization": f"Bearer {raw}"},
+                        json={"matter_id": 1})
+        results[name] = (r.status_code, r.get_data(as_text=True)[:300])
+
+    threads = [threading.Thread(target=call, args=("A", raw_a)),
+              threading.Thread(target=call, args=("B", raw_b))]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    for name, (status, body) in results.items():
+        assert status in (201, 400), f"call {name} got an unhandled {status}: {body}"
+    statuses = sorted(code for code, _ in results.values())
+    assert statuses == [201, 400], results
 
 
 def test_retries_exhausted_is_a_clean_error_not_a_crash(app, monkeypatch):
