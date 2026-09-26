@@ -1,5 +1,17 @@
 # Tool readiness register
 
+## September 26 source-volume exhaustion fix, 22:33 UTC
+
+Deployed backup **6762c9b** with rollback copies to the active nightly script and both installed app copies. Actual SQLite disk-full failure previously left a1024-byte rollback journal after deleting its partial snapshot. Cleanup now removes only that invocation's exact snapshot and sidecar paths. A regression protects another job's journal. Baseline failed; focused21 passed/1 GNU-only skip; full **911 passed,1 skipped**.
+
+All three installed copies passed actual SQLite failures with65536 and0 free bytes and mktemp refusal with0 free inodes in a bounded8 MiB/128-inode source filesystem. Source and prior archives survived, failed outputs were not published/transferred, handled temporary files were removed and retries passed. Fixture **QA-BACKUP-SOURCE-ENOSPC-20260926** restored four archives per copy with integrity OK, exact12345 cents, exact2 MiB database BLOB and control upload. Prior overlap/publication/restore checks also passed. Docker/offsite transport were local doubles. Both apps remain healthy **9ae51a0**; restore **68809b3** unchanged. No restart or GitHub push; Cursor's work preserved.
+
+Recovery remains QA pending. SIGKILL can still leave temporary files. Next executable review: retention at capacity during overlapping jobs. Whole-host root exhaustion, power loss, forced-termination cleanup, backup/update overlap, offsite retrieval, version compatibility and independent operator acceptance remain open. Phase1 provider and broader AI gates remain.
+
+Grok case30 PASS5850301159, acknowledged5850289465: CN-1014 void, CN-1013 issued, invoice3051 / INV-1052 sent at75 cents outstanding, Paid0/Credited25 cents. No extra payment-plan sentence, email or payment. Cursor owns the next browser case; no duplicate assignment or acknowledgment inferred.
+
+Handoff: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-backup-source-exhaustion-handoff.md`. Finding and operator retest criteria: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5850484860. Sheet source **S52**, seven ranges/24 cells verified; recovery formula and OverviewB2 preserved. No whole-tool/phase signoff. Schedule remains30 minutes.
+
 ## September 26 bounded disk-full and interruption acceptance, 21:49 UTC
 
 On unchanged backup **552a8b9** and restore **68809b3**, actual GNU tar/gzip ENOSPC in an isolated 8 MiB filesystem preserved the earlier archive, rejected the failed output and cleaned handled temporary files. Retry after freeing space passed. SIGKILL after snapshot creation and before archive publication preserved the prior archive, published nothing from the interrupted job and allowed retries. Killed jobs left temporary snapshots; the publication-stage kill also left a partial archive. Automatic cleanup is not established.
