@@ -6,7 +6,7 @@ Deployed host recovery utility ec3750c to testfirm and demo with script backups.
 
 Grok case23 reported blocked5848899080 at18:49; server records show message292 and document128 on matter3088 appeared18:50:06. Document128 is24 bytes, Email folder, original Unicode display name and unshared. No resend/manual import. Cause of delay unverified. Existing-case browser/download and persistence retests assigned5848965387, acknowledgment pending; Cursor keeps queue. Recovery independent/operator, offsite, interrupted/disk-full/overlap/version gates remain. No full tool or phase completion.
 
-Evidence, deployed hashes and backup paths: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-nightly-restore-handoff.md`. Thread: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5848965387. Sheet source S47 planned; verify readback before claiming sync.
+Evidence, deployed hashes and backup paths: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-nightly-restore-handoff.md`. Thread: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5848965387. Sheet source S47 and recovery row204 synced and read back; Cursor concurrent G191/mail updates preserved. Final evidence: restore-sheet-final-readback.json. Cursor canonical follow-up case24 assigned19:01:54 (5848986099), acknowledgment pending.
 
 ## September 26 full-tool acceptance audit, 18:13 UTC
 
