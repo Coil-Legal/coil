@@ -73,17 +73,25 @@ dst.close(); src.close()
     failures=$((failures + 1)); continue
   fi
 
-  # Archive the snapshot as practice.db so a restore drops straight into place.
-  if tar -czf "$archive" \
-        -C "$dir/data" --transform 's|^\.backup-snapshot\.db$|practice.db|' .backup-snapshot.db \
-        $( [ -d "$dir/data/uploads" ] && echo uploads ) \
-        $( [ -d "$dir/data/pdf" ] && echo pdf ) \
-        -C "$dir" $( [ -f "$dir/.env" ] && echo .env ) 2>/dev/null; then
+  # Build privately, then publish a complete archive without replacing an older one.
+  # A failed retry in the same second must not truncate or delete a good backup.
+  if ! temp_archive=$(mktemp "$dest/.$firm-$STAMP.partial.XXXXXX"); then
+    log "  ERROR: cannot create temporary archive for $firm"
+    failures=$((failures + 1)); rm -f "$snap"; continue
+  fi
+  archive="$dest/$firm-$STAMP-${temp_archive##*.}.tar.gz"
+  archive_args=(-C "$dir/data" --transform 's|^\.backup-snapshot\.db$|practice.db|' .backup-snapshot.db)
+  [ ! -d "$dir/data/uploads" ] || archive_args+=(uploads)
+  [ ! -d "$dir/data/pdf" ] || archive_args+=(pdf)
+  [ ! -f "$dir/.env" ] || archive_args+=(-C "$dir" .env)
+  if tar -czf "$temp_archive" "${archive_args[@]}" 2>/dev/null \
+        && ln "$temp_archive" "$archive"; then
+    rm -f "$temp_archive"
     size="$(du -h "$archive" | cut -f1)"
     log "  ok $archive ($size)"
   else
-    log "  ERROR: tar failed for $firm"
-    failures=$((failures + 1)); rm -f "$archive" "$snap"; continue
+    log "  ERROR: archive creation or publication failed for $firm"
+    failures=$((failures + 1)); rm -f "$temp_archive" "$snap"; continue
   fi
   rm -f "$snap"
 
