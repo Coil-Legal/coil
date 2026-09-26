@@ -1,5 +1,16 @@
 # Coil Phase 1 completion pass
 
+## September 26 full-tool acceptance audit, 18:13 UTC
+
+Corrected five Sheet labels that excluded required acceptance evidence: Payments is Blocked on Stripe test access; Multi-currency, HTTP MCP, Agent invoices and Screen-reader pass are QA pending. All individual completed-case fields, fixture IDs, evidence links and historical tested versions were preserved. Required gates: P2-CUR-02/03/04, P2-MCP-01/04/06, P2-INV-01/06 and P2-A11Y-02/05/06. No new product defect, app change, deployment or full-tool pass is claimed. Other existing complete labels were not re-certified.
+
+Overview static counters were replaced with formulas tied to tool statuses, preserving existing formulas and formatting. All46 tool rows and completed-case fields were compared with the saved before snapshot. Phase1 now totals24:19 existing complete labels,2 pending,1 known defect,2 blocked. Phase2:4 pending,1 blocked,2 not built. Across46 tools:19 existing complete labels,7 pending,2 known defects,5 blocked,6 not built,7 not reviewed. These are tracker counts, not a new certification of the retained complete labels.
+
+Grok acknowledged Cursor's Unicode attachment case23 at17:41 (5848411748); no result observed when this audit began. Cursor retains queue ownership. No unchanged ping, new assignment or fixture resend. Phase1 provider, portal issue49, broader AI and operational gates remain. The portal blocker is the intended capture-mail access boundary, not an established send-code defect; no credentials changed. Main remains unpushed.
+
+Handoff: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-acceptance-status-audit-handoff.md`. Before snapshot, changes, readback and46-row arithmetic/preservation verification are adjacent `acceptance-audit-*` files. Sheet source S46 records this audit. Documentation/Sheet-only work, no source test suite needed or claimed.
+
+
 ## September 26 acceptance reconciliation, 17:38 UTC
 
 Codex resumed after a usage-limit interruption and preserved Cursor's current Grok queue. Application release 9ae51a0, reviewed source 3608a21; no new application changes or deployment. The September 22 partial Sheet payload was archived and superseded by reconciliation against current cells, not replayed over Cursor edits. New Sheet evidence includes S44 and S45. Main remains unpushed.
