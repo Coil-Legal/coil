@@ -1,5 +1,17 @@
 # Tool readiness register
 
+## September 26 bounded disk-full and interruption acceptance, 21:49 UTC
+
+On unchanged backup **552a8b9** and restore **68809b3**, actual GNU tar/gzip ENOSPC in an isolated 8 MiB filesystem preserved the earlier archive, rejected the failed output and cleaned handled temporary files. Retry after freeing space passed. SIGKILL after snapshot creation and before archive publication preserved the prior archive, published nothing from the interrupted job and allowed retries. Killed jobs left temporary snapshots; the publication-stage kill also left a partial archive. Automatic cleanup is not established.
+
+Fixture **QA-BACKUP-ENOSPC-20260926**: four successful archives restored with SQLite integrity OK, exact12345 cents and exact2097152-byte uploads. Source unchanged. Private filesystem unmounted and synthetic fixtures removed. Both apps remain healthy **9ae51a0**. No source change, deployment, restart or GitHub push; no full-suite rerun needed for acceptance-only work. Prior code-change full910 passed/1 skip remains historical evidence.
+
+Recovery stays QA pending. This proves bounded archive-destination ENOSPC and two interruption cases, not full-root/source-disk exhaustion, power-loss durability or independent signoff. Docker/offsite transport were local doubles. Next executable checks: source-volume exhaustion and retention during overlapping jobs at capacity. Temporary cleanup policy, backup/update overlap, offsite retrieval, version compatibility and independent operator acceptance remain open. Phase1 provider and broader AI gates remain.
+
+Grok case29 independently PASS5850075365, acknowledged5850070711: CN-1014 credits remaining75 cents on invoice3051 / INV-1052. Current status paid, outstanding0, Paid0, Credited100 cents; CN-1013 retained. No payment or further email. Cursor owns the next browser queue; no duplicate assignment.
+
+Handoff: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-backup-exhaustion-handoff.md`. Issue evidence: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5850183645. Sheet source **S51**, seven ranges/24 cells verified; original formula and OverviewB2 preserved. No tool/phase signoff. The30-minute schedule remains.
+
 ## September 26 overlapping backup snapshots, 21:12 UTC
 
 Deployed backup utility **552a8b9** to the active nightly script and both installed copies, with prior-hash guards and rollback copies. Two jobs previously shared one SQLite snapshot: the second job deleted the first job's snapshot, whether the second succeeded or failed. Every invocation now owns a separate snapshot; archive layout stays compatible. Two baseline regressions failed. Final **910 passed, 1 GNU-only skip**; focused20 passed/1 skip. Actual Linux archive checks passed at all three installed scripts, and the candidate passed using disposable network-disabled Docker containers with synthetic data.
