@@ -37,6 +37,16 @@ if [ "$HAS_ENV" = 1 ] && { [ -e "$TARGET/.env" ] || [ -L "$TARGET/.env" ]; }; th
   exit 1
 fi
 
+# Docker hosts may have Python but no sqlite3 executable. Never skip validation.
+if command -v sqlite3 >/dev/null 2>&1; then
+  VALIDATOR=sqlite3
+elif command -v python3 >/dev/null 2>&1; then
+  VALIDATOR=python3
+else
+  echo "FAILED: install sqlite3 or Python 3 with SQLite support before restoring." >&2
+  exit 1
+fi
+
 mkdir -p "$TARGET"
 if [ "$CLI_LAYOUT" = 1 ]; then
   tar -xzf "$ARCHIVE" -C "$TARGET"
@@ -58,9 +68,28 @@ if [ ! -f "$TARGET/data/practice.db" ]; then
   tar -tzf "$ARCHIVE" | head -10 >&2
   exit 1
 fi
-if command -v sqlite3 >/dev/null 2>&1; then
-  CHECK=$(sqlite3 "$TARGET/data/practice.db" "PRAGMA integrity_check;" 2>&1 | head -1)
+if [ "$VALIDATOR" = sqlite3 ]; then
+  if ! CHECK=$(sqlite3 -readonly "$TARGET/data/practice.db" "PRAGMA integrity_check;" 2>&1); then
+    echo "FAILED: restored database could not be checked ($CHECK)" >&2
+    exit 1
+  fi
   [ "$CHECK" = "ok" ] || { echo "FAILED: restored database is not intact ($CHECK)" >&2; exit 1; }
+else
+  python3 - "$TARGET/data/practice.db" <<'PY'
+from pathlib import Path
+import sqlite3
+import sys
+
+try:
+    uri = Path(sys.argv[1]).resolve().as_uri() + '?mode=ro'
+    with sqlite3.connect(uri, uri=True) as conn:
+        rows = conn.execute('PRAGMA integrity_check').fetchall()
+    if rows != [('ok',)]:
+        raise ValueError('integrity_check did not return ok')
+except (sqlite3.Error, OSError, ValueError) as exc:
+    print(f'FAILED: restored database is not intact ({exc})', file=sys.stderr)
+    sys.exit(1)
+PY
 fi
 
 echo "restored into $TARGET"
