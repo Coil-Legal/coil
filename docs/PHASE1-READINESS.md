@@ -1,5 +1,18 @@
 # Coil Phase 1 completion pass
 
+## September 26 acceptance reconciliation, 17:40 UTC
+
+Codex resumed after a usage-limit interruption and preserved Cursor's current Grok queue. Application release 9ae51a0, reviewed source 3608a21; no new application changes or deployment. The September 22 partial Sheet payload was archived and superseded by reconciliation against current cells, not replayed over Cursor edits. New Sheet evidence includes S44 and S45. Main remains unpushed.
+
+New isolated email acceptance: raw MIME empty-only, mixed empty/control and nonempty control all filed correctly, preserving bodies and control bytes. Empty attachments created no document. Same-ID replay and replay after recreating the Flask app left three messages and two documents, with no duplicate audit. Three existing filing tests passed. This does not establish live IMAP delivery, crash recovery or independent acceptance. Grok's actual empty-attachment case remains BLOCKED by mail-client validation (5848305881). Cursor assigned Unicode case 23 (5848344500); no duplicate Codex assignment. Public PDF case remains passed: matter3088/message287/document127 on9ae51a0.
+
+Previously pending independent results were read and retained: d7f7461 signer rejection (5783155698), positive contradiction3062/114/15 (5783078426), supported client previews3039/3043 (5783112776), research occurrence/party/encoding/pagination/publication (5807196739). The AI rejection paths were not exercised. Later Unicode/concurrent signing failures were fixed and retested through issues47/48, and API concurrency/layout through56/57. No duplicate repairs.
+
+Acceptance audit is still required for later tool-wide labels. Screen-reader evidence is missing from the narrowed Sheet signoff despite P2-A11Y-02/05/06; actual MCP-client evidence, currency exports/splits and agent-invoice checklist cases are also separate outstanding requirements. Existing case passes and coordinator edits are preserved. Phase1 Stripe, handset SMS, portal issue49, broader AI and operational gates remain. No phase or new full-tool signoff. Sheet Phase1 counters currently total25 for24 tools and are flagged for reconciliation.
+
+Evidence and limits: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-sep26-reconciliation-handoff.md`, `empty-mail-local.json`, `email-filing-existing-tests.log`, `sep26-sheet-readback.json`. Authorized thread note: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5848370713. A local direct health request returned403 before a body; no outage inferred and no fresh Codex health pass claimed. Cursor remains sole Grok queue coordinator.
+
+
 ## Latest: signer-name validation and new independent passes, September 22 18:52 UTC
 
 2026-09-22 18:52 UTC. Deployed d7f7461: reject signer names over 200 characters before signing, with English/Spanish errors and form limits. Reproduced document hash/store truncation mismatch. Full 858 / production image 21 passed; four public rejection cases passed on matters 3060/3061, documents 112/113, signatures 7/8 and engagements 11/12, no emails or signatures. Both sites healthy with backups, six hashes each, SQLite OK, zero restarts; testfirm version label corrected. Grok passed oversized-source, three extraction limits and persisted builder results at 18:23. Next AI batch assigned 5782011952; signature retest assigned 5782130221, not acknowledged. Main unpushed. Handoff: /Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-signature-name-handoff.md.
