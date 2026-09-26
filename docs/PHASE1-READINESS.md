@@ -1,5 +1,9 @@
 # Coil Phase 1 completion pass
 
+## September 26 Case33 independent result, 23:56 UTC
+
+Grok PASS5851062976 on934a366: matter3078 changed EUR to CAD and back; existing invoice3044 / INV-1045 remained EUR throughout. Both save flashes confirmed and no invoice created or sent. Supersedes the running status below. This is the matter-change portion of P2-CUR-02 only; firm-default changes and wider currency QA remain pending. Sheet S55 four ranges/18 cells verified. Issue58 independent concurrency acceptance remains priority1 with Cursor's queue; existing protected money fixtures unchanged. Evidence: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5851062976.
+
 ## September 26 mixed nightly/pre-update backup acceptance, 23:53 UTC
 
 Synthetic **QA-BACKUP-UPDATE-20260926** passed both controlled overlap orders on backup **6762c9b**, restore **68809b3** and application image **934a366**. Holding the first snapshot at100 cents, then updating the source to200 cents and running the other backup, preserved each operation's own snapshot. All four archives restored exact marker, amount and upload bytes, with SQLite integrity OK. Source bytes after the controlled mutation stayed unchanged; no snapshot/partial leftovers. Actual application backup callback and SQLite ran in network-disabled disposable containers; actual GNU tar and restore script ran on Linux. The self-update script reached its simulated restart only after CLI backup completion. Compose restart/health and offsite transfer were doubles. This does not certify actual restart during a snapshot, two concurrent CLI jobs, arbitrary concurrency or downtime. No Codex code change, deployment or full-suite rerun.
