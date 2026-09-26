@@ -1,5 +1,13 @@
 # Tool readiness register
 
+## September 26 nightly restore compatibility, 18:59 UTC
+
+Deployed host recovery utility ec3750c to testfirm and demo with script backups. Nightly root-layout archives previously failed to restore; an existing environment could be overwritten before failure. Restore now supports root and CLI data-prefix layouts, refuses ambiguous archives before writing, and preserves existing .env/database files. Three baseline failures reproduced; full suite902 passed. Actual producer/GNU tar/restore synthetic fixture QA-RESTORE-NIGHTLY-20260926 passed against both installed scripts, preserving row12345 cents and exact upload/PDF/environment bytes. Snapshot transport and offsite copy were mocked. Running apps remain healthy on9ae51a0 without restart. No GitHub push.
+
+Grok case23 reported blocked5848899080 at18:49; server records show message292 and document128 on matter3088 appeared18:50:06. Document128 is24 bytes, Email folder, original Unicode display name and unshared. No resend/manual import. Cause of delay unverified. Existing-case browser/download and persistence retests assigned5848965387, acknowledgment pending; Cursor keeps queue. Recovery independent/operator, offsite, interrupted/disk-full/overlap/version gates remain. No full tool or phase completion.
+
+Evidence, deployed hashes and backup paths: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-nightly-restore-handoff.md`. Thread: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5848965387. Sheet source S47 planned; verify readback before claiming sync.
+
 ## September 26 full-tool acceptance audit, 18:13 UTC
 
 Corrected five Sheet labels that excluded required acceptance evidence: Payments is Blocked on Stripe test access; Multi-currency, HTTP MCP, Agent invoices and Screen-reader pass are QA pending. All individual completed-case fields, fixture IDs, evidence links and historical tested versions were preserved. Required gates: P2-CUR-02/03/04, P2-MCP-01/04/06, P2-INV-01/06 and P2-A11Y-02/05/06. No new product defect, app change, deployment or full-tool pass is claimed. Other existing complete labels were not re-certified.
