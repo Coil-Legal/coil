@@ -110,18 +110,31 @@ if [ ! -s "$RESTORE_STAGE/practice.db" ]; then
 fi
 check_database "$RESTORE_STAGE/practice.db"
 
-mkdir -p "$TARGET"
+# Finish extracting in private scratch space before publishing any files. A tar
+# error in an upload or PDF must not strand a partial database or .env in TARGET.
+RESTORE_PAYLOAD="$RESTORE_STAGE/payload"
+mkdir -p "$RESTORE_PAYLOAD"
 if [ "$CLI_LAYOUT" = 1 ]; then
-  tar -xzf "$ARCHIVE" -C "$TARGET"
+  tar -xzf "$ARCHIVE" -C "$RESTORE_PAYLOAD"
 else
-  mkdir -p "$TARGET/data"
-  tar -xzf "$ARCHIVE" -C "$TARGET/data" --exclude='.env' --exclude='./.env'
+  mkdir -p "$RESTORE_PAYLOAD/data"
+  tar -xzf "$ARCHIVE" -C "$RESTORE_PAYLOAD/data" --exclude='.env' --exclude='./.env'
   if [ "$HAS_ENV" = 1 ]; then
     ENV_MEMBER='.env'
     grep -Fxq './.env' <<< "$MEMBERS" && ENV_MEMBER='./.env'
-    tar -xzf "$ARCHIVE" -C "$TARGET" "$ENV_MEMBER"
+    tar -xzf "$ARCHIVE" -C "$RESTORE_PAYLOAD" "$ENV_MEMBER"
   fi
 fi
+
+check_database "$RESTORE_PAYLOAD/data/practice.db"
+
+# Publication is a separate step and is not atomic across files. Keep the app
+# stopped, and retain the archive if a disk error or interruption occurs here.
+mkdir -p "$TARGET"
+shopt -s nullglob dotglob
+RESTORE_ENTRIES=("$RESTORE_PAYLOAD/"*)
+shopt -u nullglob dotglob
+cp -a "${RESTORE_ENTRIES[@]}" "$TARGET/"
 
 # Never report success without looking. A restore that quietly half-worked is worse than
 # one that failed, because nobody goes back to check.
