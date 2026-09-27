@@ -214,7 +214,9 @@ def test_profitability_margin_and_missing_rate_flag(app, client):
     # Matter C: Bob has no cost rate, so the matter is flagged rather than shown as free.
     assert mc["cost_rate_missing"] is True and "Bob Paralegal" in mc["missing_rate_users"]
     assert mc["revenue"] == 0 and mc["margin_pct"] is None
-    assert totals["revenue"] == 35000 and totals["cost"] == 17000 and totals["margin"] == 18000
+    assert ma["currency"] == "USD" and mb["currency"] == "USD" and mc["currency"] == "USD"
+    assert totals["revenue"] == {"USD": 35000} and totals["cost"] == {"USD": 17000}
+    assert totals["margin"] == {"USD": 18000} and totals["margin_pct"] == {"USD": 51.4}
     assert totals["flagged"] == 1
     r = client.get("/reports/profitability", query_string=RANGE)
     assert r.status_code == 200
@@ -230,12 +232,12 @@ def test_profitability_csv(client):
     assert r.status_code == 200 and r.mimetype == "text/csv"
     assert r.data.startswith(b"\xef\xbb\xbf"), "export has no UTF-8 BOM, Excel on Windows will mojibake it"
     lines = r.data.decode("utf-8-sig").splitlines()
-    assert lines[0] == ("Matter,Name,Client,Status,Revenue,Hours,Time cost,Non-billable expenses,Total cost,"
-                        "Margin,Margin %,Flag")
+    assert lines[0] == ("Matter,Name,Client,Status,Currency,Revenue,Hours,Time cost,Non-billable expenses,"
+                        "Total cost,Margin,Margin %,Flag")
     mc = next(l for l in lines if l.startswith("M-C003,"))
     assert "cost rate not set: Bob Paralegal" in mc
     ma = next(l for l in lines if l.startswith("M-C001,"))
-    assert ma.split(",")[4:11] == ["250.00", "2.00", "100.00", "20.00", "120.00", "130.00", "52.0"]
+    assert ma.split(",")[4:12] == ["USD", "250.00", "2.00", "100.00", "20.00", "120.00", "130.00", "52.0"]
     assert lines[-1].startswith("TOTAL,")
 
 

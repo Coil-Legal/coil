@@ -81,6 +81,20 @@ def fmt_money_by_currency(totals):
     return " + ".join(fmt_money(cents, code) for code, cents in sorted(totals.items()))
 
 
+def fmt_pct_by_currency(pcts):
+    """Like fmt_money_by_currency, but for a ratio (e.g. margin as % of revenue) that's already computed
+    separately per currency rather than being a share of one combined total (see issue #69: profitability's
+    margin % is meaningless once revenue is split by currency, same reason the revenue itself can't be
+    summed). A currency with no revenue in range shows as a dash for that currency, matching the single-value
+    case; an empty dict shows a single dash."""
+    if not pcts:
+        return "-"
+    single = len(pcts) == 1
+    parts = [("-" if v is None else f"{v:.1f}%") + ("" if single else f" {code}")
+             for code, v in sorted(pcts.items())]
+    return " + ".join(parts)
+
+
 def parse_date(s, default=None):
     if not s:
         return default
@@ -262,6 +276,7 @@ def register_template_globals(app):
     app.jinja_env.filters["money"] = cents_to_str
     app.jinja_env.filters["cur"] = fmt_money
     app.jinja_env.filters["curmix"] = fmt_money_by_currency
+    app.jinja_env.filters["pctmix"] = fmt_pct_by_currency
     app.jinja_env.filters["hours"] = lambda m: f"{(m or 0) / 60:.2f}"
     app.jinja_env.filters["d"] = lambda v: v.strftime("%b %-d, %Y") if v else ""
     app.jinja_env.filters["dt"] = lambda v: v.strftime("%b %-d, %Y %-I:%M %p") if v else ""

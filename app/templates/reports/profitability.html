@@ -11,9 +11,9 @@
 </div>
 {% macro pct(v) %}{% if v is none %}<span class="muted">-</span>{% else %}{{ '%.1f'|format(v) }}%{% endif %}{% endmacro %}
 <div class="grid c4">
-  <div class="card stat"><div class="label">Revenue collected</div><div class="value">{{ totals.revenue|money }}</div><div class="small muted">{{ d_from|d }} to {{ d_to|d }}</div></div>
-  <div class="card stat"><div class="label">Cost</div><div class="value">{{ totals.cost|money }}</div><div class="small muted">{{ totals.minutes|hours }} hours at cost rates plus {{ totals.expense_cost|money }} non-billable expenses</div></div>
-  <div class="card stat"><div class="label">Margin</div><div class="value" {% if totals.margin < 0 %}style="color:var(--bad)"{% endif %}>{{ totals.margin|money }}</div><div class="small muted">{{ pct(totals.margin_pct) }} of revenue</div></div>
+  <div class="card stat"><div class="label">Revenue collected</div><div class="value">{{ totals.revenue|curmix }}</div><div class="small muted">{{ d_from|d }} to {{ d_to|d }}</div></div>
+  <div class="card stat"><div class="label">Cost</div><div class="value">{{ totals.cost|curmix }}</div><div class="small muted">{{ totals.minutes|hours }} hours at cost rates plus {{ totals.expense_cost|curmix }} non-billable expenses</div></div>
+  <div class="card stat"><div class="label">Margin</div><div class="value">{{ totals.margin|curmix }}</div><div class="small muted">{{ totals.margin_pct|pctmix }} of revenue</div></div>
   <div class="card stat"><div class="label">Cost rate not set</div><div class="value" {% if totals.flagged %}style="color:var(--warn)"{% endif %}>{{ totals.flagged }}</div><div class="small muted">Matters whose cost is understated because a timekeeper has no cost rate. Set it under Settings, Users.</div></div>
 </div>
 <div class="card"><h2>By matter</h2>
@@ -22,12 +22,13 @@
 <tr><th>Matter</th><th>Client</th><th>Status</th><th class="num">Revenue</th><th class="num">Hours</th><th class="num">Time cost</th><th class="num">Expenses</th><th class="num">Cost</th><th class="num">Margin</th><th class="num">Margin %</th><th>Cost rate</th></tr>
 {% for r in rows %}
 <tr><td>{% if r.matter %}<a href="/matters/{{ r.matter.id }}">{{ r.matter.label }}</a>{% else %}<span class="muted">(no matter)</span>{% endif %}</td><td>{{ r.matter.client.display_name if r.matter else '' }}</td><td>{% if r.matter %}<span class="badge {{ r.matter.status }}">{{ r.matter.status }}</span>{% endif %}</td>
-  <td class="num">{{ r.revenue|money }}</td><td class="num">{{ r.minutes|hours }}</td><td class="num">{{ r.time_cost|money }}</td><td class="num">{{ r.expense_cost|money }}</td><td class="num">{{ r.cost|money }}</td>
-  <td class="num" {% if r.margin < 0 %}style="color:var(--bad)"{% endif %}><strong>{{ r.margin|money }}</strong></td><td class="num">{{ pct(r.margin_pct) }}</td>
+  <td class="num">{{ r.revenue|cur(r.currency) }}</td><td class="num">{{ r.minutes|hours }}</td><td class="num">{{ r.time_cost|cur(r.currency) }}</td><td class="num">{{ r.expense_cost|cur(r.currency) }}</td><td class="num">{{ r.cost|cur(r.currency) }}</td>
+  <td class="num" {% if r.margin < 0 %}style="color:var(--bad)"{% endif %}><strong>{{ r.margin|cur(r.currency) }}</strong></td><td class="num">{{ pct(r.margin_pct) }}</td>
   <td>{% if r.cost_rate_missing %}<span class="badge draft" title="{{ r.missing_rate_users|join(', ') }}">cost rate not set</span> <span class="small muted">{{ r.missing_rate_users|join(', ') }}</span>{% else %}<span class="small muted">ok</span>{% endif %}</td></tr>
 {% endfor %}
-<tr><th colspan="3">Total</th><th class="num">{{ totals.revenue|money }}</th><th class="num">{{ totals.minutes|hours }}</th><th class="num">{{ totals.time_cost|money }}</th><th class="num">{{ totals.expense_cost|money }}</th><th class="num">{{ totals.cost|money }}</th><th class="num">{{ totals.margin|money }}</th><th class="num">{{ pct(totals.margin_pct) }}</th><th>{% if totals.flagged %}{{ totals.flagged }} flagged{% endif %}</th></tr>
+<tr><th colspan="3">Total</th><th class="num">{{ totals.revenue|curmix }}</th><th class="num">{{ totals.minutes|hours }}</th><th class="num">{{ totals.time_cost|curmix }}</th><th class="num">{{ totals.expense_cost|curmix }}</th><th class="num">{{ totals.cost|curmix }}</th><th class="num">{{ totals.margin|curmix }}</th><th class="num">{{ totals.margin_pct|pctmix }}</th><th>{% if totals.flagged %}{{ totals.flagged }} flagged{% endif %}</th></tr>
 </table>
+{% if rows|map(attribute='currency')|unique|list|length > 1 %}<p class="small muted" style="margin-top:8px">Matters are in more than one currency. Totals above are shown separately per currency.</p>{% endif %}
 {% else %}<div class="empty">Nothing collected, logged or spent in this range{% if status %} on {{ status }} matters{% endif %}.</div>{% endif %}
 </div>
 <p class="small muted">Revenue is payments into operating dated in the range. Cost is time in the range at each user's cost rate (Settings, Users) plus non-billable expenses. Billable expenses are passed through to the client and are not a cost here.</p>

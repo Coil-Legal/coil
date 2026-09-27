@@ -521,7 +521,12 @@ MATTER_STATUSES = ("pending", "open", "closed")
 def profitability_data(d_from, d_to, status=""):
     """Per matter: collected operating revenue in the range, cost = time at each user's cost rate plus
     non-billable expenses, margin and margin %. A matter is flagged when any user who logged time on it has no
-    cost rate, because its cost is understated rather than zero."""
+    cost rate, because its cost is understated rather than zero.
+
+    A matter_row's revenue/cost/margin/margin_pct stay scalar (one matter has exactly one currency, same as
+    compensation_data's matter rows), tagged with that matter's currency_code. But summing across matters in
+    the totals footer into one dollar figure misstates it the same way #60-#64/#66-#68 did, so totals keeps
+    revenue/time_cost/expense_cost/cost/margin/margin_pct as per-currency dicts instead (issue #69)."""
     payments = Payment.query.filter(Payment.account == "operating", Payment.received_on >= d_from,
                                     Payment.received_on <= d_to).all()
     entries = TimeEntry.query.filter(TimeEntry.date >= d_from, TimeEntry.date <= d_to).all()
@@ -560,6 +565,7 @@ def profitability_data(d_from, d_to, status=""):
     for r in by_matter.values():
         if status and (not r["matter"] or r["matter"].status != status):
             continue
+        r["currency"] = r["matter"].currency_code if r["matter"] else "USD"
         r["cost"] = r["time_cost"] + r["expense_cost"]
         r["margin"] = r["revenue"] - r["cost"]
         r["margin_pct"] = _pct(r["margin"], r["revenue"])
@@ -567,9 +573,15 @@ def profitability_data(d_from, d_to, status=""):
         r["users"] = sorted(r["users"])
         rows.append(r)
     rows.sort(key=lambda r: -r["margin"])
-    totals = {k: sum(r[k] for r in rows) for k in ("revenue", "payments", "minutes", "time_cost", "expense_cost",
-                                                    "cost", "margin")}
-    totals["margin_pct"] = _pct(totals["margin"], totals["revenue"])
+    totals = {"revenue": {}, "time_cost": {}, "expense_cost": {}, "cost": {}, "margin": {},
+              "minutes_by_currency": {}, "payments": sum(r["payments"] for r in rows),
+              "minutes": sum(r["minutes"] for r in rows)}
+    for r in rows:
+        for k in ("revenue", "time_cost", "expense_cost", "cost", "margin"):
+            totals[k][r["currency"]] = totals[k].get(r["currency"], 0) + r[k]
+        totals["minutes_by_currency"][r["currency"]] = totals["minutes_by_currency"].get(r["currency"], 0) + r["minutes"]
+    totals["margin_pct"] = {c: _pct(totals["margin"].get(c, 0), totals["revenue"].get(c, 0))
+                            for c in totals["revenue"]}
     totals["flagged"] = len([r for r in rows if r["cost_rate_missing"]])
     return rows, totals
 
@@ -587,16 +599,21 @@ def profitability():
         for r in rows:
             m = r["matter"]
             out.append([m.number if m else "", m.name if m else "(no matter)", m.client.display_name if m else "",
-                        m.status if m else "", _money_csv(r["revenue"]), _hours_csv(r["minutes"]),
+                        m.status if m else "", r["currency"], _money_csv(r["revenue"]), _hours_csv(r["minutes"]),
                         _money_csv(r["time_cost"]), _money_csv(r["expense_cost"]), _money_csv(r["cost"]),
                         _money_csv(r["margin"]), _pct_csv(r["margin_pct"]),
                         "cost rate not set: " + ", ".join(r["missing_rate_users"]) if r["cost_rate_missing"] else ""])
-        out.append(["TOTAL", f"{d_from.isoformat()} to {d_to.isoformat()}", "", status or "all",
-                    _money_csv(totals["revenue"]), _hours_csv(totals["minutes"]), _money_csv(totals["time_cost"]),
-                    _money_csv(totals["expense_cost"]), _money_csv(totals["cost"]), _money_csv(totals["margin"]),
-                    _pct_csv(totals["margin_pct"]), f"{totals['flagged']} flagged" if totals["flagged"] else ""])
-        return _csv("profitability.csv", ["Matter", "Name", "Client", "Status", "Revenue", "Hours", "Time cost",
-                                          "Non-billable expenses", "Total cost", "Margin", "Margin %", "Flag"], out)
+        for currency in sorted(totals["revenue"]):
+            out.append(["TOTAL", f"{d_from.isoformat()} to {d_to.isoformat()}", "", status or "all", currency,
+                        _money_csv(totals["revenue"][currency]),
+                        _hours_csv(totals["minutes_by_currency"].get(currency, 0)),
+                        _money_csv(totals["time_cost"][currency]), _money_csv(totals["expense_cost"][currency]),
+                        _money_csv(totals["cost"][currency]), _money_csv(totals["margin"][currency]),
+                        _pct_csv(totals["margin_pct"].get(currency)),
+                        f"{totals['flagged']} flagged" if totals["flagged"] else ""])
+        return _csv("profitability.csv", ["Matter", "Name", "Client", "Status", "Currency", "Revenue", "Hours",
+                                          "Time cost", "Non-billable expenses", "Total cost", "Margin", "Margin %",
+                                          "Flag"], out)
     return render_template("reports/profitability.html", rows=rows, totals=totals, d_from=d_from, d_to=d_to,
                            status=status, statuses=MATTER_STATUSES)
 
