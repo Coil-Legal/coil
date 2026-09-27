@@ -1,5 +1,32 @@
 # Coil Phase 1 completion pass
 
+## September27 portal login-link lifecycle and calendar acceptance,18:44 UTC
+
+Reviewed from b3c4df2 in /private/tmp/coil-portal-link-review. Files: app/blueprints/portal.py and tests/test_portal_link_lifecycle.py. No schema changes. Tested and integrated2a159f1ca85ed00c5e163f3fd95a3c6636574277 by fast-forward, preserving shared coordination edits. Both deployments healthy on2a159f1. Local synthetic contact1/2, matter1, document1 and generated token rows belong only to disposable databases; no live token values appear in evidence.
+
+Six baseline failures, four controls passed. Requesting a replacement sign-in link left the previous link usable, including after a logged-only or failed mail attempt. Earlier links also remained valid after three requests and a rate-limited fourth. Three card-purpose tokens incorrectly exhausted the portal's three-per-15-minute login limit. A frozen-clock control accepted a link at exactly expires_at.
+
+The fix expires older unused portal-purpose links for the selected contact when an eligible new request is created. It leaves used_at unchanged, keeps other contacts/card links intact, and changes the expiry check to reject equality. Only portal-purpose rows count toward the login limit. A fourth rate-limited request creates nothing and leaves the newest valid link intact. Replacement and new-token changes commit together. Existing neutral confirmation and logged/failing mail behavior are preserved; this is not proof of real message delivery, concurrent single-use consumption or cross-worker race handling.
+
+Ten new synthetic cases plus existing portal/signature/money regressions passed,36 total in8.02 seconds. Mail is captured in memory and external HTTP disabled. Controls also document shared-email behavior: client records rank before nonclients; among clients the lowest contact ID wins. No chooser, combined identity or shared-inbox redesign is claimed. Unsharing a document blocks its next download even in an already authenticated session. A closed matter's still-shared document remains on the client's portal and downloads correctly.
+
+Grok CAL-GAP-CREATE, CAL-GAP-EDIT and CAL-DST-CONTROLS independently PASS5858401749 at18:06:30 UTC on stablecbf3617, ACK5858377161. Fresh events28-31 on matter3071, tagQA-DST-GAP-20260927. Event28 saved only after rejecting Chicago March8,2026 start02:30, explicit end02:30 and generated end02:30; corrected01:30/03:30 exports07:30Z/08:30Z. Event29 invalid edits retain draft and original09:00/10:00, including a server-submitted empty Starts without500; valid09:30/10:30 correction persists. Event30 fall-back01:30/02:30 exports06:30Z/08:30Z; event31 all-day March8 exports date-only March8/March9. Firm timezone, billing/provider settings and old queues unchanged. Exhibits /workspace/coil-qa/phase5/exhibits/codex-cbf3617-dst-gap/. These close the three assigned cases, not full calendar acceptance.
+
+Issue49 remains an access block. Its existing operator finding confirms Mailpit captured contact1781's messages on September24; the real inbox did not receive them because capture is the configured default. No send-code defect or credential change is needed for that finding. New replacement/limit independent acceptance requires authorized capture-mail read access and stays blocked. Do not repeatedly request links or relay email without the required access/authorization. Public invalid-token/neutral-confirmation and anonymous-download checks can run independently.
+
+Phase1 incomplete. Portal mobile/keyboard/screen-reader, payment prerequisites, actual captured-link replacement acceptance, calendar API/import/recurring DST and external subscriptions, recovery exact-source/disposable access, Stripe test keys, authentic handset SMS and remaining AI/operator/offsite gates stay open. Productivity54 stays with Cursor/autonomous. No Phase2/3 signoff, GitHub main unpushed,30-minute schedule unchanged.
+
+Full suite:1058 passed,1 skipped,126 warnings in208.70 seconds. Logs portal-links-baseline.log, portal-links-focused.log and portal-links-full.log. No GitHub push.
+
+Linux candidate:51 passed,2 warnings in61.37 seconds. Both public/container health endpoints report2a159f1. Host/runtime portal source SHA33715bbbb56b6b4a84dc66857ada56c949c73fe84679285bb25fdc7e554326ff matches reviewed source. Environment/Compose hashes unchanged. Backups under /home/deploy/backups/coil/{domain}/portal-links-2a159f1-r1; rollback images testfirmcoillegal:before-2a159f1 and democoillegal:before-2a159f1. Data archives: testfirm data/backups/coil-backup-20260927-184113-bn3hd8r_.tar.gz; demo data/backups/coil-backup-20260927-184227-t0vdrv7z.tar.gz. No rollback required.
+
+Before/after SQLite quick_check passed. Testfirm18 portal token rows retain SHA6f6af2b70d1f0c940c8fb5961e6905fca5e5617c16ac36e2fdaf97e0d9af50ec; calendar events28-31 retain SHA9ae19ae90dc5b7dfecc94d61a8ab54eec9931e4a9243a0cc9d9ed93d92474a31. Demo empty fingerprints unchanged. Existing token rows, fixtures and provider credentials were not changed during deployment; future eligible login requests apply replacement behavior. Evidence portal-links-live-check.py, prepare/activate logs and both before/health JSON files.
+
+Independent queue: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5858679282. PORTAL-PUBLIC-ERRORS and PORTAL-ANON-DOWNLOAD assigned, no acknowledgment observed at assignment. New PORTAL-REPLACE/LIMIT cases explicitly blocked on existing issue49 capture-mail access; no retry of contact1781 or request to alter shared SMTP. Public route passes cannot close those gates.
+
+Sheet S81 synced and exactly verified at2026-09-27 18:46 UTC:21 cells across7 ranges. Fresh reads and RAW writes preserve prior case evidence, Overview B2, Cursor fields, statuses, Tools F12 formula and formatting. Evidence portal-links-sheet-latest.json, portal-links-sheet-changes.json and portal-links-sheet-readback.json. Final issue12 check found no new Grok acknowledgment/result for5858679282. Public2 remain assigned; replacement/limit acceptance remains explicitly blocked.
+
+
 ## September27 calendar form fix and deadline acceptance,18:00 UTC
 
 Reviewed from b761ce5, isolated /private/tmp/coil-calendar-gap-review. Application changes: app/blueprints/calendar.py and tests/test_calendar_dst_gap.py. No schema changes. Tested and integrated cbf3617a56d989b5247797ad7357cf40f6f570ea on local main, preserving the existing coordination edits. GitHub remains unpushed. Both deployments are healthy on cbf3617.
