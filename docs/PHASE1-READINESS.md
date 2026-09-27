@@ -1,5 +1,27 @@
 # Coil Phase 1 completion pass
 
+## September 27 calendar feed lifecycle and access review, 20:12 UTC
+
+Reviewed 2026-09-27 from aeda87d in isolated checkout /private/tmp/coil-calendar-feed-lifecycle. Application commit 9b70380 remains deployed on both sites. No application source, schema, provider settings or live fixtures changed. The local probe is tests/probe_calendar_feed_lifecycle.py, preserved as outputs/calendar-feed-lifecycle-probe.py. It uses disposable SQLite databases, synthetic contact/matter 1, users 1-3, event 1 or task 1 per fresh case, and blocks external HTTP.
+
+Nine new cases plus 31 existing calendar regressions passed: 40 passed in 9.89 seconds. Evidence: outputs/calendar-feed-lifecycle-probe.log. Five key-boundary cases return 404 without event content: invalid key, firm key on user route, user key on firm route, user 1 key on user 2 route, and valid locally derived key for nonexistent user 999. Proper firm/owner feeds remain anonymously downloadable with text/calendar and no-cache headers. The anonymous staff edit route redirects to login. Keys are bearer access; no claim of account-deactivation revocation or per-feed rotation is made.
+
+The event lifecycle case creates October 6, 2026, 09:00 Chicago, edits it to October 7, 11:00, and then deletes it through authenticated routes. Both fresh feeds preserve one UID across the edit, update the title and UTC time from 14:00Z to 16:00Z, then omit the deleted UID. The deleted detail page returns 404. Three task-kind cases cover task, deadline and court_date: date-only October 8 start/October 9 exclusive end; completion removes each item from both feeds; reopening restores the same UID once; clearing the due date leaves an open task outside both feeds. These are server response checks, not proof that external calendar clients refresh or remove entries correctly.
+
+Grok independently passed ICAL-UNICODE in issue 12 comment 5859128313 and ICAL-USER-SCOPE in 5859128423, following ACK 5859094593, on 9b70380. Event 32 has the 144-character emoji/accent/Japanese title and multiline escaped notes; saved/edit forms and unfolded ICS match, with maximum physical line length 75 UTF-8 bytes. Its October 5, 09:00/10:00 Chicago times export as 14:00Z/15:00Z. Events 33, 34 and 35 belong to owner 1, other active user 20 and the firm respectively. Firm feed includes all three; owner feed excludes 34; UI all/mine/1/20 filters match. Existing events 28-31 and provider/timezone settings were left unchanged. Exhibits: /workspace/coil-qa/phase5/exhibits/codex-9b70380-ical-unicode-scope/. Feed secrets remain private.
+
+Next independent batch: ICAL-EDIT-DELETE, ICAL-TASK-STATE and ICAL-KEY-BOUNDARY, using fresh QA-ICS-LIFECYCLE-20260927 fixtures. Existing events 28-35 and task fixtures 78-80 are protected. Assignment and acknowledgment will be recorded separately. No full calendar/tasks or phase signoff.
+
+Phase 1 remains incomplete. Portal replacement/limit acceptance is explicitly blocked by issue 49 authorized Mailpit capture access; portal consumption race shares that prerequisite. Recovery exact-source/disposable access, Stripe test keys, authentic handset SMS, remaining AI/browser/operator/offsite checks and external calendar subscriptions stay open. Calendar API/import, recurrence DST and second-fold selection remain separate review gates. Productivity case 54 remains autonomous/Cursor-owned. No duplicate unchanged access ping, GitHub push or schedule change.
+
+No application changes required new deployment or full-suite rerun. The prior application full suite was 1062 passed, 1 skipped on 9b70380; this run's evidence is the 40 focused checks above, not a fresh full-suite result.
+
+Independent batch assigned: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5859408473. Final issue 12 check found no Grok acknowledgment or result for this batch. The earlier Unicode/scope passes remain accepted.
+
+Both public health endpoints checked this run report healthy, stable 9b70380, version demo-20260927. Evidence: calendar-feed-testfirm-health.json and calendar-feed-demo-health.json.
+
+Sheet S83 updated and exactly verified: 21 cells across five ranges. Existing tool statuses, formula F12, Cursor fields, portal row and Overview B2 preserved. New case results are separate from full tool acceptance.
+
 ## September 27 portal single-use consumption and calendar feed review, 19:33 UTC
 
 Reviewed from b0407d2 in isolated /private/tmp/coil-portal-consume-review. Source changes: app/blueprints/portal.py and tests/test_portal_token_concurrency.py. No schema changes. Tested and integrated9b70380c7bf9e8a50121b4d4cb73ab437dde925c by guarded fast-forward, preserving shared coordination edits. Both deployments healthy on9b70380. Synthetic local contact1 and generated token rows only, in disposable SQLite databases with mail captured in memory; no live authentication or provider requests.
