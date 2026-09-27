@@ -1,5 +1,30 @@
 # Tool readiness register
 
+## September 27 restore extraction failure, 2026-09-27 11:04 UTC
+
+Reviewed source9bc0bcc and installed restore77c2df7. A valid SQLite database followed by a file/directory collision in an upload or PDF causes tar to fail after it has already written the database and other files into the restore target. The existing-data guard then prevents a clean retry. Eight baseline regressions failed across root/data and leading-dot archive layouts, with absent and existing targets.
+
+Synthetic fixture QA-RESTORE-EXTRACTION-20260927 contains12345 cents, exact upload bytes, a synthetic environment and an existing application file. Regression cases require an unchanged target after extraction failure, no temporary residue, successful retry, correct database/upload/environment bytes and preserved existing target permissions. No live data involved.
+
+The isolated fix in /private/tmp/coil-restore-extraction extracts the entire payload in private scratch space, validates the extracted database, and only then copies payload entries into the target. Copying entries individually preserves the existing install directory permissions. Changed ops/restore.sh, tests/test_restore_extraction.py, tests/test_restore_integrity.py and docs/SELF-HOSTING.md. Temporary capacity must accommodate the extracted archive plus the separate database validation copy. Final publication remains nontransactional. Disk errors or interruption during final copy, SIGKILL cleanup, concurrent writers, unsafe archive members, version metadata/refusal and operator/offsite prerequisites remain open.
+
+Focused44 passed. Both the initial and final Linux candidates passed8 cases; the final candidate includes target-permission preservation in acceptance. Initial full999 passed,1 skipped,126 warnings in190.38 seconds. Final committed candidate4dc624943685981fc3160854c85c16fd019d00dc passed999 tests,1 skipped,126 warnings in184.50 seconds. Final source SHA9e17affda2ca183a062ed74d0faedefcf3ff832de06f1a6e3df79250f25e469f. Evidence restore-extraction-baseline.log, restore-extraction-focused.log, restore-extraction-linux-candidate-final.log and standalone restore-extraction-linux-probe.py. Full-suite evidence is restore-extraction-final-full.log.
+
+Independent report evidence on appa1793c5: ACK5854997046, results5855011714 give ORIG66-HTML PASS, ORIG66-CSV PASS and COMP68-CSV PASS. Correct identity is matter3091/displayM-1071, USD25.01, versus3078/displayM-1058 EUR0.50; Share100.0% EUR +100.0% USD. Compensation ALL fees EUR0.50 +USD4328.51. WIP67 hours and compensation HTML already passed in5854953863. These are individual fixture passes, not whole-tool signoff.
+
+Cursor assigned realization Case53 in5855066460, ACK5855136273, FAIL5855148717. Main Worked USD314204.35; protected unbilled matter3094/time41563 EUR200 appears asUSD200, matter3093/time41562 USD100 appears correctly. No euro shown. Cursor owns this report queue; issue69 profitability and current report working changes remain with the autonomous loop. No duplicate unchanged retest requested. No Codex report or fixture mutations.
+
+Phase1 remains incomplete. Exact-source/disposable independent operational acceptance remains deferred; provider/AI, operator/offsite and remaining recovery gates stay open. Phase2/3 are not signed off. GitHub main remains unpushed;30-minute schedule unchanged.
+
+Final committed full suite:999 passed,1 skipped,126 warnings in184.50 seconds. Integrated4dc6249 by fast-forward after comparing all five autonomous report working files before and after; hashes unchanged. Installed on both hosts; each installed script passed34 synthetic Linux cases,68 total, comprising8 extraction/retry,12 preflight,10 target preservation and4 WAL/corrupt checks. Environment and Compose hashes unchanged; rollback available, not used. Backups /home/deploy/backups/coil/{testfirm.coil.legal,demo.coil.legal}/restore-before-4dc6249.sh. Install log restore-extraction-install.log. Both public health endpoints remain healthya1793c5. No live backup/restore, financial write, application restart or GitHub push by Codex.
+
+Cursor recorded realization as issue70 and assigned read-only/no-CSV Case54 productivity in5855255617. No Case54 acknowledgment observed at handoff. New recovery handoff https://github.com/Coil-Legal/coil/issues/12#issuecomment-5855269947 records separate RESTORE-EXTRACTION-ROOT/CLI acceptance criteria behind the existing exact-source/disposable-access prerequisite. No start or acknowledgment claimed. Existing operational acceptance cases remain deferred. Next independent recovery work: final-copy disk-error/interruption preservation and version metadata/refusal.
+
+
+
+Sheet S70: all six affected ranges and23 cells were freshly read, updated and exactly verified at11:05 UTC. Cursor's new productivity assignment in Tools J29/K29 and Overview B2 were preserved, along with existing history, formulas and formatting. Evidence restore-extraction-sheet-current.json, restore-extraction-sheet-changes.json and restore-extraction-sheet-readback.json.
+
+
 ## September 27 restore database preflight, 10:18 UTC
 
 Source a924968, installed restoreabd32b3. Restore checked SQLite only after extracting all files, so a corrupt database left a populated data directory and an archived environment in the target. A valid retry was then refused by the existing-data guard. Empty and duplicate database members were also accepted.
