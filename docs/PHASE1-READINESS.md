@@ -1,5 +1,29 @@
 # Coil Phase 1 completion pass
 
+## Calendar API timestamp fix, 2026-09-27 23:09 UTC
+
+Reviewed from b69aef8 in isolated /private/tmp/coil-calendar-api-review. Files: app/blueprints/api.py and tests/test_calendar_api_time.py. No schema change. Local event 1 and scoped API tokens exist only in disposable test databases. No production token was created or disclosed.
+
+Baseline: 9 failures, 4 passing controls in 4.26 seconds. API calendar creation accepted offset-bearing ISO timestamps, then SQLite discarded the offset. With a Chicago firm, 2026-10-05T14:00:00Z was saved as local 14:00 and exported five hours late. A +09:00 timestamp also lost the intended local date. The API accepted nonexistent spring-forward times and explicit second-occurrence fall-back instants that its local naive storage cannot preserve.
+
+Explicit instants now convert to the firm's local time before saving, with the feed's existing UTC fallback for invalid timezone configuration. Naive input remains firm-local. The API records the existing default one-hour end explicitly and uses the calendar form's clock validation for both start and end. Explicit second-fold instants return JSON 400 without creating an event because fold selection is not built into the persisted model. Out-of-range conversion/default-end values also return JSON 400. This prevents silent time shifts without claiming second-fold support or fixing the separate recurring-DST feed problem.
+
+Focused API, scope and calendar-form checks: 47 passed, 3 warnings in 10.79 seconds. Two date-boundary cases were added before the full suite and Linux candidate run. Tests compare persisted local values, API responses, staff edit page and firm/owner feed instants across Chicago/Tokyo/UTC/invalid-zone cases, including date crossover and first-fold controls. Invalid start/default end/second-fold requests leave no events. Read-only scope remains unable to create.
+
+Grok long-series cases independently PASS on 0726538: ACK 5860448678, ICAL-LONG-DAILY 5860479245 (event 42, 2496 expanded occurrences, October 31 dates/November none), ICAL-LONG-MONTHLY 5860479338 (event 43, 1528 occurrences, Jan31/Feb28/Mar31/Apr30 2027, May none). Owner 1/matter 3071; tag QA-ICAL-LONG-20260927. Both UI and firm/owner feeds checked. Exhibits /workspace/coil-qa/phase5/exhibits/codex-0726538-ical-long/. Grok labels filter URLs user_id in the comment, while the application parameter is user; this does not undermine the date result, but no new filter-specific signoff is inferred. Existing user-filter evidence remains separate.
+
+Phase 1 remains incomplete. Timed recurring DST/month-year alignment, importer timezone handling, external calendar clients, second-fold selection and court-specific completeness remain open. Portal capture access, operational recovery, provider test keys/handset SMS and remaining AI/browser/operator/offsite gates remain blocked or pending as previously recorded. Productivity 54 remains autonomous/Cursor-owned. No live charges, provider changes, GitHub push or schedule change.
+
+Full suite: 1119 passed, 1 skipped, 126 warnings in 217.97 seconds. Tested commit 356ec080d4310df3f4bfbd3c22ea7946100454f3 integrated by guarded fast-forward, preserving shared coordination edits. Evidence: calendar-api-baseline.log, calendar-api-focused.log and calendar-api-full.log. The change applies to new API requests. Historical records cannot recover discarded offsets from the naive row alone; any correction requires original request/source evidence. No historical dates were rewritten.
+
+Both sites deployed and verified healthy on 356ec08 (stable, demo-20260927). Linux candidate: 90 passed, 5 warnings in 96.52 seconds. Host/runtime API source SHA 3d85c52322a1f7545de7554682c1a7f38942f7ef3193661f38d65b3ec42257d7 matches reviewed code; old source SHA 4982ea4cff00c10d06421459b6cd416c6f5f06975d8657900280ac242957761c. Environment and Compose hashes unchanged. Backups: /home/deploy/backups/coil/{domain}/calendar-api-356ec08-r1; rollback images testfirmcoillegal:before-356ec08 and democoillegal:before-356ec08. Data archives: testfirm coil-backup-20260927-230316-8i6a5xm6.tar.gz; demo coil-backup-20260927-230508-ns7dvhg9.tar.gz. Initial connection refusal during startup recovered through the normal health retry; no rollback.
+
+SQLite quick_check passed before/after. Testfirm events 28-43 (16 rows) retain SHA aaf2b3a8c4cbe5aac65c50e235fe624c96bf135d97a421e38ff0a920694548fc; tasks 78-81 retain SHA 58ab150b3b11b59bf64799ba31392d7faa9b061b912ccbe5f40c19a5d33ab241; 18 portal tokens retain SHA 6f6af2b70d1f0c940c8fb5961e6905fca5e5617c16ac36e2fdaf97e0d9af50ec. Empty demo fingerprints and unchanged calendar source also verified. Evidence: calendar-api-prepare.log, calendar-api-activate.log, calendar-api-live-check.py and before/after/health JSON.
+
+Independent API two-case batch assigned: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5860683000. CAL-API-OFFSETS checks UTC/+09:00 saved local values and exact firm/owner feed instants; CAL-API-CLOCK-REFUSAL checks invalid spring start/default end and explicit second-fold refusals, plus first-fold positive control. Fresh QA-CAL-API-20260927 fixtures on matter 3071/owner 1. Existing authorized calendar-write API access is required; if unavailable, Grok must report BLOCKED. No acknowledgment claimed at assignment.
+
+Sheet S87 synced and exactly verified: 16 cells across five ranges, preserving statuses, formula F12, Cursor fields, task/portal rows and Overview B2. Final issue 12 check found no acknowledgment or result for 5860683000. Calendar and Phase 1 remain pending.
+
 ## Long-running calendar series fix, 2026-09-27 22:24 UTC
 
 Reviewed from b01e27b in isolated /private/tmp/coil-calendar-long-review. Files: app/models.py (CalendarEvent.occurrences only) and tests/test_calendar_long_series.py. No columns, schema, stored records, provider settings or feed format change.
