@@ -134,13 +134,14 @@ def test_origination_totals_by_attorney(app, client):
     with app.app_context():
         rows, totals = origination_data(date(2025, 1, 1), date(2025, 1, 31))
     by_name = {r["user"].name: r for r in rows}
-    assert by_name["Ann Attorney"]["cents"] == 25000
+    assert by_name["Ann Attorney"]["by_currency"] == {"USD": 25000}
     assert by_name["Ann Attorney"]["matter_count"] == 1
     assert by_name["Ann Attorney"]["flagged_count"] == 0
+    assert by_name["Ann Attorney"]["share"] == "71.4%"
     # M-C002 has no originator, so its $100 falls to the responsible attorney (the owner) and is flagged.
-    assert by_name["Demo Owner"]["cents"] == 10000
+    assert by_name["Demo Owner"]["by_currency"] == {"USD": 10000}
     assert by_name["Demo Owner"]["flagged_count"] == 1
-    assert totals["cents"] == 35000 and totals["count"] == 2 and totals["flagged_count"] == 1
+    assert totals["by_currency"] == {"USD": 35000} and totals["count"] == 2 and totals["flagged_count"] == 1
     r = client.get("/reports/origination", query_string=RANGE)
     assert r.status_code == 200
     assert b"Ann Attorney" in r.data and b"$250.00" in r.data
@@ -154,9 +155,10 @@ def test_origination_csv(client):
     assert "origination.csv" in r.headers["Content-Disposition"]
     assert r.data.startswith(b"\xef\xbb\xbf"), "export has no UTF-8 BOM, Excel on Windows will mojibake it"
     lines = r.data.decode("utf-8-sig").splitlines()
-    assert lines[0] == "Attorney,Matter,Name,Client,Payments,Collected,Flag"
+    assert lines[0] == "Attorney,Matter,Name,Client,Payments,Currency,Collected,Flag"
     assert any(l.startswith("Demo Owner,M-C002,") and "responsible attorney used" in l for l in lines)
-    assert lines[-1].startswith("ALL,2025-01-01 to 2025-01-31,") and lines[-1].split(",")[5] == "350.00"
+    assert lines[-1].startswith("ALL,2025-01-01 to 2025-01-31,") and lines[-1].split(",")[5] == "USD" \
+        and lines[-1].split(",")[6] == "350.00"
 
 
 # ---------------------------------------------------------------- realization

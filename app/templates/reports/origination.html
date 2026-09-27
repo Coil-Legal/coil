@@ -9,7 +9,7 @@
 </form>
 </div>
 <div class="grid c3">
-  <div class="card stat"><div class="label">Collected into operating</div><div class="value">{{ totals.cents|money }}</div><div class="small muted">{{ totals.count }} payment{{ '' if totals.count == 1 else 's' }}, {{ d_from|d }} to {{ d_to|d }}</div></div>
+  <div class="card stat"><div class="label">Collected into operating</div><div class="value">{{ totals.by_currency|curmix }}</div><div class="small muted">{{ totals.count }} payment{{ '' if totals.count == 1 else 's' }}, {{ d_from|d }} to {{ d_to|d }}</div></div>
   <div class="card stat"><div class="label">Matters paying</div><div class="value">{{ totals.matter_count }}</div></div>
   <div class="card stat"><div class="label">Missing originator</div><div class="value" {% if totals.flagged_count %}style="color:var(--warn)"{% endif %}>{{ totals.flagged_count }}</div><div class="small muted">Matters with no originating attorney are credited to the responsible attorney and flagged below.</div></div>
 </div>
@@ -20,12 +20,12 @@
 {% for r in rows %}
 <tr><td><strong>{{ r.user.name if r.user else '(no attorney)' }}</strong>
   <details><summary class="small">per matter</summary>
-  <table class="small">{% for m in r.matters %}<tr><td>{% if m.matter %}<a href="/matters/{{ m.matter.id }}">{{ m.matter.label }}</a>{% else %}<span class="muted">(no matter)</span>{% endif %}</td><td>{{ m.matter.client.display_name if m.matter else '' }}</td><td class="num">{{ m.count }}</td><td class="num">{{ m.cents|money }}</td><td>{% if m.flagged %}<span class="badge draft">no originator</span>{% endif %}</td></tr>{% endfor %}</table></details></td>
-  <td class="num">{{ r.matter_count }}</td><td class="num">{{ r.count }}</td><td class="num"><strong>{{ r.cents|money }}</strong></td>
-  <td class="num">{% if totals.cents %}{{ '%.1f'|format(100.0 * r.cents / totals.cents) }}%{% else %}-{% endif %}</td>
+  <table class="small">{% for m in r.matters %}<tr><td>{% if m.matter %}<a href="/matters/{{ m.matter.id }}">{{ m.matter.label }}</a>{% else %}<span class="muted">(no matter)</span>{% endif %}</td><td>{{ m.matter.client.display_name if m.matter else '' }}</td><td class="num">{{ m.count }}</td><td class="num">{{ m.by_currency|curmix }}</td><td>{% if m.flagged %}<span class="badge draft">no originator</span>{% endif %}</td></tr>{% endfor %}</table></details></td>
+  <td class="num">{{ r.matter_count }}</td><td class="num">{{ r.count }}</td><td class="num"><strong>{{ r.by_currency|curmix }}</strong></td>
+  <td class="num">{{ r.share }}</td>
   <td>{% if r.flagged_count %}<span class="badge draft">{{ r.flagged_count }} without originator</span>{% endif %}</td></tr>
 {% endfor %}
-<tr><th>Total</th><th class="num">{{ totals.matter_count }}</th><th class="num">{{ totals.count }}</th><th class="num">{{ totals.cents|money }}</th><th class="num">100%</th><th>{% if totals.flagged_count %}{{ totals.flagged_count }} flagged{% endif %}</th></tr>
+<tr><th>Total</th><th class="num">{{ totals.matter_count }}</th><th class="num">{{ totals.count }}</th><th class="num">{{ totals.by_currency|curmix }}</th><th class="num">100%</th><th>{% if totals.flagged_count %}{{ totals.flagged_count }} flagged{% endif %}</th></tr>
 </table>
 {% else %}<div class="empty">No payments in this range.</div>{% endif %}
 </div>

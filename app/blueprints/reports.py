@@ -310,11 +310,26 @@ def _attorney_for(matter):
     return matter.responsible, True
 
 
+def _share_str(row_by_currency, total_by_currency):
+    """Percent of the total this row represents, kept separate per currency: adding a EUR share to a USD
+    share would misstate both, the same mistake as summing their cents into one dollar figure (issue #66)."""
+    codes = sorted(c for c in row_by_currency if total_by_currency.get(c))
+    if not codes:
+        return "-"
+    single = len(total_by_currency) == 1
+    parts = [f"{100.0 * row_by_currency[c] / total_by_currency[c]:.1f}%" + ("" if single else f" {c}")
+             for c in codes]
+    return " + ".join(parts)
+
+
 # ---------------------------------------------------------------- origination
 def origination_data(d_from, d_to):
     """Collected operating revenue in the range, grouped by originating attorney.
-    Returns (rows, totals). Each row: {"user", "cents", "count", "matter_count", "flagged_count", "matters": [...]}.
-    Matters with no originator use the responsible attorney and carry flagged=True."""
+    Returns (rows, totals). Each row: {"user", "by_currency", "count", "matter_count", "flagged_count",
+    "matters": [...], "share"}. Matters with no originator use the responsible attorney and carry flagged=True.
+    A payment's currency comes from its invoice, and nothing stops one matter from carrying invoices in more
+    than one currency, so both the matter and attorney rows (and the grand total) keep a per-currency dict
+    instead of one scalar (issue #66: summing across currencies into one dollar figure misstated both)."""
     payments = (Payment.query.filter(Payment.account == "operating", Payment.received_on >= d_from,
                                      Payment.received_on <= d_to).all())
     by_user = {}
@@ -322,24 +337,31 @@ def origination_data(d_from, d_to):
         matter = p.matter or (p.invoice.matter if p.invoice else None)
         user, flagged = _attorney_for(matter)
         uid = user.id if user else 0
-        row = by_user.setdefault(uid, {"user": user, "cents": 0, "count": 0, "matters": {}})
-        row["cents"] += p.amount_cents or 0
+        currency = _payment_currency(p)
+        row = by_user.setdefault(uid, {"user": user, "by_currency": {}, "count": 0, "matters": {}})
+        row["by_currency"][currency] = row["by_currency"].get(currency, 0) + (p.amount_cents or 0)
         row["count"] += 1
         mk = matter.id if matter else 0
-        mrow = row["matters"].setdefault(mk, {"matter": matter, "cents": 0, "count": 0, "flagged": flagged})
-        mrow["cents"] += p.amount_cents or 0
+        mrow = row["matters"].setdefault(mk, {"matter": matter, "by_currency": {}, "count": 0, "flagged": flagged})
+        mrow["by_currency"][currency] = mrow["by_currency"].get(currency, 0) + (p.amount_cents or 0)
         mrow["count"] += 1
     rows = []
     for row in by_user.values():
-        matters = sorted(row["matters"].values(), key=lambda r: -r["cents"])
+        matters = sorted(row["matters"].values(), key=lambda r: -sum(r["by_currency"].values()))
         row["matters"] = matters
         row["matter_count"] = len([m for m in matters if m["matter"]])
         row["flagged_count"] = len([m for m in matters if m["flagged"]])
         rows.append(row)
-    rows.sort(key=lambda r: (-r["cents"], r["user"].name if r["user"] else "zzz"))
-    totals = {"cents": sum(r["cents"] for r in rows), "count": sum(r["count"] for r in rows),
+    rows.sort(key=lambda r: (-sum(r["by_currency"].values()), r["user"].name if r["user"] else "zzz"))
+    total_by_currency = {}
+    for r in rows:
+        for code, cents in r["by_currency"].items():
+            total_by_currency[code] = total_by_currency.get(code, 0) + cents
+    totals = {"by_currency": total_by_currency, "count": sum(r["count"] for r in rows),
               "matter_count": sum(r["matter_count"] for r in rows),
               "flagged_count": sum(r["flagged_count"] for r in rows)}
+    for r in rows:
+        r["share"] = _share_str(r["by_currency"], total_by_currency)
     return rows, totals
 
 
@@ -353,14 +375,19 @@ def origination():
         for r in rows:
             name = r["user"].name if r["user"] else "(no attorney)"
             for m in r["matters"]:
-                out.append([name, m["matter"].number if m["matter"] else "", m["matter"].name if m["matter"] else "(no matter)",
-                            m["matter"].client.display_name if m["matter"] else "", m["count"], _money_csv(m["cents"]),
-                            "no originator, responsible attorney used" if m["flagged"] else ""])
-            out.append([name, "TOTAL", f"{r['matter_count']} matters", "", r["count"], _money_csv(r["cents"]),
-                        f"{r['flagged_count']} flagged" if r["flagged_count"] else ""])
-        out.append(["ALL", f"{d_from.isoformat()} to {d_to.isoformat()}", f"{totals['matter_count']} matters", "",
-                    totals["count"], _money_csv(totals["cents"]), ""])
-        return _csv("origination.csv", ["Attorney", "Matter", "Name", "Client", "Payments", "Collected", "Flag"], out)
+                for currency, cents in sorted(m["by_currency"].items()):
+                    out.append([name, m["matter"].number if m["matter"] else "",
+                                m["matter"].name if m["matter"] else "(no matter)",
+                                m["matter"].client.display_name if m["matter"] else "", m["count"], currency,
+                                _money_csv(cents), "no originator, responsible attorney used" if m["flagged"] else ""])
+            for currency, cents in sorted(r["by_currency"].items()):
+                out.append([name, "TOTAL", f"{r['matter_count']} matters", "", r["count"], currency,
+                            _money_csv(cents), f"{r['flagged_count']} flagged" if r["flagged_count"] else ""])
+        for currency, cents in sorted(totals["by_currency"].items()):
+            out.append(["ALL", f"{d_from.isoformat()} to {d_to.isoformat()}", f"{totals['matter_count']} matters", "",
+                        totals["count"], currency, _money_csv(cents), ""])
+        return _csv("origination.csv", ["Attorney", "Matter", "Name", "Client", "Payments", "Currency", "Collected",
+                                        "Flag"], out)
     return render_template("reports/origination.html", rows=rows, totals=totals, d_from=d_from, d_to=d_to)
 
 
