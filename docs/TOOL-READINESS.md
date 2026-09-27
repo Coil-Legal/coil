@@ -1,5 +1,32 @@
 # Tool readiness register
 
+## September27 calendar form fix and deadline acceptance,18:00 UTC
+
+Reviewed from b761ce5, isolated /private/tmp/coil-calendar-gap-review. Application changes: app/blueprints/calendar.py and tests/test_calendar_dst_gap.py. No schema changes. Tested and integrated cbf3617a56d989b5247797ad7357cf40f6f570ea on local main, preserving the existing coordination edits. GitHub remains unpushed. Both deployments are healthy on cbf3617.
+
+Nine baseline failures, six controls passed. Eight failures reproduce nonexistent start/end times accepted by the create/edit routes: Chicago March8,2026 02:30, explicit end02:30, generated end02:30 from start01:30, and Lord Howe October4,2026 02:15. A ninth failure reproduces clearing Starts on edit: a query flushes the invalid model before the form can render and raises a NOT NULL database error. Before the fix, Chicago02:30/03:30 exports both endpoints as08:30Z, so an accepted one-hour wall-clock entry has zero exported duration.
+
+The forms validate each timed endpoint by converting from the firm's timezone to UTC and back. A changed wall time receives a field-specific error, with the draft retained and no saved mutation. Invalid edits render without autoflush and roll back. The existing timezone-configuration fallback and fall-back first-occurrence policy are preserved. All-day events bypass timed validation. Corrected submissions save normally without a rejected-attempt duplicate.
+
+Focused validation:29 passed in8.85 seconds. This includes15 new tests and existing module-A/small-feature tests. The new controls cover a valid spring transition crossing01:30/03:30 (07:30Z/08:30Z),03:00boundary, fall-back01:30/02:30 (06:30Z/08:30Z), Phoenix/UTC no-gap controls, all-day transition date and missing-start edit handling. Synthetic databases only, external HTTP disabled. Full suite:1048 passed,1 skipped,126 warnings in204.54 seconds. Linux candidate:56 passed,2 warnings in75.95 seconds. Logs calendar-gap-baseline.log, calendar-gap-focused.log, calendar-gap-full.log and calendar-gap-prepare.log.
+
+Scope limits: these are calendar create/edit form fixes. Old saved events are not rewritten. API/import validation, generated recurring occurrences across DST, explicit second-occurrence selection at fall-back, and external Outlook/Google/Apple subscriptions are not established by these cases. No calendar tool-wide acceptance is claimed.
+
+Grok DEADLINE-MONTH-END and DEADLINE-LEAP-YEAR independently PASS5858024701 at17:16:59 UTC on stable74ffffc, ACK5858001279. Fresh ruleset5 with rules25/26 on QA event, rolling off: matter3101/contact1840, Jan31 trigger previews Feb28/Mar31; task78 retains month-end explanation and alternativeMar3, task79 has Mar31; both open/overdue, replay Added0/Skipped2. Rule27 on QA leap event, matter3102/contact1841: Feb29,2024 trigger gives task80 dueFeb28,2025 with alternativeMar1; open/overdue, replay Added0/Skipped1. Source notes retained; no shared holiday or earlier-fixture changes. Exhibits /workspace/coil-qa/phase5/exhibits/codex-74ffffc-deadline-arith/. These two cases are accepted separately from full calendar signoff.
+
+Remaining priorities: independent calendar form/ICS batch after deployment; productivity Case54 stays with the existing Cursor/autonomous queue; operational recovery cases require exact-source/disposable access. Stripe test access, authentic handset SMS, remaining AI/browser evidence, operator/offsite recovery, producer-version metadata/refusal and other prior gates remain open. Phase1 incomplete, no Phase2/3 signoff, GitHub main unpushed and30-minute schedule unchanged.
+
+Deployment verified September27,18:00 UTC. Both container and public health report cbf3617. Host/runtime calendar source SHA3181bf592bb050b3bc89cda2ed33c4a75777039181435981f95b3686c69ec054 matches reviewed source. Environment and Compose hashes are guarded and unchanged. Backups under /home/deploy/backups/coil/{domain}/calendar-gap-cbf3617-r1 with source, build/test logs and state; rollback images testfirmcoillegal:before-cbf3617 and democoillegal:before-cbf3617. Data archives: testfirm data/backups/coil-backup-20260927-175630-f2uliaym.tar.gz; demo data/backups/coil-backup-20260927-175758-mmr_5sxm.tar.gz. No rollback required.
+
+Read-only SQLite checks passed before/after. Testfirm27 calendar rows retain SHA6f8b05a04e762ae43d510893ffda21861d384f071feca921f982c93972ec109f; tasks78-80 retain SHA0c68690fefcd88ea78ae49374e9ee176e00c25614d6287a5b820f2a0ca1bd4ec. Demo has no corresponding rows and empty fingerprints remain identical. No live fixture or provider mutation. Evidence calendar-gap-live-check.py, both before/health JSON files and calendar-gap-activate.log.
+
+Independent batch CAL-GAP-CREATE, CAL-GAP-EDIT and CAL-DST-CONTROLS requires fresh QA-DST-GAP-20260927 events, unchanged America/Chicago configuration, exact validation and persisted-state checks, UTC feed endpoints and all-day/fall-back controls. Draft in calendar-gap-retest-queue.md. Assignment is5858352373; no acknowledgment observed at assignment.
+
+Assigned https://github.com/Coil-Legal/coil/issues/12#issuecomment-5858352373. No acknowledgment observed at assignment. A scheduled check is not evidence that Grok has started.
+
+Sheet S80 synced and exactly verified at2026-09-27 18:01 UTC:16 cells across5 ranges. Fresh reads and RAW writes preserved earlier evidence, Overview B2, Cursor J10/K10, formulas and formatting. Evidence calendar-gap-sheet-latest.json, calendar-gap-sheet-changes.json and calendar-gap-sheet-readback.json. Final issue12 check found no new Grok acknowledgment/result for5858352373 or related new issue. Assignment remains unacknowledged.
+
+
 ## September27 deadline boundaries and conflict acceptance,17:10 UTC
 
 Reviewed committed971d411/application74ffffc in /private/tmp/coil-deadline-review-971d411 at2026-09-27 17:10 UTC. No application source change, deployment, provider action, live rule/holiday/fixture mutation or GitHub push. Synthetic local rule set/rule96001 and matter1 belong only to disposable test databases.
