@@ -11,7 +11,8 @@ import secrets
 import threading
 import time as _time
 from collections import deque
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from functools import wraps
 
 from flask import Blueprint, request, jsonify, g, current_app
@@ -783,9 +784,32 @@ def create_event():
         starts_at = datetime.fromisoformat(str(starts))
     except ValueError:
         return _error(400, "starts_at must be ISO 8601, e.g. 2026-09-08T14:30:00.")
-    e = CalendarEvent(title=title[:300], starts_at=starts_at, user_id=g.api_user.id,
+    # Calendar forms, recurrence and feeds store firm-local wall times. SQLite
+    # drops an ISO offset, so convert an explicit instant before storing it.
+    if starts_at.tzinfo is not None:
+        try:
+            zone = ZoneInfo(Firm.get().timezone or "UTC")
+        except (ZoneInfoNotFoundError, ValueError):
+            zone = ZoneInfo("UTC")
+        try:
+            local = starts_at.astimezone(zone)
+        except (OverflowError, ValueError):
+            return _error(400, "starts_at is outside the supported local date range.")
+        if local.fold:
+            return _error(400, "The second occurrence of a repeated clock time is not supported. "
+                          "Choose a time outside the repeated hour.")
+        starts_at = local.replace(tzinfo=None)
+    try:
+        ends_at = starts_at + timedelta(hours=1)
+    except OverflowError:
+        return _error(400, "starts_at must allow a one-hour event within the supported date range.")
+    e = CalendarEvent(title=title[:300], starts_at=starts_at, ends_at=ends_at, user_id=g.api_user.id,
                       matter_id=int(b["matter_id"]) if b.get("matter_id") else None,
                       location=(b.get("location") or "")[:300])
+    from .calendar import _event_error
+    error = _event_error(e)
+    if error:
+        return _error(400, error)
     db.session.add(e)
     audit("calendar_create", "calendar_event", None, title[:120], g.api_user.id)
     db.session.commit()
