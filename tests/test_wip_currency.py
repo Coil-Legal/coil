@@ -106,3 +106,7 @@ def test_wip_csv_has_a_currency_column_and_splits_totals(client, unbilled_usd_an
     assert set(totals) == {"USD", "EUR"}, totals
     assert totals["USD"][8] == "300.00", totals["USD"]
     assert totals["EUR"][8] == "200.00", totals["EUR"]
+    # issue #67: each currency's TOTAL row must show that currency's own hours, not every
+    # matter's hours summed together and repeated on both rows.
+    assert totals["USD"][5] == "2.00", totals["USD"]
+    assert totals["EUR"][5] == "2.00", totals["EUR"]

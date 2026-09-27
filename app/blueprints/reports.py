@@ -131,8 +131,12 @@ def wip():
         r["currency"] = r["matter"].currency_code
     # Each row is one matter, so it has exactly one currency and its own total is safe to sum;
     # only the cross-matter footer needs splitting by currency (issue #64, same class as #60-#63).
-    totals = {"minutes": sum(r["minutes"] for r in rows), "time_cents": {}, "expense_cents": {}, "total": {}}
+    # minutes_by_currency is separate from the page's single grand-total minutes (issue #67): a
+    # currency's CSV TOTAL row must show that currency's hours, not every matter's hours combined.
+    totals = {"minutes": sum(r["minutes"] for r in rows), "minutes_by_currency": {},
+              "time_cents": {}, "expense_cents": {}, "total": {}}
     for r in rows:
+        totals["minutes_by_currency"][r["currency"]] = totals["minutes_by_currency"].get(r["currency"], 0) + r["minutes"]
         for k in ("time_cents", "expense_cents", "total"):
             totals[k][r["currency"]] = totals[k].get(r["currency"], 0) + r[k]
     if _wants_csv():
@@ -141,7 +145,7 @@ def wip():
                 _money_csv(r["expense_cents"]), _money_csv(r["total"]),
                 r["oldest"].isoformat() if r["oldest"] else ""] for r in rows]
         for currency in sorted({r["currency"] for r in rows}):
-            out.append(["TOTAL", "", "", "", currency, f"{totals['minutes'] / 60:.2f}",
+            out.append(["TOTAL", "", "", "", currency, f"{totals['minutes_by_currency'].get(currency, 0) / 60:.2f}",
                         _money_csv(totals["time_cents"].get(currency, 0)),
                         _money_csv(totals["expense_cents"].get(currency, 0)),
                         _money_csv(totals["total"].get(currency, 0)), ""])
