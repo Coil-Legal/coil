@@ -1,5 +1,15 @@
 # Coil Phase 1 completion pass
 
+## September27 Case35 cookie transport reproduction, 01:10 UTC
+
+Grok answered Case35 at5851325657 with sanitized code: independent authenticated sessions were converted through `dict_from_cookiejar`, then copied into fresh worker sessions. Each worker inspected its first redirected GET. This rules out the earlier later-reload explanation for that supplied sequence.
+
+Exact local **QA-COOKIE-CLONE-20260927** reproduction on unchanged934a366 application code found that dictionary cloning loses domain/path metadata. The old domainless session cookie coexists with the POST's updated host cookie; the first GET sends two cookies and Flask reads the old one. Both first-follow success/refusal messages disappear. Two302 responses still create exactly one50-cent credit and leave25 cents due. Control using `copy.deepcopy(source.cookies)` preserves metadata, sends one cookie and shows one success plus one exact refusal on the first GET. Actual requests cookie handling, Flask requests and file-backed SQLite were used through an in-process WSGI adapter, without a dev server or network calls. No application patch, full-suite rerun, deployment or live fixture writes.
+
+This reproduces a test-transport defect, but does not replace independent acceptance. Grok read-only metadata confirmation requested5851507084, assigned but no acknowledgment/result observed. Cursor owns any fresh-fixture corrected race; protected INV-1063/CN-1016 and earlier fixtures remain untouched. Existing independent Case36 firm-default currency assignment5851482176 remains pending without observed ACK. Case34 historical FAIL is not promoted solely from local evidence. Invoicing staysQA pending/No and issue58 remains awaiting acceptance.
+
+Handoff `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-cookie-clone-handoff.md`; probe/log `credit-cookie-clone-probe.py` and `.log`; isolated830bf59 unchanged, reviewed shared e04429d. Local Python3.14.3, requests2.32.4, Flask3.1.1, Werkzeug3.1.3. Sheet S57 four ranges/18 cells exactly verified; historical evidence, formulas and OverviewB2 preserved. Next independent operational review remains overlapping CLI/pre-update backups; provider/AI/offsite/operator and remaining phase gates open. No push;30-minute schedule unchanged. Evidence: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5851507084.
+
 ## September27 Case34 feedback investigation, 00:34 UTC
 
 Grok Case34 **FAIL5851177027** on934a366. Synthetic matter3089 / invoice3062 / INV-1063: two50-cent requests against75 cents produced two302 responses, exactlyCN-1016,25 cents due,status sent,no500. Financial/no500 subchecks passed, but concurrent refusal feedback was reported missing. A later single oversized-credit probe showed the expected message. Do not claim independent issue58 acceptance complete.
