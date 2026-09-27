@@ -1,5 +1,17 @@
 # Coil Phase 1 completion pass
 
+## September 27 CLI cleanup deployment, 05:05 UTC
+
+Deployed **ebceeaf** to both apps. New CLI backups use a process-held workspace lock and a short registry lock covering initialization/deletion. A later invocation reclaims only abandoned new workspaces, preserving active jobs and finished archives. Three original SIGKILL regressions failed; final **27 focused**, **936 full passed/1 skipped**, and **27 prepared Linux image tests passed**. Four killed-job boundaries, three live-job controls, exact100/200/300-cent and upload restores, private0600 final files, legacy preservation and symlink targets checked. Tested isolatedf6ccf68, integratedebceeaf. Unfinished autonomous export changes were preserved byte-identically and excluded from this tested patch.
+
+Both public health endpoints healthyebceeaf, matching host/runtime CLI hashes, SQLite integrity OK and restarts0. Environment/compose hashes unchanged. Protected3091/INV-1065/payment13/CN-1018 financial fingerprint unchanged. Backups and rollback images retained; exact paths/logs in `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-backup-cleanup-handoff.md`. Demo briefly timed out during startup polling, then passed. No live financial/provider changes or GitHub push.
+
+This closes local implementation/regression evidence for cleanup of **new CLI workspaces on the next backup**. Legacy flat temporary files and separate nightly-script SIGKILL cleanup remain open because ownership is not provable. Independent operational acceptance, offsite/operator access, root exhaustion, power-loss durability, actual app restart mid-snapshot and compatibility remain open. No broad deletion or tool-wide recovery signoff.
+
+Grok rendered PDF **PASS5852567944**, ACK5852562390, on573222b: pdftoppm200dpi actual page pixels, one A4 page, credit/summary/balances readable. Assigned statement HTML/content/visual fixture case now accepted. Payment-denomination observation5852568035 confirms issue59, owned by autonomous loop. Case42 **FAIL5852671579**, ACK5852660673, confirms combined mixed-currency invoice footer totals, now issue60. Cursor Case43 A/R card gate updated toebceeaf; independent CLI-CLEAN-ACCESS read-only capability query assigned alongside it, no acknowledgment observed. Operational CLI-CLEAN-A/B and earlier batch remain deferred. Queue: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5852825278.
+
+Sheet **S62**, five ranges/32 cells read before writing and verified exactly. Thirty-minute schedule unchanged. Next executable Phase1 review: nightly-script abandoned-file handling while provider/AI and independent recovery prerequisites remain blocked/open. Phase2/3 gates unchanged; no phase completion.
+
 ## September 27 interruption review and acceptance audit, 04:16 UTC
 
 Follow-up: Grok acknowledged the visual PDF and payment-denomination batch as5852562390 on573222b; results remain pending. Sheet acknowledgment update: five affected cells freshly read and verified.
