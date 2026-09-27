@@ -2,6 +2,8 @@
 
 ## September 27 interruption review and acceptance audit, 04:16 UTC
 
+Follow-up: Grok acknowledged the visual PDF and payment-denomination batch as5852562390 on573222b; results remain pending. Sheet acknowledgment update: five affected cells freshly read and verified.
+
 Unchanged source **c214154**, application573222b. Disposable **QA-SIGKILL-20260927** killed actual child processes at three CLI backup boundaries: before tar opening after snapshot, after upload addition before close, and after atomic publication. Prior100-cent archives stayed byte-identical; first two published nothing new, third published a valid200-cent archive. All three subsequent backups restored300 cents. Seven total archives restored exact rows/uploads with SQLite integrity OK. No live backup/restore or application edits. Evidence: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/backup-sigkill-results.json`.
 
 The existing **SIGKILL cleanup gap is confirmed**: each killed job leaves one private snapshot and one partial path, retained after the next successful backup. Safe cleanup must distinguish active jobs; age-only deletion is insufficient. Process-death publication/retry checks passed at these boundaries, but power loss, Linux container termination, actual app restart during snapshot, offsite/operator access and broader recovery gates remain open. No full suite rerun or deployment for unchanged application source. Last full928 passed/1 skipped remains the statement release.
