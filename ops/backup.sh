@@ -8,6 +8,7 @@
 #      capture a torn file: a backup that restores into a corrupt database is worse
 #      than no backup, because you find out during the emergency.
 #
+# Requires Python 3 on the host for cross-process workspace ownership.
 # This uses SQLite's own online backup API through the container's python, which takes
 # a consistent snapshot of a live database, then archives that snapshot alongside the
 # firm's uploads, generated PDFs and .env.
@@ -34,12 +35,68 @@ found=0
 
 log() { echo "$(date -u '+%F %T') $*"; }
 run() { if [ "$DRY_RUN" = 1 ]; then echo "  would: $*"; else "$@"; fi; }
-# SQLite may leave sidecars when its backup fails. These paths belong only to
-# this invocation's unique snapshot; never remove another job's files.
-cleanup_snapshot() { rm -f "$snap" "$snap-journal" "$snap-wal" "$snap-shm"; }
+# The supervisor and every host child retain a shared lease. Docker exec is
+# daemon-owned, so its Python process takes the same lease separately below.
+# Registry locks serialize initialization, acquisition and reclamation. Never
+# unlink the registry file, or two processes could lock different inodes.
+owned_backup() {
+  python3 - "$0" "$dir" "$dest" <<'PYOWN'
+import fcntl, os, pathlib, shutil, subprocess, sys, tempfile
+script, firm, destination = sys.argv[1:]
+data = pathlib.Path(firm, 'data').resolve()
+dest = pathlib.Path(destination).resolve()
+registry = open(data / '.coil-nightly-registry.lock', 'a+b')
+os.chmod(registry.name, 0o600)
+
+def remove(workspace):
+    (dest / (workspace.name + '.partial')).unlink(missing_ok=True)
+    shutil.rmtree(workspace)
+
+fcntl.flock(registry, fcntl.LOCK_EX)
+for old in data.glob('.coil-nightly-job-*'):
+    if old.is_symlink() or not old.is_dir():
+        continue
+    try:
+        lease = open(old / 'lease', 'r+b')
+    except FileNotFoundError:
+        # Initialization died under the registry lock before creating its lease.
+        remove(old)
+        continue
+    with lease:
+        try:
+            fcntl.flock(lease, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            continue
+        remove(old)
+workspace = pathlib.Path(tempfile.mkdtemp(prefix='.coil-nightly-job-', dir=data))
+lease = open(workspace / 'lease', 'w+b')
+os.chmod(lease.name, 0o600)
+fcntl.flock(lease, fcntl.LOCK_SH)
+fcntl.flock(registry, fcntl.LOCK_UN)
+result = None
+try:
+    result = subprocess.run(['bash', script], env=dict(os.environ,
+        COIL_NIGHTLY_FIRM=firm, COIL_NIGHTLY_WORKSPACE=str(workspace)),
+        pass_fds=(lease.fileno(),))
+finally:
+    fcntl.flock(registry, fcntl.LOCK_EX)
+    try:
+        # A detached container child may still be running after exec fails.
+        fcntl.flock(lease, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        pass
+    else:
+        if result is not None and result.returncode >= 0:
+            remove(workspace)
+    lease.close()
+    registry.close()
+sys.exit(result.returncode)
+PYOWN
+}
 
 # A Coil instance is an app directory whose data dir holds the app's database.
 for dir in "$APPS_DIR"/*/; do
+  [ -z "${COIL_NIGHTLY_FIRM:-}" ] || [ "$dir" = "$COIL_NIGHTLY_FIRM" ] || continue
   db="$dir/data/practice.db"
   [ -f "$db" ] || continue
   firm="$(basename "$dir")"
@@ -53,6 +110,10 @@ for dir in "$APPS_DIR"/*/; do
     continue
   fi
   mkdir -p "$dest"
+  if [ -z "${COIL_NIGHTLY_WORKSPACE:-}" ]; then
+    if ! owned_backup; then failures=$((failures + 1)); fi
+    continue
+  fi
 
   # Consistent snapshot of the live database. sqlite3 is not installed on this host, so
   # use the container's python, which is the same SQLite the app writes with.
@@ -60,20 +121,27 @@ for dir in "$APPS_DIR"/*/; do
   if [ -n "$container" ]; then
     # Every invocation owns its snapshot, including cleanup after a failed run.
     # A concurrent backup must never replace or delete this run's database.
-    if ! snap=$(mktemp "$dir/data/.backup-snapshot.XXXXXX"); then
+    if ! snap=$(mktemp "$COIL_NIGHTLY_WORKSPACE/.backup-snapshot.XXXXXX"); then
       log "  ERROR: cannot create snapshot file for $firm"
       failures=$((failures + 1)); continue
     fi
     if ! docker exec "$container" python -c "
-import sqlite3, sys
+import fcntl, pathlib, sqlite3, sys
+workspace = pathlib.Path(sys.argv[1]).parent
+# A child delayed until after its launcher died must not recreate a reclaimed
+# workspace. Open the existing lease under the same registry lock as cleanup.
+with open('/app/data/.coil-nightly-registry.lock', 'r+b') as registry:
+    fcntl.flock(registry, fcntl.LOCK_EX)
+    lease = open(workspace / 'lease', 'r+b')
+    fcntl.flock(lease, fcntl.LOCK_SH)
 src = sqlite3.connect('/app/data/practice.db')
 dst = sqlite3.connect(sys.argv[1])
 with dst:
     src.backup(dst)          # SQLite online backup: safe against concurrent writers
 dst.close(); src.close()
-" "/app/data/${snap##*/}" 2>/dev/null; then
+" "/app/data/${COIL_NIGHTLY_WORKSPACE##*/}/${snap##*/}" 2>/dev/null; then
       log "  ERROR: snapshot failed for $firm, skipping (database NOT backed up)"
-      failures=$((failures + 1)); cleanup_snapshot; continue
+      failures=$((failures + 1)); continue
     fi
   else
     log "  ERROR: no running container for $firm, skipping (a file copy could be torn)"
@@ -82,14 +150,15 @@ dst.close(); src.close()
 
   # Build privately, then publish a complete archive without replacing an older one.
   # A failed retry in the same second must not truncate or delete a good backup.
-  if ! temp_archive=$(mktemp "$dest/.$firm-$STAMP.partial.XXXXXX"); then
+  temp_archive="$dest/${COIL_NIGHTLY_WORKSPACE##*/}.partial"
+  if ! (umask 077; set -o noclobber; : > "$temp_archive"); then
     log "  ERROR: cannot create temporary archive for $firm"
-    failures=$((failures + 1)); cleanup_snapshot; continue
+    failures=$((failures + 1)); continue
   fi
-  archive="$dest/$firm-$STAMP-${temp_archive##*.}.tar.gz"
-  archive_args=(-C "$dir/data" --transform 's|^[.]backup-snapshot[.][[:alnum:]]*$|practice.db|' "${snap##*/}")
-  [ ! -d "$dir/data/uploads" ] || archive_args+=(uploads)
-  [ ! -d "$dir/data/pdf" ] || archive_args+=(pdf)
+  archive="$dest/$firm-$STAMP-${COIL_NIGHTLY_WORKSPACE##*job-}.tar.gz"
+  archive_args=(-C "$COIL_NIGHTLY_WORKSPACE" --transform 's|^[.]backup-snapshot[.][[:alnum:]]*$|practice.db|' "${snap##*/}")
+  [ ! -d "$dir/data/uploads" ] || archive_args+=(-C "$dir/data" uploads)
+  [ ! -d "$dir/data/pdf" ] || archive_args+=(-C "$dir/data" pdf)
   [ ! -f "$dir/.env" ] || archive_args+=(-C "$dir" .env)
   if tar -czf "$temp_archive" "${archive_args[@]}" 2>/dev/null \
         && ln "$temp_archive" "$archive"; then
@@ -98,9 +167,8 @@ dst.close(); src.close()
     log "  ok $archive ($size)"
   else
     log "  ERROR: archive creation or publication failed for $firm"
-    failures=$((failures + 1)); rm -f "$temp_archive"; cleanup_snapshot; continue
+    failures=$((failures + 1)); rm -f "$temp_archive"; continue
   fi
-  cleanup_snapshot
 
   # Retention: keep the last N dailies, and Sunday archives for N weeks.
   ls -1t "$dest"/$firm-*.tar.gz 2>/dev/null | tail -n +$((KEEP_DAILY + 1)) | while read -r old; do

@@ -19,7 +19,7 @@ def test_failed_snapshot_removes_only_its_own_database_and_sidecars(tmp_path):
 import os, pathlib, sys
 if sys.argv[1]=='compose': print('synthetic-container')
 else:
-    snap=pathlib.Path(os.environ['FIXTURE_DATA'])/pathlib.Path(sys.argv[-1]).name
+    snap=pathlib.Path(sys.argv[-1].replace('/app/data', os.environ['FIXTURE_DATA']))
     snap.write_bytes(b'partial snapshot')
     for suffix in ('-journal','-wal','-shm'):
         pathlib.Path(str(snap)+suffix).write_bytes(b'synthetic SQLite sidecar')
