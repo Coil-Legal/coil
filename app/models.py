@@ -785,13 +785,24 @@ class CalendarEvent(db.Model):
                 yield self.starts_at
             return
         until = datetime.combine(self.recurrence_until, datetime.max.time()) if self.recurrence_until else None
-        cur, n = self.starts_at, 0
-        while cur < end and n < 1000:
-            if until and cur > until:
+        # Seek to the requested window instead of counting from the first event.
+        # Each date is still anchored to starts_at, preserving month-end clamping.
+        if self.recurrence == "monthly":
+            n = max(0, (start.year - self.starts_at.year) * 12 + start.month - self.starts_at.month)
+        elif self.recurrence == "yearly":
+            n = max(0, start.year - self.starts_at.year)
+        else:
+            days = {"daily": 1, "weekly": 7, "biweekly": 14}[self.recurrence]
+            n = max(0, (start - self.starts_at).days // days)
+        while True:
+            try:
+                cur = self.starts_at + step * n
+            except (OverflowError, ValueError):
+                return  # No further occurrence is representable by datetime.
+            if cur >= end or (until and cur > until):
                 return
             if cur >= start:
                 yield cur
-            cur = self.starts_at + step * (n + 1)
             n += 1
 
 
