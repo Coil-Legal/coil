@@ -120,7 +120,15 @@ generated PDFs, and logs.
 ```
 
 The `backup` command creates a dated `.tar.gz` file in `backups/`. Keep at least 7–30 days of backups.
-To restore: stop the container, replace the `data/` folder with the extracted backup, and restart.
+To restore, stop the application and use `ops/restore.sh <archive.tar.gz> <empty-install-dir>`.
+Keep the original archive and restore the original `.env` separately when it is not included.
+Use the same application commit that created the backup first, then upgrade after checking the restored records.
+Keep that commit or image identifier alongside every archive: current archives do not contain a version manifest,
+and the restore utility checks SQLite integrity, not application-version compatibility. It does not refuse a downgrade.
+A healthy `/health` response is not a financial reconciliation. For example, code from before credit notes can open
+a newer database but ignore its credits and show an incorrect invoice balance. Check invoice totals, payments,
+credits, trust balances and file downloads before using the restored installation. Python 3 is the preferred
+integrity validator; a native SQLite CLI alone may reject a fresh WAL-mode snapshot even when it is intact.
 
 Manual backup: `docker compose exec coil python -m app.cli backup`
 

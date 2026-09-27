@@ -37,11 +37,13 @@ if [ "$HAS_ENV" = 1 ] && { [ -e "$TARGET/.env" ] || [ -L "$TARGET/.env" ]; }; th
   exit 1
 fi
 
-# Docker hosts may have Python but no sqlite3 executable. Never skip validation.
-if command -v sqlite3 >/dev/null 2>&1; then
-  VALIDATOR=sqlite3
-elif command -v python3 >/dev/null 2>&1; then
+# Prefer Python: some native sqlite3 CLIs cannot open an intact WAL-mode
+# snapshot read-only until sidecars exist. Python handles that fresh restore.
+# Keep the CLI fallback for hosts without Python. Never skip validation.
+if command -v python3 >/dev/null 2>&1; then
   VALIDATOR=python3
+elif command -v sqlite3 >/dev/null 2>&1; then
+  VALIDATOR=sqlite3
 else
   echo "FAILED: install sqlite3 or Python 3 with SQLite support before restoring." >&2
   exit 1
