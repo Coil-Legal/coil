@@ -100,7 +100,30 @@ if [ "$(grep -Fxc "$DB_MEMBER" <<< "$NORMALIZED")" != 1 ]; then
 fi
 grep -Fxq "$DB_MEMBER" <<< "$MEMBERS" || DB_MEMBER="./$DB_MEMBER"
 RESTORE_STAGE=$(mktemp -d "${TMPDIR:-/tmp}/coil-restore-check.XXXXXXXX")
-trap 'rm -rf "$RESTORE_STAGE"' EXIT
+PUBLISH_STAGE=''
+TARGET_CREATED=0
+cleanup_restore() {
+  status=$?
+  trap - EXIT
+  set +e
+  # The marker shares the database inode. It also detects a successful rename
+  # if a signal arrived before the next shell statement could run.
+  if [ -n "$PUBLISH_STAGE" ]; then
+    if ! [ "$TARGET/data/practice.db" -ef "$PUBLISH_STAGE/database.marker" ]; then
+      # Remove only the environment link made by this invocation.
+      if [ "$TARGET/.env" -ef "$PUBLISH_STAGE/payload/.env" ]; then
+        rm -f "$TARGET/.env"
+      fi
+    fi
+    rm -rf "$PUBLISH_STAGE"
+  fi
+  rm -rf "$RESTORE_STAGE"
+  if [ "$TARGET_CREATED" = 1 ]; then
+    rmdir "$TARGET" 2>/dev/null
+  fi
+  exit "$status"
+}
+trap cleanup_restore EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 tar -xOzf "$ARCHIVE" "$DB_MEMBER" > "$RESTORE_STAGE/practice.db"
@@ -110,9 +133,14 @@ if [ ! -s "$RESTORE_STAGE/practice.db" ]; then
 fi
 check_database "$RESTORE_STAGE/practice.db"
 
-# Finish extracting in private scratch space before publishing any files. A tar
-# error in an upload or PDF must not strand a partial database or .env in TARGET.
-RESTORE_PAYLOAD="$RESTORE_STAGE/payload"
+# Extract privately on the destination filesystem. A recursive final copy can
+# fail halfway through; a same-filesystem directory rename publishes all data.
+if [ ! -d "$TARGET" ]; then
+  mkdir -p "$TARGET"
+  TARGET_CREATED=1
+fi
+PUBLISH_STAGE=$(mktemp -d "$TARGET/.coil-restore.XXXXXXXX")
+RESTORE_PAYLOAD="$PUBLISH_STAGE/payload"
 mkdir -p "$RESTORE_PAYLOAD"
 if [ "$CLI_LAYOUT" = 1 ]; then
   tar -xzf "$ARCHIVE" -C "$RESTORE_PAYLOAD"
@@ -128,13 +156,29 @@ fi
 
 check_database "$RESTORE_PAYLOAD/data/practice.db"
 
-# Publication is a separate step and is not atomic across files. Keep the app
-# stopped, and retain the archive if a disk error or interruption occurs here.
-mkdir -p "$TARGET"
+# Only data and the optional environment belong in a restore. Do not publish
+# unexpected top-level archive entries over existing application files.
 shopt -s nullglob dotglob
 RESTORE_ENTRIES=("$RESTORE_PAYLOAD/"*)
 shopt -u nullglob dotglob
-cp -a "${RESTORE_ENTRIES[@]}" "$TARGET/"
+for entry in "${RESTORE_ENTRIES[@]}"; do
+  case "$entry" in
+    "$RESTORE_PAYLOAD/data"|"$RESTORE_PAYLOAD/.env") ;;
+    *) echo "FAILED: unexpected install-root archive entry: $entry" >&2; exit 1 ;;
+  esac
+done
+ln "$RESTORE_PAYLOAD/data/practice.db" "$PUBLISH_STAGE/database.marker"
+if [ "$HAS_ENV" = 1 ]; then
+  if [ ! -f "$RESTORE_PAYLOAD/.env" ] || [ -L "$RESTORE_PAYLOAD/.env" ]; then
+    echo "FAILED: archived .env must be a regular file." >&2
+    exit 1
+  fi
+  # ln refuses an existing destination and never exposes a partial file.
+  ln "$RESTORE_PAYLOAD/.env" "$TARGET/.env"
+fi
+# Existing data must still be empty. mv replaces that empty directory, while
+# nonempty data refuses the rename. The app and other writers must be stopped.
+mv "$RESTORE_PAYLOAD/data" "$TARGET/"
 
 # Never report success without looking. A restore that quietly half-worked is worse than
 # one that failed, because nobody goes back to check.
