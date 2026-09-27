@@ -2,6 +2,8 @@
 
 ## September 27 dashboard credit fix and WIP currency review, 08:53 UTC
 
+Grok acknowledgment5854387684 confirms health51a3da8 and acceptance of all three read-only cases; separate results pending. Sheet Overview and QA queue acknowledgment status updated after fresh reads. New reports.py, origination.html and test_phase2_c.py working changes observed at close were left untouched for the autonomous loop. Shared review commitbe543d1, main unpushed.
+
 Issue65: the dashboard summed invoice totals minus payments, omitting issued credits. Grok independently traced GBP invoice3048/INV-1049 and CN-1009 to card1.00 versus invoicebalance0.50 in comment5854142678. Earlier isolated fixture92001 reproduced9000-cent invoicebalance versus10000-cent card.
 
 The fix aggregates issued credits once per invoice, subtracts payments and credits, clamps each remaining balance at zero, and retains currency grouping. Voided credits and draft/void/paid invoices do not contribute. No schema or provider changes.
