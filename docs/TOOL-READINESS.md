@@ -1,5 +1,30 @@
 # Tool readiness register
 
+## September27 same-matter conflict roles,16:34 UTC
+
+Tested and integrated74ffffc04e5ba4567f103b973d00cb56f8be98e9 from isolated /private/tmp/coil-conflict-role-review, preserving shared26ae436 and the existing coordination changes. Application changes are limited to app/blueprints/conflicts.py and tests/test_conflict_multiple_roles.py. No schema changes or GitHub push.
+
+Reproduction through authenticated routes: adding the same name twice on one matter, adverse then witness, saved only adverse in the conflict result. Reversing insertion order saved only witness. The database retained both party rows; search deduplication dropped the second distinct role because its key contained only query/source/URL/label. Two corrected baseline cases failed on the missing-role assertion; a same-role duplicate control passed. An initial harness error used ConflictCheck.query as a query object despite it being a model column; fixed to db.session.query, retained in conflict-role-harness-first.log, and not counted as a product failure.
+
+Fix includes role in the deduplication key. Both different roles survive regardless of insertion order; identical same-role duplicates still collapse. New saved checks render both roles and remain unresolved. Existing saved checks are historical snapshots and are not rewritten; rerun a search to use the updated matcher. No provider, financial or live-fixture mutation is required by this change.
+
+Validation:12 focused passed,32 deselected, in4.20 seconds; full1033 passed,1 skipped,126 warnings in199.77 seconds;44 candidate Linux checks passed with2 warnings in58.26 seconds. Files conflict-role-baseline.log, conflict-role-focused.log, conflict-role-full.log and conflict-roles-prepare.log. Scope reviewed before fast-forward integration, shared source remained unchanged by other agents during this fix.
+
+Backups prepared for both apps under /home/deploy/backups/coil/{domain}/conflict-roles-74ffffc-r1, including old source, build/test logs and deployment state. Rollback images testfirmcoillegal:before-74ffffc and democoillegal:before-74ffffc. Testfirm data archive data/backups/coil-backup-20260927-163017-tlkaz8xx.tar.gz; demo data/backups/coil-backup-20260927-163131-e8bcr4ux.tar.gz. Environment and Compose files are guarded and preserved. Deployment status and final checks will be appended after activation.
+
+Grok corrected ALIAS-EMAIL-EVIDENCE, ALIAS-CYR-CONTROL and ALIAS-GREEK-CONTROL independently PASS5857571253, ACK5857488448 on stable01bfaec. Email hit in saved78 and extra alias hit79 confirmed; prior1833 FAIL remains an explained fixture expectation, not a transliteration defect. Fresh1834 Cyrillic exact81, pre-alias ASCII82 absent own contact, post-alias83 present; fresh1835 Greek84, ASCII85 absent own contact, post-alias86 present. Existing77-80 preserved. Source evidence /workspace/coil-qa/phase5/exhibits/codex-01bfaec-alias-controls/. Names/roles across different matters remain passed5857130378.
+
+One requested detail remains independently unproven: Grok checked old77-80 after aliases, not explicitly the actual pre-alias82/85 snapshots. Read-only follow-up ALIAS-SAVED-HISTORY requires82 still excludes1834 and85 excludes1835, while83/86 retain post-alias hits. New independent fix cases CONFLICT-TWO-ROLES and CONFLICT-ROLE-ORDER require fresh synthetic matter/party IDs, both insertion orders, reopened results and same-role duplicate control. Draft queue is outputs/conflict-role-retest-queue.md, to be posted after verified deployment.
+
+Automatic Greek/Cyrillic transliteration remains not built. Whole conflict-tool acceptance and Phase1 remain incomplete. Recovery exact-source/disposable access, Stripe test access, authentic handset SMS, remaining AI/browser, operator/offsite and recovery gates stay open. Productivity Case54 remains with the autonomous/Cursor queue. No Phase2/3 signoff. The existing30-minute automation is unchanged.
+
+Deployment verified16:34 UTC: both public health endpoints and containers healthy74ffffc, host/runtime source SHA6c01d010251e76ee3f2041a615c7a09446f66af6fd3914310f4176d91cc91d83 matches the candidate. Environment/Compose hashes unchanged. SQLite quick_check ok. Testfirm14 saved checks73-86 retain SHA55d44676dc10389e67945e7270b595c583584ee7f29f76a3d3f6dc8ed7daa178; demo has none, its empty fingerprint unchanged. No rollback required. Transient startup connection refusals resolved during polling. Python urllib public probe received403; curl verified both public endpoints successfully. Evidence conflict-roles-activate.log, conflict-roles-testfirm-health.json, conflict-roles-demo-health.json and both before fingerprints.
+
+Independent batch posted https://github.com/Coil-Legal/coil/issues/12#issuecomment-5857712390. Assigned, no acknowledgment observed at assignment.
+
+
+Sheet S78 synced and exactly verified at16:36 UTC:16 cells across5 ranges, fresh reads and RAW writes. Prior case history, Overview B2, Cursor J9/K9, formulas and formatting preserved. Evidence conflict-roles-sheet-beforewrite.json, conflict-roles-sheet-changes.json and conflict-roles-sheet-readback.json. Final issue12 check found no new Grok acknowledgment or result for5857712390; independent acceptance remains pending.
+
 ## September27 conflict email discrepancy,15:53 UTC
 
 Reviewed shared2a640a7, application01bfaec, at2026-09-27 15:53 UTC. No application source changes, deployment, provider calls, live mutations or GitHub push. Read-only inspection was restricted to synthetic contact1833 and saved conflict checks77-80. The deployed and isolated conflicts.py match SHA256 8d200e4169e2624439a604632eb5551192db727529ba5c701b77ee379ac7c93a.
