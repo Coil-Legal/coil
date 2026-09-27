@@ -8,11 +8,12 @@
 <tr><th>Matter</th><th>Client</th><th>Billing</th><th class="num">Hours</th><th class="num">Time</th><th class="num">Expenses</th><th class="num">Total WIP</th><th>Oldest</th><th></th></tr>
 {% for r in rows %}
 <tr><td><a href="/matters/{{ r.matter.id }}">{{ r.matter.label }}</a></td><td>{{ r.matter.client.display_name }}</td><td>{{ r.matter.billing_type }}</td>
-  <td class="num">{{ r.minutes|hours }}</td><td class="num">{{ r.time_cents|money }}</td><td class="num">{{ r.expense_cents|money }}</td><td class="num"><strong>{{ r.total|money }}</strong></td><td class="nowrap">{{ r.oldest|d }}</td>
+  <td class="num">{{ r.minutes|hours }}</td><td class="num">{{ r.time_cents|cur(r.currency) }}</td><td class="num">{{ r.expense_cents|cur(r.currency) }}</td><td class="num"><strong>{{ r.total|cur(r.currency) }}</strong></td><td class="nowrap">{{ r.oldest|d }}</td>
   <td class="nowrap"><a class="btn small" href="{{ url_for('invoices.new', matter_id=r.matter.id) }}">Invoice</a></td></tr>
 {% endfor %}
-<tr><th colspan="3">Total</th><th class="num">{{ totals.minutes|hours }}</th><th class="num">{{ totals.time_cents|money }}</th><th class="num">{{ totals.expense_cents|money }}</th><th class="num">{{ totals.total|money }}</th><th colspan="2"></th></tr>
+<tr><th colspan="3">Total</th><th class="num">{{ totals.minutes|hours }}</th><th class="num">{{ totals.time_cents|curmix }}</th><th class="num">{{ totals.expense_cents|curmix }}</th><th class="num">{{ totals.total|curmix }}</th><th colspan="2"></th></tr>
 </table>
+{% if rows|map(attribute='currency')|unique|list|length > 1 %}<p class="small muted" style="margin-top:8px">Matters are in more than one currency. Totals above are shown separately per currency.</p>{% endif %}
 {% else %}<div class="empty">No unbilled work.</div>{% endif %}
 </div>
 {% endblock %}

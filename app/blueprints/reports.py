@@ -128,16 +128,25 @@ def wip():
     rows = sorted(by_matter.values(), key=lambda r: -(r["time_cents"] + r["expense_cents"]))
     for r in rows:
         r["total"] = r["time_cents"] + r["expense_cents"]
-    totals = {"minutes": sum(r["minutes"] for r in rows), "time_cents": sum(r["time_cents"] for r in rows),
-              "expense_cents": sum(r["expense_cents"] for r in rows), "total": sum(r["total"] for r in rows)}
+        r["currency"] = r["matter"].currency_code
+    # Each row is one matter, so it has exactly one currency and its own total is safe to sum;
+    # only the cross-matter footer needs splitting by currency (issue #64, same class as #60-#63).
+    totals = {"minutes": sum(r["minutes"] for r in rows), "time_cents": {}, "expense_cents": {}, "total": {}}
+    for r in rows:
+        for k in ("time_cents", "expense_cents", "total"):
+            totals[k][r["currency"]] = totals[k].get(r["currency"], 0) + r[k]
     if _wants_csv():
         out = [[r["matter"].number, r["matter"].name, r["matter"].client.display_name, r["matter"].billing_type,
-                f"{r['minutes'] / 60:.2f}", _money_csv(r["time_cents"]), _money_csv(r["expense_cents"]),
-                _money_csv(r["total"]), r["oldest"].isoformat() if r["oldest"] else ""] for r in rows]
-        out.append(["TOTAL", "", "", "", f"{totals['minutes'] / 60:.2f}", _money_csv(totals["time_cents"]),
-                    _money_csv(totals["expense_cents"]), _money_csv(totals["total"]), ""])
-        return _csv("wip.csv", ["Matter", "Name", "Client", "Billing", "Unbilled hours", "Unbilled time",
-                                "Unbilled expenses", "Total WIP", "Oldest item"], out)
+                r["currency"], f"{r['minutes'] / 60:.2f}", _money_csv(r["time_cents"]),
+                _money_csv(r["expense_cents"]), _money_csv(r["total"]),
+                r["oldest"].isoformat() if r["oldest"] else ""] for r in rows]
+        for currency in sorted({r["currency"] for r in rows}):
+            out.append(["TOTAL", "", "", "", currency, f"{totals['minutes'] / 60:.2f}",
+                        _money_csv(totals["time_cents"].get(currency, 0)),
+                        _money_csv(totals["expense_cents"].get(currency, 0)),
+                        _money_csv(totals["total"].get(currency, 0)), ""])
+        return _csv("wip.csv", ["Matter", "Name", "Client", "Billing", "Currency", "Unbilled hours",
+                                "Unbilled time", "Unbilled expenses", "Total WIP", "Oldest item"], out)
     return render_template("reports/wip.html", rows=rows, totals=totals)
 
 
