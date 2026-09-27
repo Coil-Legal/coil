@@ -18,6 +18,22 @@ if [ -e "$TARGET/data/practice.db" ] || [ -L "$TARGET/data/practice.db" ]; then
   exit 1
 fi
 
+# A missing database does not make leftover uploads or PDFs disposable. Restore
+# only into a fresh data directory, never through a link to another installation.
+if [ -L "$TARGET/data" ] || { [ -e "$TARGET/data" ] && [ ! -d "$TARGET/data" ]; }; then
+  echo "refusing: $TARGET/data must be a real directory, not a link or file. Choose a fresh target." >&2
+  exit 1
+fi
+if [ -d "$TARGET/data" ]; then
+  shopt -s nullglob dotglob
+  EXISTING_DATA=("$TARGET/data/"*)
+  shopt -u nullglob dotglob
+  if [ "${#EXISTING_DATA[@]}" -gt 0 ]; then
+    echo "refusing: $TARGET/data is not empty. Move existing data aside or choose a fresh target." >&2
+    exit 1
+  fi
+fi
+
 # CLI archives include data/; host nightly archives put practice.db at the root.
 # Inspect before writing so an ambiguous or unrelated archive cannot look restored.
 MEMBERS=$(tar -tzf "$ARCHIVE")

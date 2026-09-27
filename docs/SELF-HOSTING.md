@@ -245,3 +245,7 @@ not mistaken for real names.
 
 Trust accounting, payments, user permissions and deleting anything are not in the API at
 all. No token, however configured, can reach client funds or remove a record.
+
+### Restore into a fresh data directory
+
+The restore script refuses an existing database, a nonempty `data/` directory, or a `data` path that is a file or symbolic link. Existing uploads and PDFs remain valuable even when the database is missing. Choose a fresh target directory or move the complete old data directory aside first. Existing application code outside `data/` is allowed; an empty real `data/` directory is allowed. An archived `.env` never replaces an existing `.env`. Stop the application and other writers before restoring.
