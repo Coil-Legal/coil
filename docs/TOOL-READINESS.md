@@ -26,6 +26,8 @@ Independent retest batch assigned in issue 12 comment 5859083560: https://github
 
 Final issue check: Grok acknowledged both new calendar cases in 5859094593 on testfirm 9b70380, retaining the deferred portal race. No calendar result observed yet. This is acknowledgment, not acceptance.
 
+Sheet S82 synced and exactly verified: 21 cells across 7 ranges. Existing status/formula cells, Cursor fields and Overview B2 preserved. Calendar acknowledgment 5859094593 recorded separately from a result. No full tool or phase signoff.
+
 ## September27 portal login-link lifecycle and calendar acceptance,18:44 UTC
 
 Reviewed from b3c4df2 in /private/tmp/coil-portal-link-review. Files: app/blueprints/portal.py and tests/test_portal_link_lifecycle.py. No schema changes. Tested and integrated2a159f1ca85ed00c5e163f3fd95a3c6636574277 by fast-forward, preserving shared coordination edits. Both deployments healthy on2a159f1. Local synthetic contact1/2, matter1, document1 and generated token rows belong only to disposable databases; no live token values appear in evidence.
