@@ -92,13 +92,26 @@ def login():
 @bp.route("/auth/<token>")
 def auth(token):
     tok = PortalToken.query.filter_by(token=token, purpose="portal").first()
-    if not tok or tok.used_at or tok.expires_at <= now():
+    stamp = now()
+    if not tok or tok.used_at or tok.expires_at <= stamp:
         return render_template("portal/expired.html", lang=lang_for(tok.contact if tok else None), t=t), 410
-    tok.used_at = now()
-    session["portal_contact_id"] = tok.contact_id
-    session.permanent = True
-    audit("portal_login", "contact", tok.contact_id)
+    token_id, contact_id = tok.id, tok.contact_id
+    # Release the read snapshot before taking SQLite's write lock. Upgrading a
+    # snapshot after another request committed can fail with SQLITE_BUSY_SNAPSHOT.
+    db.session.rollback()
+    stamp = now()
+    # Reading a link is not consuming it. Another request may have used or
+    # replaced it since the read; only the conditional update may grant access.
+    consumed = PortalToken.query.filter(PortalToken.id == token_id, PortalToken.purpose == "portal",
+                                        PortalToken.used_at.is_(None), PortalToken.expires_at > stamp).update(
+                                            {PortalToken.used_at: stamp}, synchronize_session=False)
+    if consumed != 1:
+        db.session.rollback()
+        return render_template("portal/expired.html", lang=lang_for(tok.contact), t=t), 410
+    audit("portal_login", "contact", contact_id)
     db.session.commit()
+    session["portal_contact_id"] = contact_id
+    session.permanent = True
     return redirect(url_for("portal.home"))
 
 
