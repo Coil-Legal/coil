@@ -48,14 +48,24 @@ def login():
             contact = Contact.query.filter(func.lower(Contact.email) == email).order_by(
                 Contact.is_client.desc(), Contact.id).first()
             if contact:
-                since = now() - timedelta(minutes=RATE_LIMIT_MIN)
+                requested_at = now()
+                since = requested_at - timedelta(minutes=RATE_LIMIT_MIN)
                 recent = PortalToken.query.filter(PortalToken.contact_id == contact.id,
+                                                  PortalToken.purpose == "portal",
                                                   PortalToken.created_at >= since).count()
                 if recent >= RATE_LIMIT_COUNT:
                     current_app.logger.warning("portal login rate limit hit for contact %s", contact.id)
                 else:
-                    tok = PortalToken(contact_id=contact.id,
-                                      expires_at=now() + timedelta(minutes=TOKEN_TTL_MIN))
+                    # A replacement expires pending login links, without marking them
+                    # as used or affecting this contact's separate card-update links.
+                    PortalToken.query.filter(PortalToken.contact_id == contact.id,
+                                             PortalToken.purpose == "portal",
+                                             PortalToken.used_at.is_(None),
+                                             PortalToken.expires_at > requested_at).update(
+                                                 {PortalToken.expires_at: requested_at},
+                                                 synchronize_session=False)
+                    tok = PortalToken(contact_id=contact.id, purpose="portal",
+                                      expires_at=requested_at + timedelta(minutes=TOKEN_TTL_MIN))
                     db.session.add(tok)
                     db.session.flush()
                     firm = Firm.get()
@@ -82,7 +92,7 @@ def login():
 @bp.route("/auth/<token>")
 def auth(token):
     tok = PortalToken.query.filter_by(token=token, purpose="portal").first()
-    if not tok or tok.used_at or tok.expires_at < now():
+    if not tok or tok.used_at or tok.expires_at <= now():
         return render_template("portal/expired.html", lang=lang_for(tok.contact if tok else None), t=t), 410
     tok.used_at = now()
     session["portal_contact_id"] = tok.contact_id
