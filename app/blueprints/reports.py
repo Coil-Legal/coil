@@ -612,29 +612,34 @@ def compensation():
         out = []
         for r in matter_rows:
             m = r["matter"]
+            currency = r["currency"]
             for user, pct, cents in r["working"]:
                 out.append([m.number or "", m.name, m.client.display_name if m.client else "", "working",
-                            user.name if user else "", f"{pct:g}", _money_csv(cents), _money_csv(r["fee"]),
+                            user.name if user else "", f"{pct:g}", currency, _money_csv(cents), _money_csv(r["fee"]),
                             _money_csv(r["gross"]), "no working split, responsible attorney used" if r["flagged"] else ""])
             for user, pct, cents in r["originating"]:
                 out.append([m.number or "", m.name, m.client.display_name if m.client else "", "originating",
-                            user.name if user else "", f"{pct:g}", _money_csv(cents), _money_csv(r["fee"]),
+                            user.name if user else "", f"{pct:g}", currency, _money_csv(cents), _money_csv(r["fee"]),
                             _money_csv(r["gross"]), "default originator credit" if r["defaulted"] else ""])
             for user, pct, cents in r["referral"]:
                 out.append([m.number or "", m.name, m.client.display_name if m.client else "", "referral",
-                            user.name if user else "", f"{pct:g}", _money_csv(cents), _money_csv(r["fee"]),
+                            user.name if user else "", f"{pct:g}", currency, _money_csv(cents), _money_csv(r["fee"]),
                             _money_csv(r["gross"]), ""])
         for r in user_rows:
-            out.append(["TOTAL", r["user"].name if r["user"] else "(nobody)", f"{r['matter_count']} matters", "working",
-                        "", "", _money_csv(r["working"]), "", "", ""])
-            out.append(["TOTAL", r["user"].name if r["user"] else "(nobody)", "", "originating", "", "",
-                        _money_csv(r["originating"]), "", "", ""])
-            out.append(["TOTAL", r["user"].name if r["user"] else "(nobody)", "", "referral", "", "",
-                        _money_csv(r["referral"]), "", "", ""])
-        out.append(["ALL", f"{d_from.isoformat()} to {d_to.isoformat()}", "", "working", "", "",
-                    _money_csv(totals["working"]), _money_csv(totals["fee"]), _money_csv(totals["gross"]),
-                    f"{totals['flagged']} flagged" if totals["flagged"] else ""])
-        return _csv("compensation.csv", ["Matter", "Name", "Client", "Role", "Person", "Percent", "Allocated",
-                                         "Fee collected", "Payment total", "Flag"], out)
+            name = r["user"].name if r["user"] else "(nobody)"
+            for currency, cents in sorted(r["working"].items()):
+                out.append(["TOTAL", name, f"{r['matter_count']} matters", "working", "", "", currency,
+                            _money_csv(cents), "", "", ""])
+            for currency, cents in sorted(r["originating"].items()):
+                out.append(["TOTAL", name, "", "originating", "", "", currency, _money_csv(cents), "", "", ""])
+            for currency, cents in sorted(r["referral"].items()):
+                out.append(["TOTAL", name, "", "referral", "", "", currency, _money_csv(cents), "", "", ""])
+        for currency in sorted(set(totals["working"]) | set(totals["fee"]) | set(totals["gross"])):
+            out.append(["ALL", f"{d_from.isoformat()} to {d_to.isoformat()}", "", "working", "", "", currency,
+                        _money_csv(totals["working"].get(currency, 0)), _money_csv(totals["fee"].get(currency, 0)),
+                        _money_csv(totals["gross"].get(currency, 0)),
+                        f"{totals['flagged']} flagged" if totals["flagged"] else ""])
+        return _csv("compensation.csv", ["Matter", "Name", "Client", "Role", "Person", "Percent", "Currency",
+                                         "Allocated", "Fee collected", "Payment total", "Flag"], out)
     return render_template("reports/compensation.html", matter_rows=matter_rows, user_rows=user_rows, totals=totals,
                            d_from=d_from, d_to=d_to)

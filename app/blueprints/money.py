@@ -181,7 +181,10 @@ def fee_share_of_payment(payment):
 
 def compensation_data(d_from, d_to):
     """Collected fees per matter in the range, allocated to users by working split, with originating and referral
-    credit shown separately. Returns (matter_rows, user_rows, totals)."""
+    credit shown separately. Returns (matter_rows, user_rows, totals). A matter_row's "fee"/"gross" are scalar
+    (one matter has exactly one currency, so summing its own payments is safe), but a person can be allocated
+    credit from matters in more than one currency, so user_rows and totals keep working/originating/referral as
+    per-currency dicts instead of one combined sum (issue #68, same class as #60-#64/#66/#67)."""
     payments = (Payment.query.filter(Payment.account == "operating", Payment.received_on >= d_from,
                                      Payment.received_on <= d_to, Payment.invoice_id != None)  # noqa: E711
                 .order_by(Payment.received_on, Payment.id).all())
@@ -192,7 +195,8 @@ def compensation_data(d_from, d_to):
         if not matter:
             continue
         fee = fee_share_of_payment(p)
-        row = by_matter.setdefault(matter.id, {"matter": matter, "fee": 0, "payments": 0, "gross": 0})
+        row = by_matter.setdefault(matter.id, {"matter": matter, "fee": 0, "payments": 0, "gross": 0,
+                                                "currency": matter.currency_code})
         row["fee"] += fee
         row["gross"] += p.amount_cents or 0
         row["payments"] += 1
@@ -200,12 +204,13 @@ def compensation_data(d_from, d_to):
 
     def urow(user):
         key = user.id if user else 0
-        return users.setdefault(key, {"user": user, "working": 0, "originating": 0, "referral": 0,
+        return users.setdefault(key, {"user": user, "working": {}, "originating": {}, "referral": {},
                                       "matters": set(), "flagged": 0})
 
     matter_rows = []
     for row in by_matter.values():
         matter = row["matter"]
+        currency = row["currency"]
         alloc_rows, flagged = working_allocation(matter)
         row["working"] = allocate_cents(row["fee"], alloc_rows)
         row["flagged"] = flagged
@@ -217,29 +222,34 @@ def compensation_data(d_from, d_to):
         row["defaulted"] = defaulted
         for user, pct, cents in row["working"]:
             r = urow(user)
-            r["working"] += cents
+            r["working"][currency] = r["working"].get(currency, 0) + cents
             r["matters"].add(matter.id)
             if flagged:
                 r["flagged"] += 1
         for user, pct, cents in row["originating"]:
             r = urow(user)
-            r["originating"] += cents
+            r["originating"][currency] = r["originating"].get(currency, 0) + cents
             r["matters"].add(matter.id)
         for user, pct, cents in row["referral"]:
             r = urow(user)
-            r["referral"] += cents
+            r["referral"][currency] = r["referral"].get(currency, 0) + cents
             r["matters"].add(matter.id)
         matter_rows.append(row)
     matter_rows.sort(key=lambda r: (-r["fee"], r["matter"].number or ""))
-    user_rows = sorted(users.values(), key=lambda r: (-r["working"], -r["originating"], r["user"].name if r["user"] else "zzz"))
+    user_rows = sorted(users.values(), key=lambda r: (-sum(r["working"].values()), -sum(r["originating"].values()),
+                                                       r["user"].name if r["user"] else "zzz"))
     for r in user_rows:
         r["matter_count"] = len(r["matters"])
-    totals = {"fee": sum(r["fee"] for r in matter_rows), "gross": sum(r["gross"] for r in matter_rows),
-              "payments": sum(r["payments"] for r in matter_rows),
-              "working": sum(r["working"] for r in user_rows),
-              "originating": sum(r["originating"] for r in user_rows),
-              "referral": sum(r["referral"] for r in user_rows),
+    totals = {"fee": {}, "gross": {}, "payments": sum(r["payments"] for r in matter_rows),
+              "working": {}, "originating": {}, "referral": {},
               "flagged": sum(1 for r in matter_rows if r["flagged"])}
+    for row in matter_rows:
+        totals["fee"][row["currency"]] = totals["fee"].get(row["currency"], 0) + row["fee"]
+        totals["gross"][row["currency"]] = totals["gross"].get(row["currency"], 0) + row["gross"]
+    for r in user_rows:
+        for k in ("working", "originating", "referral"):
+            for code, cents in r[k].items():
+                totals[k][code] = totals[k].get(code, 0) + cents
     return matter_rows, user_rows, totals
 
 

@@ -174,21 +174,22 @@ def test_compensation_report_allocates_fee_share(app, client):
         matter_rows, user_rows, totals = compensation_data(TODAY, TODAY)
         row = [r for r in matter_rows if r["matter"].id == S["matter_id"]][0]
         assert row["gross"] == 120000 and row["fee"] == 100000 and row["flagged"] is False
+        assert row["currency"] == "USD"
         assert {(u.id, cents) for u, pct, cents in row["working"]} == {(S["owner_id"], 60000), (S["ann_id"], 40000)}
         assert [(u.id, pct, cents) for u, pct, cents in row["originating"]] == [(S["owner_id"], 100.0, 100000)]
         by_user = {r["user"].id: r for r in user_rows}
-        assert by_user[S["owner_id"]]["working"] == 60000 and by_user[S["owner_id"]]["originating"] == 100000
-        assert by_user[S["ann_id"]]["working"] == 40000 and by_user[S["ann_id"]]["originating"] == 0
-        assert totals["working"] == 100000 and totals["fee"] == 100000
+        assert by_user[S["owner_id"]]["working"] == {"USD": 60000} and by_user[S["owner_id"]]["originating"] == {"USD": 100000}
+        assert by_user[S["ann_id"]]["working"] == {"USD": 40000} and by_user[S["ann_id"]]["originating"] == {}
+        assert totals["working"] == {"USD": 100000} and totals["fee"] == {"USD": 100000}
     r = client.get(f"/reports/compensation?from={TODAY.isoformat()}&to={TODAY.isoformat()}")
     assert r.status_code == 200
     assert b"$600.00" in r.data and b"$400.00" in r.data and b"$1,000.00" in r.data
     r = client.get(f"/reports/compensation?from={TODAY.isoformat()}&to={TODAY.isoformat()}&format=csv")
     assert r.status_code == 200 and r.mimetype == "text/csv"
     body = r.data.decode()
-    assert "Ann Associate,40,400.00,1000.00,1200.00" in body
-    assert "Demo Owner,60,600.00,1000.00,1200.00" in body
-    assert "originating,Demo Owner,100,1000.00" in body
+    assert "Ann Associate,40,USD,400.00,1000.00,1200.00" in body
+    assert "Demo Owner,60,USD,600.00,1000.00,1200.00" in body
+    assert "originating,Demo Owner,100,USD,1000.00" in body
     r = client.get("/reports")
     assert b"/reports/compensation" in r.data
 
