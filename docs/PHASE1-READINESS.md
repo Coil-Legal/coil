@@ -1,5 +1,29 @@
 # Coil Phase 1 completion pass
 
+## Long-running calendar series fix, 2026-09-27 22:24 UTC
+
+Reviewed from b01e27b in isolated /private/tmp/coil-calendar-long-review. Files: app/models.py (CalendarEvent.occurrences only) and tests/test_calendar_long_series.py. No columns, schema, stored records, provider settings or feed format change.
+
+The 1000-occurrence cap silently hid established recurring events from calendar windows while subscriptions continued. Baseline: 10 failures and 2 controls passed in 1.47 seconds after removing an unavailable optional HTML parser from the probe. All five recurrence types fail beyond their 1000th occurrence; authenticated timed/all-day daily series saved at 2020-01-01 show no events in October 2026. Monthly January 31 clamping and inclusive cutoff also disappear for older series.
+
+The method now seeks to the requested date window and computes each occurrence from the original anchor, retaining month-end and leap-year behavior without scanning the entire history. Expansion stops at the exclusive window end or inclusive recurrence cutoff, and handles datetime's upper bound. Twelve initial cases plus existing calendar/DST/feed/Phase 1 regressions passed, 95 checks in 20.28 seconds. Three upper-bound controls were then added and are included in the full suite and Linux candidate checks. Local fixture event 1 exists only in disposable databases.
+
+Grok independently accepted prior all-day ICAL-MONTH-END (5860148785) and ICAL-LEAP-YEAR (5860148909), ACK 5860112268, on add92b4. Monthly events 38/39/40 match five exact dates January through May 2027; yearly event 41 matches February 29, 2024, February 28 in 2025-2027, and February 29, 2028. Both firm/owner feeds and UI cells agree. Owner 1, matter 3071, tag QA-ICS-DATE-20260927. Exhibits /workspace/coil-qa/phase5/exhibits/codex-add92b4-ical-date/. These are individual case passes; external calendar clients remain untested.
+
+Next independent queue: fresh long-running daily all-day series and monthly month-end series, with exact current-month cells, feed date expansion, inclusive cutoff and empty following month. Preserve events 28-41/tasks 78-81 and private feed keys. Record actual event IDs and redacted UIDs. Assignment does not imply acknowledgment.
+
+Phase 1 remains incomplete. Timed recurrence DST/month-year alignment, API/import, second-fold selection, external calendars and court-specific completeness remain open. Portal replacement/limit/race acceptance retains issue 49 authorized Mailpit capture access; recovery retains exact-source/disposable access prerequisites. Stripe test keys, authentic handset SMS, remaining AI/browser/operator/offsite checks remain open. Productivity 54 stays autonomous/Cursor-owned. Main remains unpushed and the 30-minute schedule unchanged.
+
+Full suite: 1104 passed, 1 skipped, 126 warnings in 212.69 seconds. Tested commit 0726538d10a7a95762de453575d5d4959c905a93 integrated by guarded fast-forward. Shared coordination edits preserved. Evidence: calendar-long-baseline.log, calendar-long-focused.log and calendar-long-full.log.
+
+Both sites deployed and verified healthy on 0726538 (stable, demo-20260927). Linux candidate: 98 passed, 2 warnings in 87.91 seconds. Host/runtime models.py SHA 26bab662889638e6e4e6bbe570d905edc11c56d3cc2188cf654d08de859bddcc matches reviewed code; old source SHA b975cd5656e941ac83764197b40e62980b13c133c7d0791a306c59bd2a860d4a. Environment and Compose hashes unchanged. Backups: /home/deploy/backups/coil/{domain}/calendar-long-0726538-r1. Rollback images: testfirmcoillegal:before-0726538 and democoillegal:before-0726538. Data archives: testfirm coil-backup-20260927-221850-kk8m2e7b.tar.gz; demo coil-backup-20260927-222033-pc2bosjc.tar.gz.
+
+SQLite quick_check passed before and after. Testfirm events 28-41 (14 rows) retain SHA a6c1404482b81b14afd686837f8f3a887931c37d48d36402ced29d1b2df81cad; tasks 78-81 retain SHA 58ab150b3b11b59bf64799ba31392d7faa9b061b912ccbe5f40c19a5d33ab241; 18 portal tokens retain SHA 6f6af2b70d1f0c940c8fb5961e6905fca5e5617c16ac36e2fdaf97e0d9af50ec. Empty demo fingerprints and unchanged calendar feed source also verified. Evidence: calendar-long-prepare.log, calendar-long-activate.log, calendar-long-live-check.py and before/after/health JSON.
+
+Independent long-series batch assigned: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5860378559. No acknowledgment claimed at assignment. Daily all-day 2020-01-01 through October 31, 2026 must show all 31 October dates and no November dates. Monthly all-day 1900-01-31 through April 30, 2027 must show Jan31/Feb28/Mar31/Apr30 and no May date. Fresh QA-ICAL-LONG-20260927 fixtures, owner 1/matter 3071; actual live IDs pending.
+
+Sheet S86 synced and exactly verified: 16 cells across five ranges; statuses, formula F12, Cursor fields, task/portal rows and Overview B2 preserved. Final issue 12 check found no acknowledgment or result for 5860378559. No full calendar or phase signoff.
+
 ## All-day month-end and leap-day fix, 2026-09-27 21:36 UTC
 
 Reviewed from 2c0ae52 in isolated /private/tmp/coil-calendar-allday-review. Files: app/blueprints/calendar.py and tests/test_calendar_allday_recurrence.py. No schema change. Local event 1 is synthetic and exists only in disposable databases; production fixtures are not edited by this review.
