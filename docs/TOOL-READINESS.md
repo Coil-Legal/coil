@@ -1,5 +1,31 @@
 # Tool readiness register
 
+## September 27 portal single-use consumption and calendar feed review, 19:33 UTC
+
+Reviewed from b0407d2 in isolated /private/tmp/coil-portal-consume-review. Source changes: app/blueprints/portal.py and tests/test_portal_token_concurrency.py. No schema changes. Tested and integrated9b70380c7bf9e8a50121b4d4cb73ab437dde925c by guarded fast-forward, preserving shared coordination edits. Both deployments healthy on9b70380. Synthetic local contact1 and generated token rows only, in disposable SQLite databases with mail captured in memory; no live authentication or provider requests.
+
+Four baseline failures in2.41 seconds. A barrier after both/all four token reads lets two/four independent test clients authenticate using one token. A paused authentication read resumes after a replacement request expires that token and still signs in from its stale model. A simulated commit failure returns500 but leaves portal_contact_id in the session cookie, while token usage and audit changes roll back.
+
+The fix releases the initial read transaction, then conditionally updates the token only if it is still unused, unexpired and portal-purpose. Exactly one updated row permits login. A zero-row competitor/replacement loser rolls back and receives410. The audit and token update commit before a portal session is created. Releasing the initial read transaction avoids upgrading an obsolete SQLite snapshot: an initial conditional-update implementation produced database-locked errors in three race cases; retained in portal-consume-first-fix-lock.log, corrected before integration.
+
+Final focused34 checks passed with4 warnings in7.59 seconds, including deterministic2/4-consumer races, replacement versus paused read, failed commit, prior lifecycle and portal/signature regressions. Winner alone gets302/session and one audit; competitors get410/no session. Replacement loser leaves used_at unset and no login audit. Failed commit creates no session and preserves unused token/no audit. This covers these controlled interleavings; broader storage outages and concurrent replacement-request ordering are not newly certified.
+
+Independent calendar probe:1 scenario passed in0.85 seconds, three local events1-3. Authenticated form creation and firm/owner feeds preserve a long emoji/accent/Japanese title and CRLF notes with semicolon/comma/backslash. Unfolded UTF-8 text matches exactly, all physical lines are at most75 bytes. Firm feed contains owner, other-user and firm-wide events; owner feed excludes other user while retaining firm-wide. Evidence outputs/ics-unicode-probe.py and ics-unicode-probe.log. No calendar source change or real external subscription test.
+
+Grok public portal2 cases independently PASS5858714839 at18:49:13 UTC on stable2a159f1, ACK5858707421. Unknown synthetic email request returns200 neutral; synthetic invalid auth token returns410 and no portal session. Unauthenticated document119/matter3067 request redirects302 to /portal/login with only213-byte redirect HTML, no document content. Document/matter unchanged. Exhibits /workspace/coil-qa/phase5/exhibits/codex-2a159f1-portal-public/. Grok explicitly reports PORTAL-REPLACE and PORTAL-LIMIT BLOCKED on existing issue49 authorized Mailpit capture access; no contact1781 inbox retries, provider changes or minted tokens. Public passes do not close those cases.
+
+New independent single-use race case shares the capture-mail prerequisite and remains deferred. No repeat access ping is needed. ICAL-UNICODE and ICAL-USER-SCOPE provide independent executable QA with fresh synthetic events and private feed URLs. No full calendar/portal or Phase1 signoff. Remaining provider, operational recovery, AI/browser, external calendar subscriptions and other prior gates stay open; productivity54 stays Cursor/autonomous. GitHub main unpushed,30-minute automation unchanged.
+
+Full suite:1062 passed,1 skipped,126 warnings in210.13 seconds. Evidence portal-consume-baseline.log, portal-consume-first-fix-lock.log, portal-consume-focused.log and portal-consume-full.log. The calendar probe is preserved separately in workspace outputs, not a source change.
+
+Linux candidate:55 passed,2 warnings in69.49 seconds. Both public/container health endpoints report9b70380. Host/runtime portal source SHAc01bb908f2f9178bdd003ff82eef53e7a1dca21f94786e7f34448486c1497bda matches reviewed source; environment/Compose hashes unchanged. Backups /home/deploy/backups/coil/{domain}/portal-consume-9b70380-r1 retain source, build/tests and state. Rollback images testfirmcoillegal:before-9b70380 and democoillegal:before-9b70380. Data archives: testfirm data/backups/coil-backup-20260927-192603-6jfjw2mc.tar.gz; demo data/backups/coil-backup-20260927-192725-5887_m8k.tar.gz. No rollback required.
+
+Before/after SQLite quick_check passed. Testfirm18 token rows retain SHA6f6af2b70d1f0c940c8fb5961e6905fca5e5617c16ac36e2fdaf97e0d9af50ec; calendar28-31 retain SHA9ae19ae90dc5b7dfecc94d61a8ab54eec9931e4a9243a0cc9d9ed93d92474a31. Demo empty fingerprints unchanged. No live token consumption, fixture mutation, provider changes or GitHub push. Evidence portal-consume-live-check.py, before/health JSON files and prepare/activate logs.
+
+Independent retest batch assigned in issue 12 comment 5859083560: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5859083560. ICAL-UNICODE and ICAL-USER-SCOPE are executable with fresh synthetic events. PORTAL-CONSUME-RACE remains deferred under the existing capture access prerequisite. Assignment is not acknowledgment.
+
+Final issue check: Grok acknowledged both new calendar cases in 5859094593 on testfirm 9b70380, retaining the deferred portal race. No calendar result observed yet. This is acknowledgment, not acceptance.
+
 ## September27 portal login-link lifecycle and calendar acceptance,18:44 UTC
 
 Reviewed from b3c4df2 in /private/tmp/coil-portal-link-review. Files: app/blueprints/portal.py and tests/test_portal_link_lifecycle.py. No schema changes. Tested and integrated2a159f1ca85ed00c5e163f3fd95a3c6636574277 by fast-forward, preserving shared coordination edits. Both deployments healthy on2a159f1. Local synthetic contact1/2, matter1, document1 and generated token rows belong only to disposable databases; no live token values appear in evidence.
