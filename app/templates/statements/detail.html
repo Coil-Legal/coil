@@ -28,7 +28,7 @@
 <div class="grid c4">
   <div class="card stat"><div class="label">Invoiced</div><div class="value">{{ st.totals.invoiced|cur(cur) }}</div><div class="small muted">{{ st.invoices|length }} invoice{{ '' if st.invoices|length == 1 else 's' }}{% if st.d_from or st.d_to %} in period{% endif %}</div></div>
   <div class="card stat"><div class="label">Paid or applied</div><div class="value">{{ st.totals.paid|cur(cur) }}</div><div class="small muted">{{ st.totals.payments|cur(cur) }} received in period</div></div>
-  <div class="card stat"><div class="label">Balance due</div><div class="value">{{ st.totals.balance|cur(cur) }}</div><div class="small muted">{% if st.totals.overdue %}<span class="badge overdue">{{ st.totals.overdue|cur(cur) }} past due</span>{% else %}nothing past due{% endif %}</div></div>
+  <div class="card stat"><div class="label">Balance due</div><div class="value">{{ st.totals.balance|cur(cur) }}</div><div class="small muted">{{ st.totals.credited|cur(cur) }} credited</div><div class="small muted">{% if st.totals.overdue %}<span class="badge overdue">{{ st.totals.overdue|cur(cur) }} past due</span>{% else %}nothing past due{% endif %}</div></div>
   <div class="card stat"><div class="label">Held in trust</div><div class="value">{{ st.trust_balance|cur(cur) }}</div><div class="small muted">{% if st.trust_balance > 0 %}<a href="/trust/ledger/{{ client.id }}">ledger</a>{% else %}no trust funds{% endif %}</div></div>
 </div>
 {% if st.mixed %}<div class="flash">This client has invoices in more than one currency. Totals add the raw amounts without conversion.</div>{% endif %}
@@ -36,7 +36,7 @@
 <div class="card">
   <div class="topbar" style="margin-bottom:6px"><h2 style="margin:0">Activity</h2><span class="small muted">{% if st.d_from or st.d_to %}{{ st.d_from|d if st.d_from else 'start' }} to {{ st.d_to|d if st.d_to else 'today' }}{% else %}all time{% endif %}</span></div>
   <table>
-  <tr class="stmt-head"><th>Date</th><th>Matter</th><th>Description</th><th class="num">Charge</th><th class="num">Payment</th><th class="num">Balance</th></tr>
+  <tr class="stmt-head"><th>Date</th><th>Matter</th><th>Description</th><th class="num">Charge</th><th class="num">Payment / credit</th><th class="num">Balance</th></tr>
   {% if st.d_from %}<tr class="running"><td class="nowrap">{{ st.d_from|d }}</td><td></td><td class="muted">Balance forward</td><td></td><td></td><td class="num">{{ st.opening|cur(cur) }}</td></tr>{% endif %}
   {% for e in st.entries %}
   <tr class="running">
@@ -48,11 +48,11 @@
     <td class="num">{{ e.balance|cur(cur) }}</td>
   </tr>
   {% else %}
-  <tr><td colspan="6" class="muted">No invoices or payments{% if st.d_from or st.d_to %} in this period{% endif %}.</td></tr>
+  <tr><td colspan="6" class="muted">No invoices, payments or issued credit notes{% if st.d_from or st.d_to %} in this period{% endif %}.</td></tr>
   {% endfor %}
-  <tr><th colspan="3">Totals</th><th class="num">{{ st.totals.invoiced|cur(cur) }}</th><th class="num">{{ st.totals.payments|cur(cur) }}</th><th class="num">{{ st.closing|cur(cur) }}</th></tr>
+  <tr><th colspan="3">Totals</th><th class="num">{{ st.totals.invoiced|cur(cur) }}</th><th class="num">{{ (st.totals.payments + st.totals.credits)|cur(cur) }}</th><th class="num">{{ st.closing|cur(cur) }}</th></tr>
   </table>
-  <p class="small muted">Running balance = invoices issued minus payments and trust applications, in date order. The balance due card above is the sum of open invoice balances, which can differ when a payment exceeded its invoice.</p>
+  <p class="small muted">Running balance = invoices issued minus payments, trust applications and issued credit notes, in date order. The balance due card above is the sum of open invoice balances, which can differ when a payment exceeded its invoice.</p>
 </div>
 
 <div class="card">
@@ -78,8 +78,8 @@
   <div class="row">
     <div><label>To</label><input type="email" name="to_email" value="{{ client.email }}" required placeholder="{{ 'no email on the contact' if not client.email else '' }}"></div>
   </div>
-  <label>Short note (optional)</label><textarea name="note" style="min-height:60px" placeholder="Attached is your statement of account showing every invoice we have sent you and the payments received."></textarea>
-  <p class="small muted">The PDF is attached, using your invoice template and the statement footer from Settings. The email shows invoiced, paid and balance due figures. Pay links stay on each invoice's own page.</p>
+  <label>Short note (optional)</label><textarea name="note" style="min-height:60px" placeholder="Attached is your statement of account showing every invoice we have sent you, the payments received and issued credit notes."></textarea>
+  <p class="small muted">The PDF is attached, using your invoice template and the statement footer from Settings. The email shows invoiced, paid, credited and balance due figures. Pay links stay on each invoice's own page.</p>
   <div class="actions"><button class="btn" {{ 'disabled' if not client.email }}>Send statement</button></div>
 </form>
 {% if firm_settings.statement_footer %}<p class="small muted">{{ firm_settings.statement_footer }}</p>{% endif %}

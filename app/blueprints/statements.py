@@ -9,7 +9,7 @@ from datetime import date
 from html import escape
 from flask import Blueprint, render_template, request, redirect, url_for, flash, abort, Response
 from ..extensions import db
-from ..models import Firm, Contact, Matter, Invoice, Payment, audit
+from ..models import Firm, Contact, Matter, Invoice, Payment, CreditNote, audit
 from ..helpers import login_required, current_user, parse_date, fmt_money
 from ..services.mail import send_email
 from .invoices import TemplatePDF, invoice_settings, _pdf_txt, _para, OPEN_STATUSES
@@ -49,6 +49,9 @@ def build_statement(client, d_from=None, d_to=None, matter_id=None, today=None):
     payments = (Payment.query.filter(Payment.invoice_id.in_(inv_ids)).order_by(Payment.received_on, Payment.id).all()
                 if inv_ids else [])
 
+    credits = (CreditNote.query.filter(CreditNote.invoice_id.in_(inv_ids), CreditNote.status == "issued")
+               .order_by(CreditNote.issued_on, CreditNote.id).all() if inv_ids else [])
+
     def in_range(d):
         if d_from and d and d < d_from:
             return False
@@ -79,6 +82,16 @@ def build_statement(client, d_from=None, d_to=None, matter_id=None, today=None):
                             "credit": p.amount_cents or 0, "payment": p, "currency": inv.currency or "USD"})
         elif d_from and d < d_from:
             opening -= p.amount_cents or 0
+    for credit in credits:
+        d = credit.issued_on
+        inv = credit.invoice
+        if in_range(d):
+            entries.append({"date": d, "kind": "credit_note", "invoice": inv, "matter": inv.matter,
+                            "sort": 2, "description": f"Credit note {credit.number} on {inv.number}",
+                            "charge": 0, "credit": credit.total_cents or 0, "payment": None,
+                            "currency": inv.currency or "USD"})
+        elif d_from and d < d_from:
+            opening -= credit.total_cents or 0
     entries.sort(key=lambda e: (e["date"], e["sort"], e["invoice"].id))
     running = opening
     for e in entries:
@@ -89,10 +102,11 @@ def build_statement(client, d_from=None, d_to=None, matter_id=None, today=None):
     shown = [i for i in invoices if in_range(i.issued_on or i.created_at.date())]
     for inv in shown:
         g = groups.setdefault(inv.matter_id, {"matter": inv.matter, "invoices": [], "invoiced": 0, "paid": 0, "balance": 0,
-                                              "overdue": 0})
+                                              "overdue": 0, "credited": 0})
         g["invoices"].append(inv)
         g["invoiced"] += inv.total_cents or 0
         g["paid"] += inv.paid_cents or 0
+        g["credited"] += inv.credited_cents
         g["balance"] += inv.balance_cents
         if inv.is_overdue:
             g["overdue"] += inv.balance_cents
@@ -100,7 +114,9 @@ def build_statement(client, d_from=None, d_to=None, matter_id=None, today=None):
               "paid": sum(g["paid"] for g in groups.values()),
               "balance": sum(g["balance"] for g in groups.values()),
               "overdue": sum(g["overdue"] for g in groups.values()),
-              "payments": sum(e["credit"] for e in entries)}
+              "payments": sum(e["credit"] for e in entries if e["kind"] in ("payment", "trust")),
+              "credits": sum(e["credit"] for e in entries if e["kind"] == "credit_note"),
+              "credited": sum(g["credited"] for g in groups.values())}
     currencies = {i.currency or "USD" for i in shown}
     currency = next(iter(currencies)) if len(currencies) == 1 else (Firm.get().currency or "USD")
     open_balance = sum(i.balance_cents for i in invoices if i.status in OPEN_STATUSES)
@@ -180,14 +196,15 @@ def render_statement_pdf(st):
 
     # Summary box
     pdf.set_font("Helvetica", "", 10)
-    with pdf.table(col_widths=(58, 58, 58), text_align=("LEFT", "LEFT", "LEFT"), line_height=6,
+    with pdf.table(col_widths=(43.5, 43.5, 43.5, 43.5), text_align=("LEFT", "LEFT", "LEFT", "LEFT"), line_height=6,
                    borders_layout="NONE", headings_style=pdf.heading_style()) as table:
         row = table.row()
-        for h in ("Invoiced", "Paid or applied", tpl.label("balance_due")):
+        for h in ("Invoiced", "Paid or applied", "Credited", tpl.label("balance_due")):
             row.cell(h)
         row = table.row()
         row.cell(money(st["totals"]["invoiced"]))
         row.cell(money(st["totals"]["paid"]))
+        row.cell(money(st["totals"]["credited"]))
         row.cell(money(st["totals"]["balance"]))
     if st["totals"]["overdue"]:
         pdf.set_font("Helvetica", "B", 9.5)
@@ -204,7 +221,7 @@ def render_statement_pdf(st):
     with pdf.table(col_widths=(22, 34, 52, 22, 22, 22), text_align=("LEFT", "LEFT", "LEFT", "RIGHT", "RIGHT", "RIGHT"),
                    line_height=5.5, borders_layout="HORIZONTAL_LINES", headings_style=pdf.heading_style()) as table:
         row = table.row()
-        for h in ("Date", tpl.label("matter"), "Description", "Charge", "Payment", "Balance"):
+        for h in ("Date", tpl.label("matter"), "Description", "Charge", "Payment / credit", "Balance"):
             row.cell(h)
         if st["d_from"]:
             row = table.row()
@@ -319,7 +336,7 @@ def send(client_id):
     balance = fmt_money(st["totals"]["balance"], cur)
     subject = f"Statement of account from {firm.name}"
     intro = note or (f"Attached is your statement of account with {firm.name}, showing every invoice we have sent "
-                     f"you and the payments received.")
+                     f"you, the payments received and issued credit notes.")
     html = f"""<div style="font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:#1c2430;max-width:600px">
 <p><strong>{escape(firm.name)}</strong></p>
 <p>Hello {escape(client.display_name)},</p>
@@ -327,12 +344,13 @@ def send(client_id):
 <table style="border-collapse:collapse;font-size:14px">
 <tr><td style="padding:4px 8px"><strong>Invoiced</strong></td><td style="padding:4px 8px;text-align:right">{fmt_money(st['totals']['invoiced'], cur)}</td></tr>
 <tr><td style="padding:4px 8px"><strong>Paid or applied</strong></td><td style="padding:4px 8px;text-align:right">{fmt_money(st['totals']['paid'], cur)}</td></tr>
+<tr><td style="padding:4px 8px"><strong>Credited</strong></td><td style="padding:4px 8px;text-align:right">{fmt_money(st['totals']['credited'], cur)}</td></tr>
 <tr><td style="padding:4px 8px"><strong>Balance due</strong></td><td style="padding:4px 8px;text-align:right"><strong>{balance}</strong></td></tr>
 </table>
 <p style="font-size:13px;color:#66707d">The statement is attached as a PDF. Each open invoice can be paid from the link in its own email.</p>
 <p>{escape(firm.name)}{(' | ' + escape(firm.phone)) if firm.phone else ''}</p>
 </div>"""
-    text = f"{intro}\n\nInvoiced: {fmt_money(st['totals']['invoiced'], cur)}\nPaid: {fmt_money(st['totals']['paid'], cur)}\nBalance due: {balance}\n"
+    text = f"{intro}\n\nInvoiced: {fmt_money(st['totals']['invoiced'], cur)}\nPaid: {fmt_money(st['totals']['paid'], cur)}\nCredited: {fmt_money(st['totals']['credited'], cur)}\nBalance due: {balance}\n"
     send_email(to, subject, html, text=text, attachments=[(_filename(client), data, "application/pdf")],
                reply_to=firm.email or None)
     audit("send", "statement", client.id, f"statement to {to}, balance {balance}" + (
