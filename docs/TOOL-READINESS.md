@@ -1,5 +1,26 @@
 # Tool readiness register
 
+## September 27 bounded SIGKILL recovery review, 13:10 UTC
+
+Reviewed shared da42515 and unchanged installed restore eec47ab. Both installed copies match SHA df1adac4d87ff82cc7bc7bf70f44bf7e42964e662523aeb920415cae98a27675. App endpoints remain healthy aec23fc. No application source change, deployment, live restore, app restart, provider action or financial mutation.
+
+Fixture QA-RESTORE-SIGKILL-20260927 uses a synthetic 12345-cent SQLite row, 12582912-byte upload and optional synthetic environment. Each installed copy passed 12 bounded observation/recovery cases, 24 total: root/data archive layouts, with/without environment, process-group SIGKILL during real GNU tar extraction at checkpoint4, immediately before data rename and immediately after rename. Exit -9, no success message, existing application file and permissions preserved, original archive unchanged. Evidence outputs/restore-sigkill-probe.py and outputs/restore-sigkill-linux.jsonl.
+
+All killed restores retained their private destination staging and validation directory. During extraction no data or environment was published; same-target retry succeeded but retained prior staging. Before rename, the archived environment link blocked same-target retry in four cases; without an archive environment, retry succeeded with old residue in four cases. After rename, complete data and any archived environment survived; all eight repeated restores refused the existing database. Twelve same-target retries therefore refused, while twelve succeeded with old residue. This confirms a known limitation, not automatic cleanup acceptance.
+
+Every case also restored into a separate fresh target, recovered exact cents/upload/environment bytes and SQLite integrity, retained the interrupted target unchanged, and left no new staging from the successful fresh restore. All disposable fixtures were removed by the harness after collecting results. No application startup acceptance was performed on this minimal database fixture. SIGKILL observations do not establish power-loss durability. Automatic interrupted-job cleanup and producer-version metadata/refusal remain not built; operator/offsite, untrusted archive, concurrent writer and provider/AI gates remain open. Previous source full suite 1017 passed/1 skipped is retained, not rerun for this probe/documentation-only review.
+
+SELF-HOSTING guidance now explains these observed states and recommends preserving an interrupted target and restoring the retained archive into a fresh directory before application-level checks. Do not remove an environment or staging directory based only on its filename, and do not restart from an interrupted installation based only on a readable SQLite file.
+
+Grok PROFIT69-PCT acknowledgment 5855891012 and PASS 5855896593 are recorded on aec23fc: CAD revenue0/margin-151.67 gives blank undefined percentage; EUR0.50/-99.50 gives -19900.0%; USD4373.51/-55625.63 gives -1271.9%; M-1058 EUR0.50/0.50 gives100.0%. Existing independent CSV reused, no mutation. HTML/CSV/percentage cases passed; whole currency tool is not signed off. Case54 productivity remains defective and realization70 remains under autonomous working edits. No report source edits or duplicate unchanged retests by Codex.
+
+Issue12 handoff https://github.com/Coil-Legal/coil/issues/12#issuecomment-5856149070 records new recovery observations, the completed percentage result and a prioritized queue. Operational PUB-ENOSPC/PUB-BOUNDARY and prior nightly/CLI/WAL/preflight/target cases remain deferred for exact-source/disposable access. SIGKILL observations/fresh-target recovery criteria join that deferred scope, with no acknowledgment or start claimed. No new access ping. Report retests wait for completed deployment handoffs.
+
+Phase1 remains incomplete; Phase2/3 are not signed off. Next executable work: producer-version metadata/refusal review, followed by other Phase1 cases before later phase inventories. GitHub main remains unpushed;30-minute schedule unchanged.
+
+
+Sheet S73 synced and exactly verified at 13:12 UTC: six ranges/23 cells. Fresh reads preceded updates; existing history, Overview B2, Cursor Tools J29/K29, formulas and formatting preserved. Evidence restore-sigkill-sheet-fresh.json, restore-sigkill-sheet-changes.json and restore-sigkill-sheet-readback.json.
+
 ## September 27 restore publication, 2026-09-27 12:30 UTC
 
 Reviewed source d3bd22e and installed restore4dc6249. Eight controlled destination-write regressions leave target files behind on the baseline. Actual Linux reproduction used a private8 MiB destination tmpfs and a12 MiB synthetic upload: cp returned No space left on device with zero free bytes and left .env, data/practice.db and an incomplete data/uploads/fixture.bin. The existing-data guard blocks clean retry. Evidence restore-publication-baseline.log and restore-publication-linux-baseline.log. The baseline log also contains six publication-boundary expectations added for the new implementation, not six additional baseline reproductions.

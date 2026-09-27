@@ -255,3 +255,12 @@ Before extraction, the restore script checks that the archive has one nonempty d
 The optional environment is linked into place without overwriting an existing file. The complete data directory is then published by a same-filesystem rename, avoiding a partial final copy. Handled errors or SIGTERM before that rename remove this invocation's environment link and staging files. If the rename completed, cleanup preserves the complete data and environment, including when a signal arrives immediately afterward. Existing application files are preserved; unexpected install-root archive entries are refused. The target database is checked again after publication.
 
 This is not a durable transaction across the environment and data paths. SIGKILL or power loss can leave staging files or an environment link before data publication; automatic interrupted-job recovery is not implemented. Stop the application and other writers, use trusted archives, retain the original backup, and inspect an interrupted target before restarting or retrying. Archive member security, concurrent writers and version compatibility remain separate review gates.
+
+
+After a forced kill, preserve the interrupted directory and the original archive. The script cannot clean up after SIGKILL. Checks on the installed script found these states:
+
+* During extraction, private staging can contain a database and only part of an upload. A retry can succeed while leaving the old staging behind.
+* Before the data rename, an archived environment may already exist at the install root. The next restore refuses that environment even though no database was published.
+* After the rename, complete data and any archived environment can be present, but the interrupted invocation never reported success. A repeated restore refuses the existing database.
+
+The conservative recovery path is to stop the application and other writers, retain the interrupted directory, and restore the unchanged archive into a separate fresh directory. Confirm database integrity, the original environment, uploads and PDFs, then use the backup's application commit for record-level checks before starting service. Do not delete an environment or staging directory based only on its name. Remove retained residue only after confirming its ownership, that no restore or writer is active, and that the recovered installation and retained backup have been verified. These process-kill checks do not establish durability through power loss.
