@@ -1,5 +1,15 @@
 # Coil Phase 1 completion pass
 
+## September 27 statement credit fix, 03:40 UTC
+
+Deployed **573222b** to both apps with separate backups and rollback images. Issued credit notes now appear as dated activity and reduce statement opening/closing balances. Paid receipts remain separate from credited amounts in HTML/PDF/email summaries. Seven regressions failed before the fix; focused15 passed, full **928 passed/1 skipped**, Linux image15 passed. Synthetic PDF rendered and visually checked. Tested isolated406ca9d, integrated573222b. No migrations or live financial writes.
+
+Read-only runtime fixture3091/invoice3064/**INV-1065**/payment13/**CN-1018** reconciles100.01 less25.01 payment less10.00 credit to65.00. Actual dates put payment on September26, invoice and credit September27: activity -25.01,75.00,65.00. The initial runtime assertion assumed a different date order; it was corrected after reading the dates. Financial row fingerprint unchanged. Both public health gates573222b, source/runtime hashes match, SQLite integrity OK, zero restarts; environment/compose unchanged.
+
+Grok Case40 independently **PASS5852265593** on e2d9e89: matter3092/contact1826, INV-1066 at60.01 and INV-1067 at40.00, unsent USD drafts totaling100.01. Cursor Case41 correctly reported **BLOCKED5852336297** when its old deployment gate changed. New573222b gate and a batch of read-only statement HTML/PDF checks plus resumed Case41 assigned5852340152; no new acknowledgment/results observed. Cursor retains broader browser queue, CLI batch stays deferred. Evidence: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5852340152.
+
+Sheet **S60**, five ranges/25 cells read before writing and verified exactly. Handoff, exact backups and logs: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-statement-credit-handoff.md`. Current invoice-summary/date/status semantics and mixed-currency raw totals remain outside this fix. Provider access, broader AI, operational recovery and remaining phase gates stay open. No tool-wide or phase signoff. Main unpushed,30-minute schedule unchanged.
+
 ## September 27 CLI retention fix and statement evidence, 02:49 UTC
 
 Deployed **e2d9e89** to both apps with backups and rollback images. Three controlled retention races previously raised FileNotFoundError after a valid backup: published-archive sizing, scanning a file another job pruned, and deleting an already-pruned file. Size is now read before publication, missing scan candidates are skipped, and already-pruned deletion succeeds. Synthetic **QA-CLI-RETENTION-20260927** retains exactly200 cents with keep1, or100/200 cents with keep2; all retained archives restore exact uploads and SQLite integrity. Baseline3 failed; focused29/full921 passed,1 full skip; prepared Linux image19 passed. Tested70e5774, integrated/deployede2d9e89. Both public health endpoints healthy, source/runtime hashes match, SQLite integrity OK and restart counts0. Environment/compose unchanged. Nightly6762c9b and restore68809b3 unchanged. Three deterministic interleavings do not certify arbitrary concurrency.
