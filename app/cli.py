@@ -458,8 +458,8 @@ def backup():
                 d = data_dir / name
                 if d.exists():
                     tar.add(d, arcname=f"data/{name}")
+        size_mb = temp_archive.stat().st_size / (1024 * 1024)
         os.link(temp_archive, backup_file)
-        size_mb = backup_file.stat().st_size / (1024 * 1024)
     finally:
         if temp_archive:
             temp_archive.unlink(missing_ok=True)
@@ -472,9 +472,15 @@ def backup():
     keep = int(os.environ.get("COIL_BACKUP_KEEP", "14"))
     # By mtime, not by name: the collision suffix makes "...-231629-1.tar.gz" sort before
     # "...-231629.tar.gz", so a lexical sort would delete the newest file, not the oldest.
-    archives = sorted(backup_dir.glob("coil-backup-*.tar.gz"), key=lambda f: f.stat().st_mtime)
-    for old_file in archives[:-keep] if keep > 0 else []:
-        old_file.unlink()
+    archives = []
+    for path in backup_dir.glob("coil-backup-*.tar.gz"):
+        try:
+            archives.append((path.stat().st_mtime, path))
+        except FileNotFoundError:
+            continue  # Another completed backup already pruned this archive.
+    archives.sort(key=lambda item: item[0])
+    for _, old_file in archives[:-keep] if keep > 0 else []:
+        old_file.unlink(missing_ok=True)
         print(f"  removed old backup {old_file.name}")
 
     print(f"Backup complete: {backup_file.name} ({size_mb:.1f} MB)")
