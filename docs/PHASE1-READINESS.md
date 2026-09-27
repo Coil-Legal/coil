@@ -1,5 +1,26 @@
 # Coil Phase 1 completion pass
 
+## September 27 restore staging acceptance, 2026-09-27 11:43 UTC
+
+Reviewed shared59d32d1 and unchanged installed restore4dc6249. Both installed copies have SHA9e17affda2ca183a062ed74d0faedefcf3ff832de06f1a6e3df79250f25e469f. No application source change or new deployment by Codex. The prior exact-commit full suite remains999 passed/1 skipped; it was not repeated for this probe-only review.
+
+Fixture QA-RESTORE-STAGING-20260927 uses a synthetic12345-cent SQLite row, a12582912-byte upload and a synthetic environment. Both root and data/ archive layouts tested. Each installed copy passed four actual ENOSPC cases across absent/existing targets and two process-group SIGTERM cases with existing targets,12 total. Every failed restore returned nonzero, printed no success message, preserved the target snapshot, cleaned scratch space and left the archive unchanged. All12 retries restored exact cents, SQLite integrity, upload/environment bytes, application file and existing install permissions.
+
+Disk exhaustion used a private mount namespace with an8 MiB tmpfs, not a live application filesystem. A wrapper ran actual GNU tar and recorded zero free bytes immediately after its real write failure, before restore cleanup. The initial harness expected the words No space left on device, but this GNU tar instead reports Wrote only6144 of10240 bytes. The assertion was corrected to require measured zero capacity and tar's failure; no restore code changed. Termination used actual GNU tar checkpoint4 after the staged database existed, then SIGTERM to the entire disposable process group. Exit143 and cleanup observed. Archives, temporary mounts and targets were disposable; the namespace and all mounts were removed.
+
+Evidence: outputs/restore-staging-linux-probe.py and outputs/restore-staging-linux-results.jsonl in the current Codex workspace. The probe is reproducible with unshare and Python3 on a disposable Linux host. This establishes bounded staging/extraction ENOSPC and handled process-group SIGTERM only. Final-copy disk errors/interruption, SIGKILL residue, concurrent writers, unsafe archive members, root-filesystem exhaustion, power loss, automatic producer-version manifest/refusal, operator/offsite and provider/AI prerequisites remain open. Phase1 remains incomplete; no recovery tool signoff or independent Grok acceptance claimed.
+
+Autonomous profitability69 completed/deployed aec23fc. Its handoff reports1003 passed/1 skipped. Both public health endpoints independently verified healthyaec23fc. Realization70 remains defective; reports.py working edits belong to the autonomous loop. Codex did not change report code or protected live fixtures.
+
+New independent batch https://github.com/Coil-Legal/coil/issues/12#issuecomment-5855494785 assigns PROFIT69-HTML and PROFIT69-CSV separately on aec23fc. Protected fixture3078/displayM-1058 EUR0.50;3091/displayM-1071 USD25.01; revenue totals EUR0.50/USD4373.51. CSV requires per-currency hours/cost/margin/percentage reconciliation. Cursor's outstanding Case54 productivity gate refreshed to aec23fc after the committed diff confirmed productivity unchanged. Original read-only/no-CSV scope retained; unbilled3093/3094 remain protected. Asked for separate results or concrete blockers. No acknowledgment observed in the subsequent issue12 read. Existing operational cases remain explicitly deferred for exact-source/disposable access; no repeated access ping.
+
+Next independent Phase1 work: final-copy failure preservation and version metadata/refusal. Phase2/3 remain open. Main unpushed;30-minute schedule unchanged.
+
+
+
+Sheet S71 synced and exactly verified at 2026-09-27 11:45 UTC: six ranges/23 cells; prior history, Cursor Tools J29/K29, Overview B2, formulas and formatting preserved. Evidence restore-staging-sheet-current.json, restore-staging-sheet-fresh.json, restore-staging-sheet-changes.json and restore-staging-sheet-readback.json.
+
+
 ## September 27 restore extraction failure, 2026-09-27 11:04 UTC
 
 Reviewed source9bc0bcc and installed restore77c2df7. A valid SQLite database followed by a file/directory collision in an upload or PDF causes tar to fail after it has already written the database and other files into the restore target. The existing-data guard then prevents a clean retry. Eight baseline regressions failed across root/data and leading-dot archive layouts, with absent and existing targets.
