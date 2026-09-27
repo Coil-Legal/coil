@@ -1,5 +1,24 @@
 # Tool readiness register
 
+## September27 conflict email discrepancy,15:53 UTC
+
+Reviewed shared2a640a7, application01bfaec, at2026-09-27 15:53 UTC. No application source changes, deployment, provider calls, live mutations or GitHub push. Read-only inspection was restricted to synthetic contact1833 and saved conflict checks77-80. The deployed and isolated conflicts.py match SHA256 8d200e4169e2624439a604632eb5551192db727529ba5c701b77ee379ac7c93a.
+
+Grok report5857130378 independently passes CONFLICT-NAMES and CONFLICT-ROLES on stable01bfaec, acknowledgment5857094036. Contacts1828 Mira Vale-Wren,1829 Owen J Caspian III and1830 Nguyễn Minh match their assigned variants after reopening checks73/74/75. Nguyen also matches contacts1423/1583; that is recorded as additional fuzzy output, not silently ignored. Contact1831 Tessa Quenby is client on matter3097 and adverse on matter3098 for other client1832. Check76 retains both links/roles and remains unresolved. These are case passes, not whole-tool signoff.
+
+Grok marked CONFLICT-ALIASES FAIL because ASCII Irina Volkova already found contact1833 before an alias. The saved evidence explains it: check78 contains only the email-labeled hit Ирина Волкова <irina.volkova.qa-conflict-20260927@example.com>, score100. The search normalizes punctuation to spaces, so Irina Volkova is a substring of that email. Check79 after adding the alias contains both a name-only hit and the email hit. Exact Cyrillic checks77/80 also hit. This is email matching, not automatic transliteration. The original failed test expectation remains recorded; its precondition was confounded by an independently indexed field.
+
+Three isolated disposable cases passed in2.28 seconds using synthetic contact95001: the exact live email produces the pre-alias hit with match=email and score100; a neutral email and blank email do not. Explicit ASCII aliases then produce a name-only score100 hit in all three cases. Reloading each earlier saved check after the alias update preserves its original result JSON exactly. Source unchanged from the prior15 new and9 existing conflict checks. No new full suite required for this probe/documentation review; prior deployed1030 passed/1skipped and31 container checks remain the source validation.
+
+Evidence: outputs/conflict-alias-live-inspect.py, conflict-alias-live-inspection.json, conflict-email-boundary-probe.py, conflict-email-boundary.log and conflict-email-boundary-results.jsonl. Source/probe directory /private/tmp/coil-conflict-review-d077ce3, same application source as current2a640a7. External HTTP disabled for local probes. Local95001 is not a live fixture ID.
+
+Corrected independent batch assigned https://github.com/Coil-Legal/coil/issues/12#issuecomment-5857398674: ALIAS-EMAIL-EVIDENCE (read-only checks78/79), ALIAS-CYR-CONTROL and ALIAS-GREEK-CONTROL (fresh tagged synthetic contacts, neutral/blank emails, own-contact matches before/after aliases and immutable saved history). Each has separate acceptance criteria and requires actual IDs. Assigned, no acknowledgment observed at assignment. Do not infer a start from this scheduled run. Preserve existing1833 and historical checks.
+
+Working in observed cases: exact-script, diacritic, name variants, cross-matter roles, indexed-email and explicit-alias matching; persisted snapshots. Not built: automatic Greek/Cyrillic transliteration. Pending: independent clarification and controlled script cases; full conflict false-positive/scale coverage. Productivity Case54 remains defective with existing Cursor/autonomous ownership. Recovery exact-source/disposable access, Stripe test credentials, authentic handset SMS, remaining AI/browser and operator/offsite gates remain open. Phase1 incomplete; no Phase2/3 or new tool-wide signoff. The30-minute schedule remains unchanged.
+
+
+Sheet S77 synced and exactly verified:16 cells across5 ranges, fresh read before RAW writes. Overview B2, prior case history, Cursor J9/K9, formulas and formatting preserved. Evidence alias-sheet-fresh.json, alias-sheet-changes.json and alias-sheet-readback.json. Final issue12 check found no new Grok acknowledgment or result for5857398674.
+
 ## September27 conflict boundaries and independent rounding acceptance,15:14 UTC
 
 Reviewed committed d077ce3 in isolated /private/tmp/coil-conflict-review-d077ce3. Application release remains 01bfaec. No application source change, deployment, live mutation, provider action or GitHub push.
