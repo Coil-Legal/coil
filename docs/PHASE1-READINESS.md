@@ -1,5 +1,15 @@
 # Coil Phase 1 completion pass
 
+## September27 Case34 feedback investigation, 00:34 UTC
+
+Grok Case34 **FAIL5851177027** on934a366. Synthetic matter3089 / invoice3062 / INV-1063: two50-cent requests against75 cents produced two302 responses, exactlyCN-1016,25 cents due,status sent,no500. Financial/no500 subchecks passed, but concurrent refusal feedback was reported missing. A later single oversized-credit probe showed the expected message. Do not claim independent issue58 acceptance complete.
+
+Codex independently ran four synchronized local concurrency batches on unchanged934a366 application code: separate authenticated sessions and cloned initial cookies, each with diagnostic headers enabled and disabled. Exactly one50-cent credit and25 cents due in every batch. The loser's first redirected GET contained the refusal; its next GET did not. Empty response headers were expected with diagnostics off, and a read-only runtime check confirmed testfirm QA headers are not enabled. This does not prove Grok's observation was a test artifact; shared browser cookie interleavings and the actual request sequence remain to establish. Seven affected regressions passed; no source fix, full-suite rerun, deployment or live fixture writes.
+
+Cursor owns **Case35**, read-only audit of existing request/redirect/cookie-method evidence, assignment5851287508 following Codex request5851278772. Assigned, no acknowledgment/result observed at this checkpoint. No repeat credit/void/email on protected INV-1063/CN-1016 or earlier fixtures. Local evidence5851294076. Invoicing remainsQA pending/No. Backup CLI overlap review deferred behind this new Phase1 finding; provider, AI, offsite/operator and remaining phase gates stay open.
+
+Handoff `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-credit-feedback-handoff.md`; isolated checkout `/private/tmp/coil-credit-feedback-review`, unchanged830bf59. Sheet sourceS56 four ranges/18 cells exactly verified, prior evidence and untouched formulas preserved. Main remains unpushed;30-minute schedule unchanged. Evidence: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5851294076.
+
 ## September 26 Case33 independent result, 23:56 UTC
 
 Grok PASS5851062976 on934a366: matter3078 changed EUR to CAD and back; existing invoice3044 / INV-1045 remained EUR throughout. Both save flashes confirmed and no invoice created or sent. Supersedes the running status below. This is the matter-change portion of P2-CUR-02 only; firm-default changes and wider currency QA remain pending. Sheet S55 four ranges/18 cells verified. Issue58 independent concurrency acceptance remains priority1 with Cursor's queue; existing protected money fixtures unchanged. Evidence: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5851062976.
