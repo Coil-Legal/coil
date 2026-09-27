@@ -1,5 +1,29 @@
 # Coil Phase 1 completion pass
 
+## September27 conflict boundaries and independent rounding acceptance,15:14 UTC
+
+Reviewed committed d077ce3 in isolated /private/tmp/coil-conflict-review-d077ce3. Application release remains 01bfaec. No application source change, deployment, live mutation, provider action or GitHub push.
+
+Fifteen disposable synthetic checks passed in 4.74 seconds. Contacts94001 to94014, matters94001/94002 and adverse party94001 exist only in the probe database. Cases cover hyphen versus spaces; absent middle initial and suffix; Jr versus III as a possible fuzzy match; a company and person sharing Nordvale; company-only and employer fields; Vietnamese diacritics; Greek/Cyrillic exact script; uppercase/whitespace; separate duplicate-name contacts with different email addresses; and Lee, Brown, Long and Young against this small control set. Exact expected contact sets passed. This small corpus does not establish false-positive rates or large-data performance.
+
+Tessa Quenby, contact94005, remains a client hit and an adverse-party hit on matter94002. The saved check stays unresolved and its authenticated HTML contains both links. This verifies different roles across matters, not every combination of multiple roles on one matter.
+
+Automatic transliteration is NOT BUILT. Cyrillic contact94007 (Ирина Волкова) did not match ASCII Irina Volkova; Greek94008 (Νίκος Παπαδόπουλος) did not match Nikos Papadopoulos. Both stored checks returned clear before an explicit alias. After adding each ASCII spelling to aliases, both returned unresolved with score100. These are observed product boundaries, not successful automatic transliteration acceptance. Exact-script search and explicit alternate names work for these fixtures. A clear result is only a result for the supplied spelling.
+
+Evidence: outputs/conflict-acceptance-probe.py, conflict-acceptance.log and conflict-acceptance-boundaries.json. External HTTP disabled by the inherited independent-review fixture. The disposable database and provider settings are separate from live data. No new full suite was needed for a probe/documentation-only change; prior deployed source validation remains1030 passed/1 skipped and31 deployment-container checks.
+
+Grok REAL-ROUND-A/B/CSV independently PASS5856816233 on stable01bfaec, following ACK5856799194. EUR fixtures3095/invoice3067/payment14 and3096/invoice3068/payment15 report collected1/2 cents, invoice balances1 cent each, collection50%/66.7%. September CSV EUR200.05/0.05/0.03 with collection60%, USD313587.27/114723.89/1550.66 with collection1.4%, CAD417.08/417.08/0 with collection0%. Matter sums reconcile, protected unbilled3093/3094 remain unchanged. Exhibits /workspace/coil-qa/phase5/exhibits/codex-01bfaec-real-round/. Those cases are accepted, not the full realization or multi-currency tool.
+
+New independent batch CONFLICT-NAMES, CONFLICT-ROLES and CONFLICT-ALIASES is in outputs/conflict-retest-queue.md. Requires fresh tagged synthetic records and separate results with actual live IDs, saved-check evidence and tested health commit. Local94001+ IDs must not be mistaken for live fixtures. Assignment is not acknowledgment.
+
+Remaining priorities: independent conflict UI results; operational recovery cases after exact-source/disposable access; productivity Case54 with its existing Cursor/autonomous queue. Stripe test access, authentic handset SMS, remaining AI/browser acceptance, operator/offsite recovery, producer-version metadata/refusal and other recovery gates remain open. Phase1 incomplete. Phase2/3 and tool-wide statuses are not newly signed off. The existing30-minute automation remains unchanged.
+
+Nine existing conflict/intake-gate regressions also passed,32 deselected, in3.19 seconds (conflict-existing-regressions.log). Independent assignment https://github.com/Coil-Legal/coil/issues/12#issuecomment-5857087371 posted15:13 UTC. No acknowledgment observed at assignment.
+
+
+
+Sheet S76 synced and exactly verified at15:17 UTC: seven ranges/24 cells. Fresh reads preceded RAW updates. Historical case evidence, Overview B2 and Cursor J/K cells retained; formulas and formatting untouched. Expanded conflict status is QA pending until new independent evidence arrives, with earlier signoff retained in history. Evidence conflict-sheet-fresh.json, conflict-sheet-changes.json and conflict-sheet-readback.json.
+
 ## September27 realization receipt rounding,14:34 UTC
 
 Tested, integrated and deployed01bfaecb534837f8b58ff5437c04e590cb30d3aa. Reviewed shared7ea8343 and the autonomous loop's completed realization70 deploymentc2f1ef6 before editing. Isolated checkout /private/tmp/coil-realization-review. Changed only app/blueprints/reports.py and new tests/test_realization_rounding.py. No schema changes. GitHub main remains unpushed.

@@ -1,5 +1,10 @@
 # Coil Phase 2 QA checklist
 
+## September27 rounding acceptance update,15:14 UTC
+
+Grok REAL-ROUND-A/B/CSV independently PASS5856816233 on stable01bfaec, ACK5856799194. Fixtures3095/3067/payment14 and3096/3068/payment15 report collected EUR0.01/0.02 and one-cent balances. CSV matter sums reconcile to EUR200.05/0.05/0.03, USD313587.27/114723.89/1550.66 and CAD417.08/417.08/0.00; protected3093/3094 remain unbilled. These assigned cases are accepted. Productivity Case54 remains unresolved in the existing autonomous/Cursor queue; no full currency-tool or phase signoff. Current Phase1 conflict boundary review and new independent queue5857087371 are recorded in PHASE1-READINESS and TOOL-READINESS.
+
+
 ## September27 realization acceptance update
 
 Grok REAL70 HTML/CSV/percentage cases passed5856714125 on c2f1ef6, with separate currency amounts and hours. Codex then reproduced five distinct partial-cent rounding failures and deployed01bfaec: full1030 passed/1 skipped,31 focused and31 deployment-container checks. New synthetic EUR matters3095/3096 now report collected1/2 cents against matching receipts, rather than0/3. Independent read-only REAL-ROUND-A/B/CSV assigned5856754854; no acknowledgment or result at assignment. Productivity Case54 remains defective, and full multi-currency acceptance remains pending. Details and backups are in the latest Phase1 and tool-readiness entries.
