@@ -1,5 +1,9 @@
 # Coil Phase 2 QA checklist
 
+## September27 realization acceptance update
+
+Grok REAL70 HTML/CSV/percentage cases passed5856714125 on c2f1ef6, with separate currency amounts and hours. Codex then reproduced five distinct partial-cent rounding failures and deployed01bfaec: full1030 passed/1 skipped,31 focused and31 deployment-container checks. New synthetic EUR matters3095/3096 now report collected1/2 cents against matching receipts, rather than0/3. Independent read-only REAL-ROUND-A/B/CSV assigned5856754854; no acknowledgment or result at assignment. Productivity Case54 remains defective, and full multi-currency acceptance remains pending. Details and backups are in the latest Phase1 and tool-readiness entries.
+
 Drafted 2026-09-20 against application commit `6a0f8aa`. These are acceptance checks to execute, not claims that the tools passed. The preceding release passed 649 local tests and 143 deployment-container tests; that evidence does not establish all the behavior below.
 
 ## Scope and sources
