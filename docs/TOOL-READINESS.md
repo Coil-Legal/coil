@@ -1,5 +1,33 @@
 # Tool readiness register
 
+## All-day month-end and leap-day fix, 2026-09-27 21:36 UTC
+
+Reviewed from 2c0ae52 in isolated /private/tmp/coil-calendar-allday-review. Files: app/blueprints/calendar.py and tests/test_calendar_allday_recurrence.py. No schema change. Local event 1 is synthetic and exists only in disposable databases; production fixtures are not edited by this review.
+
+Baseline: eight failures, five passing controls in 1.47 seconds. The UI's existing monthly recurrence clamps January 29/30/31 to the last valid day in shorter months, but the plain monthly feed rule skips a month when that original day does not exist. The UI's yearly February 29 event similarly appears on February 28 in non-leap years while its feed skipped those years. Authenticated form creation reproduced both mismatches in firm and owner feeds.
+
+The fix changes only all-day rules. For monthly days 29-31, BYMONTHDAY lists days 28 through the original day and BYSETPOS=-1 selects the last valid one each month. For yearly February 29, BYMONTH=2 plus BYMONTHDAY=28,29 and BYSETPOS=-1 selects February's last day. The UI's recurrence dates and stored series stay unchanged. Dateutil feed expansion matches the screen occurrence generator through leap/non-leap months and the next leap year. The January 28 control and daily/weekly/biweekly rule shapes still pass.
+
+Thirteen new checks and 50 existing calendar/DST/cutoff/feed regressions passed: 63 passed in 9.32 seconds. Evidence: calendar-allday-baseline.log and calendar-allday-focused.log. The new tests compare actual expanded dates, including both authenticated form-to-feed paths; they do not certify external calendar-client behavior.
+
+Grok independently passed the prior cutoff cases on 5a89963, ACK 5859796305: ICAL-UNTIL-TIMED 5859830529 and ICAL-UNTIL-ALLDAY 5859830607. Current event 36 is the new daily 23:00 Chicago series and event 37 is the all-day daily series, owner 1/matter 3071. Both UI and dateutil expansion yield exactly October 5/6/7, with October 8 absent. Event 36 has a new UID and reuses the ID of the earlier deleted lifecycle fixture; do not confuse those two records. Exhibits: /workspace/coil-qa/phase5/exhibits/codex-5a89963-ical-until/. Events 28-35, tasks 78-81, timezone and provider settings were left unchanged. Feed keys remain private.
+
+Next independent queue: monthly all-day January 29/30/31 through May 2027 and yearly all-day February 29, 2024 through March 2028, using fresh QA-ICS-DATE-20260927 fixtures. Record actual event IDs and redacted UIDs, leave existing events 28-37/tasks 78-81 unchanged, and keep assignment separate from acknowledgment and results.
+
+Phase 1 remains incomplete. Timed recurrence DST and month/year alignment, API/import, second-fold selection and external calendar subscriptions remain open. Portal replacement/limit/race acceptance retains issue 49 authorized Mailpit capture access; recovery retains exact-source/disposable access prerequisites. Stripe test keys, authentic handset SMS, remaining AI/browser/operator/offsite checks and other prior gates stay open. Productivity 54 remains autonomous/Cursor-owned. No live charges, provider changes, GitHub push or schedule change.
+
+Full suite: 1089 passed, 1 skipped, 126 warnings in 212.30 seconds. Tested commit add92b4569ed98990eae26eb06f4cb378f9244fc integrated by guarded fast-forward, preserving shared coordination edits. Evidence: calendar-allday-full.log.
+
+Both sites deployed and verified healthy on add92b4. Linux candidate: 83 passed, 2 warnings in 84.28 seconds. Host/runtime calendar source SHA 144111d3b1192c354eb9d59135015d54de58bf92fa4ac03006b1aa2393208c40 matches reviewed code. Environment and Compose hashes unchanged. Backups: /home/deploy/backups/coil/{domain}/calendar-allday-add92b4-r1. Rollback images: testfirmcoillegal:before-add92b4 and democoillegal:before-add92b4. Data archives: testfirm coil-backup-20260927-213211-v26yhnsn.tar.gz; demo coil-backup-20260927-213350-l3gz50kx.tar.gz. An initial testfirm startup health timeout recovered on retry; no rollback was needed.
+
+Before/after SQLite quick_check is OK. Testfirm 18 portal tokens retain SHA 6f6af2b70d1f0c940c8fb5961e6905fca5e5617c16ac36e2fdaf97e0d9af50ec; events 28-37 retain SHA 14870ed6189eeff8b53ef9b66134210648e3727f319e7d082787c3364b1a6000; tasks 78-81 retain SHA 58ab150b3b11b59bf64799ba31392d7faa9b061b912ccbe5f40c19a5d33ab241. Demo empty fingerprints unchanged. Evidence: calendar-allday-live-check.py, before/after/health JSON and prepare/activate logs.
+
+Independent monthly/yearly all-day batch assigned: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5860032332. No acknowledgment claimed at assignment.
+
+Sheet S85 synced and exactly verified: 16 cells across five ranges. Existing statuses, formula F12, Cursor fields, task/portal rows and Overview B2 preserved. Individual cases remain separate from full calendar or phase signoff.
+
+Final issue 12 check found no acknowledgment or result for batch 5860032332. New all-day acceptance remains pending; prior cutoff cases are accepted individually.
+
 ## September 27 calendar recurrence cutoff fix, 20:54 UTC
 
 Reviewed from 9f41d6b in isolated /private/tmp/coil-calendar-until-review. Changes are limited to app/blueprints/calendar.py, new tests/test_calendar_recurrence_until.py and the cutoff assertion in tests/test_small_features.py. No schema or provider changes.
