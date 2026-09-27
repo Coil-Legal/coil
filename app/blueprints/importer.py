@@ -19,6 +19,7 @@ import time
 import uuid
 import zipfile
 from datetime import datetime, date, timedelta
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from flask import Blueprint, render_template, request, redirect, url_for, flash, abort, current_app, Response, session, jsonify
 from sqlalchemy import func, text
@@ -913,21 +914,68 @@ def apply_tasks(ctx, rec):
     return t.id, created
 
 
+def _calendar_datetime(value, all_day):
+    """Keep date-only values literal; preserve explicit instants as firm-local times."""
+    value = (value or "").strip()
+    # Date formats must be tried before the general parser removes a suffix
+    # such as the year in 05-Oct-2026 as though it were a numeric UTC offset.
+    if not re.search(r"\d:\d", value):
+        for fmt in M._DATE_FORMATS:
+            try:
+                return datetime.strptime(value, fmt)
+            except ValueError:
+                continue
+    parsed = M.parse_any_datetime(value)
+    if parsed is None or all_day:
+        return parsed
+    try:
+        aware = datetime.fromisoformat(value)
+    except ValueError:
+        # The general importer accepts several non-ISO date formats with an
+        # offset suffix. Recover that offset here without changing other imports.
+        if not re.search(r"\d:\d", value):
+            return parsed
+        suffix = re.search(r"(Z|[+-]\d{2}:?\d{2})$", value)
+        if not suffix:
+            return parsed
+        aware = parsed.replace(tzinfo=datetime.strptime(suffix.group(), "%z").tzinfo)
+    if aware.tzinfo is None:
+        return parsed
+    try:
+        zone = ZoneInfo(Firm.get().timezone or "UTC")
+    except (ZoneInfoNotFoundError, ValueError):
+        zone = ZoneInfo("UTC")
+    local = aware.astimezone(zone)
+    if local.fold:
+        raise ValueError("The second occurrence of a repeated clock time is not supported. "
+                         "Choose a time outside the repeated hour.")
+    return local.replace(tzinfo=None)
+
+
 def prep_calendar(ctx, v, raw):
     msgs = []
     title = M.clean_name(v["title"])
     if not title:
         return "error", ["Event has no title."], None
-    start = M.parse_any_datetime(v["starts_at"])
-    if not start:
-        return "error", [f"Could not read start '{v['starts_at']}'."], None
-    end = M.parse_any_datetime(v["ends_at"])
     all_day = M.parse_bool(v["all_day"]) if v["all_day"] else (M.parse_any_date(v["starts_at"]) is not None
                                                                 and not re.search(r"\d:\d", v["starts_at"]))
-    if end and end < start:
-        end = None
-    if not end and not all_day:
-        end = start + timedelta(hours=1)
+    try:
+        start = _calendar_datetime(v["starts_at"], all_day)
+        end = _calendar_datetime(v["ends_at"], all_day)
+        if not start:
+            return "error", [f"Could not read start '{v['starts_at']}'."], None
+        if v["ends_at"].strip() and end is None:
+            return "error", [f"Could not read end '{v['ends_at']}'."], None
+        if end and end < start:
+            end = None
+        if not end and not all_day:
+            end = start + timedelta(hours=1)
+    except (ValueError, OverflowError) as exc:
+        return "error", [f"Calendar time: {exc}"], None
+    from .calendar import _event_error
+    error = _event_error(CalendarEvent(title=title, starts_at=start, ends_at=end, all_day=all_day))
+    if error:
+        return "error", [error], None
     matter = None
     if v["matter_external_id"] or v["matter_number"] or v["matter_name"]:
         matter, how = resolve_matter(ctx, v["matter_external_id"], v["matter_number"], v["matter_name"])
