@@ -7,13 +7,14 @@
 <table>
 <tr><th>Client</th>{% for b in buckets %}<th class="num">{{ b|capitalize }}</th>{% endfor %}<th class="num">Total</th></tr>
 {% for r in rows %}
-<tr><td><a href="/contacts/{{ r.client.id }}">{{ r.client.display_name }}</a>
+<tr><td><a href="/contacts/{{ r.client.id }}">{{ r.client.display_name }}</a>{% if r.currency != 'USD' %} <span class="muted small">({{ r.currency }})</span>{% endif %}
   <details><summary class="small">{{ r.invoices|length }} invoice{{ '' if r.invoices|length == 1 else 's' }}</summary>
-  <table class="small">{% for inv, b in r.invoices %}<tr><td><a href="{{ url_for('invoices.detail', id=inv.id) }}">{{ inv.number }}</a></td><td>{{ inv.matter.number }}</td><td>due {{ inv.due_on|d }}</td><td>{{ b }}</td><td class="num">{{ inv.balance_cents|money }}</td></tr>{% endfor %}</table></details></td>
-  {% for b in buckets %}<td class="num">{{ r[b]|money if r[b] else '' }}</td>{% endfor %}<td class="num"><strong>{{ r.total|money }}</strong></td></tr>
+  <table class="small">{% for inv, b in r.invoices %}<tr><td><a href="{{ url_for('invoices.detail', id=inv.id) }}">{{ inv.number }}</a></td><td>{{ inv.matter.number }}</td><td>due {{ inv.due_on|d }}</td><td>{{ b }}</td><td class="num">{{ inv.balance_cents|cur(inv.currency) }}</td></tr>{% endfor %}</table></details></td>
+  {% for b in buckets %}<td class="num">{{ r[b]|cur(r.currency) if r[b] else '' }}</td>{% endfor %}<td class="num"><strong>{{ r.total|cur(r.currency) }}</strong></td></tr>
 {% endfor %}
-<tr><th>Total</th>{% for b in buckets %}<th class="num">{{ totals[b]|money }}</th>{% endfor %}<th class="num">{{ totals.total|money }}</th></tr>
+<tr><th>Total</th>{% for b in buckets %}<th class="num">{{ totals[b]|curmix }}</th>{% endfor %}<th class="num">{{ totals.total|curmix }}</th></tr>
 </table>
+{% if rows|map(attribute='currency')|unique|list|length > 1 %}<p class="small muted" style="margin-top:8px">Balances are in more than one currency. Totals above are shown separately per currency.</p>{% endif %}
 {% else %}<div class="empty">Nothing outstanding.</div>{% endif %}
 </div>
 {% endblock %}

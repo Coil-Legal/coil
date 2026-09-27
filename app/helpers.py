@@ -72,6 +72,15 @@ def fmt_money(cents, code="USD"):
     return cents_to_str(cents, symbol)
 
 
+def fmt_money_by_currency(totals):
+    """{"USD": 123456, "EUR": 100} -> "$1,234.56 + \u20ac1.00". A raw sum across currencies with a single
+    symbol misrepresents the total (see issues #60/#61); this keeps each currency's figure separate instead
+    of converting or picking one. Empty input formats as zero USD, matching the single-currency case."""
+    if not totals:
+        return fmt_money(0)
+    return " + ".join(fmt_money(cents, code) for code, cents in sorted(totals.items()))
+
+
 def parse_date(s, default=None):
     if not s:
         return default
@@ -252,6 +261,7 @@ def register_template_globals(app):
     )
     app.jinja_env.filters["money"] = cents_to_str
     app.jinja_env.filters["cur"] = fmt_money
+    app.jinja_env.filters["curmix"] = fmt_money_by_currency
     app.jinja_env.filters["hours"] = lambda m: f"{(m or 0) / 60:.2f}"
     app.jinja_env.filters["d"] = lambda v: v.strftime("%b %-d, %Y") if v else ""
     app.jinja_env.filters["dt"] = lambda v: v.strftime("%b %-d, %Y %-I:%M %p") if v else ""

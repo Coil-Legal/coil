@@ -398,11 +398,18 @@ def index():
             return inv.approval_status == "pending" and inv.status == "draft"
         return inv.status == tab
 
+    def by_currency(rows, field):
+        out = {}
+        for i in rows:
+            code = (i.currency or "USD").upper()
+            out[code] = out.get(code, 0) + (getattr(i, field) or 0)
+        return out
+
     tabs = []
     for t in STATUSES:
         rows = [i for i in all_invoices if in_tab(i, t)]
-        tabs.append({"key": t, "count": len(rows), "total": sum(i.total_cents or 0 for i in rows),
-                     "balance": sum(i.balance_cents for i in rows if i.status != "void")})
+        tabs.append({"key": t, "count": len(rows), "totals": by_currency(rows, "total_cents"),
+                     "balances": by_currency([i for i in rows if i.status != "void"], "balance_cents")})
     in_view = [i for i in all_invoices if in_tab(i, status)]
     total_count = len(in_view)
     page = max(1, request.args.get("page", 1, type=int))

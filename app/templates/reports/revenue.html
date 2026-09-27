@@ -9,20 +9,20 @@
 </form>
 </div>
 <div class="grid c3">
-  <div class="card stat"><div class="label">Received into operating</div><div class="value">{{ total|money }}</div><div class="small muted">{{ count }} payment{{ '' if count == 1 else 's' }}, {{ d_from|d }} to {{ d_to|d }}</div></div>
-  <div class="card stat"><div class="label">By method</div>{% if by_method %}<table class="small">{% for k, v in by_method.items() %}<tr><td>{{ k }}</td><td class="num">{{ v|money }}</td></tr>{% endfor %}</table>{% else %}<div class="muted small">none</div>{% endif %}</div>
+  <div class="card stat"><div class="label">Received into operating</div><div class="value">{{ total|curmix }}</div><div class="small muted">{{ count }} payment{{ '' if count == 1 else 's' }}, {{ d_from|d }} to {{ d_to|d }}</div></div>
+  <div class="card stat"><div class="label">By method</div>{% if by_method %}<table class="small">{% for k, v in by_method.items() %}<tr><td>{{ k }}</td><td class="num">{{ v|curmix }}</td></tr>{% endfor %}</table>{% else %}<div class="muted small">none</div>{% endif %}</div>
   <div class="card stat"><div class="label">Note</div><div class="small muted">Payments applied from trust are counted here because they move money into operating. Card surcharges and processor fees are shown separately in the CSV.</div></div>
 </div>
 <div class="grid c2">
 <div class="card"><h2>By month</h2>
 {% if months %}<table><tr><th>Month</th><th class="num">Payments</th><th class="num">Amount</th></tr>
-{% for m in months %}<tr><td>{{ m.month }}</td><td class="num">{{ m.count }}</td><td class="num">{{ m.cents|money }}</td></tr>{% endfor %}
-<tr><th>Total</th><th class="num">{{ count }}</th><th class="num">{{ total|money }}</th></tr></table>
+{% for m in months %}<tr><td>{{ m.month }}</td><td class="num">{{ m.count }}</td><td class="num">{{ m.by_currency|curmix }}</td></tr>{% endfor %}
+<tr><th>Total</th><th class="num">{{ count }}</th><th class="num">{{ total|curmix }}</th></tr></table>
 {% else %}<div class="empty">No payments in this range.</div>{% endif %}
 </div>
 <div class="card"><h2>By matter</h2>
 {% if matter_rows %}<table><tr><th>Matter</th><th class="num">Payments</th><th class="num">Amount</th></tr>
-{% for r in matter_rows %}<tr><td>{% if r.matter %}<a href="/matters/{{ r.matter.id }}">{{ r.matter.label }}</a>{% else %}<span class="muted">(no matter)</span>{% endif %}</td><td class="num">{{ r.count }}</td><td class="num">{{ r.cents|money }}</td></tr>{% endfor %}
+{% for r in matter_rows %}<tr><td>{% if r.matter %}<a href="/matters/{{ r.matter.id }}">{{ r.matter.label }}</a>{% else %}<span class="muted">(no matter)</span>{% endif %}</td><td class="num">{{ r.count }}</td><td class="num">{{ r.by_currency|curmix }}</td></tr>{% endfor %}
 </table>{% else %}<div class="empty">No payments in this range.</div>{% endif %}
 </div>
 </div>

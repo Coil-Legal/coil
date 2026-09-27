@@ -118,8 +118,12 @@ def load_card_data(keys, u, today):
         if k == "open_matters":
             ctx["open_matters"] = Matter.query.filter_by(status="open").count()
         elif k == "ar":
-            ctx["ar"] = int(db.session.query(func.coalesce(func.sum(Invoice.total_cents - Invoice.paid_cents), 0))
-                            .filter(Invoice.status.in_(OPEN_INVOICE)).scalar() or 0)
+            ar_by_currency = {}
+            currency_expr = func.coalesce(Invoice.currency, "USD")
+            for code, cents in (db.session.query(currency_expr, func.sum(Invoice.total_cents - Invoice.paid_cents))
+                                .filter(Invoice.status.in_(OPEN_INVOICE)).group_by(currency_expr).all()):
+                ar_by_currency[code.upper()] = ar_by_currency.get(code.upper(), 0) + int(cents or 0)
+            ctx["ar_by_currency"] = ar_by_currency
             ctx["ar_overdue_count"] = Invoice.query.filter(Invoice.status.in_(OPEN_INVOICE),
                                                            Invoice.due_on < today).count()
         elif k == "wip":

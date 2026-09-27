@@ -70,23 +70,32 @@ def index():
 def ar_aging():
     today = date.today()
     invoices = Invoice.query.filter(Invoice.status.in_(OPEN_STATUSES)).all()
-    by_client = OrderedDict()
+    by_client_currency = OrderedDict()
     for inv in invoices:
         if inv.balance_cents <= 0:
             continue
         anchor = inv.due_on or inv.issued_on or today
         b = _bucket((today - anchor).days)
-        row = by_client.setdefault(inv.client_id, {"client": inv.client, "invoices": [],
-                                                    **{k: 0 for k in BUCKETS}, "total": 0})
+        currency = (inv.currency or "USD").upper()
+        row = by_client_currency.setdefault((inv.client_id, currency),
+                                            {"client": inv.client, "currency": currency, "invoices": [],
+                                             **{k: 0 for k in BUCKETS}, "total": 0})
         row[b] += inv.balance_cents
         row["total"] += inv.balance_cents
         row["invoices"].append((inv, b))
-    rows = sorted(by_client.values(), key=lambda r: -r["total"])
-    totals = {k: sum(r[k] for r in rows) for k in BUCKETS + ["total"]}
+    # A row is one client in one currency, so raw totals within a row are safe to sum and sort by;
+    # only the cross-row/cross-currency footer needs splitting (issue #62, same class as #60/#61).
+    rows = sorted(by_client_currency.values(), key=lambda r: -r["total"])
+    totals = {k: {} for k in BUCKETS + ["total"]}
+    for r in rows:
+        for k in BUCKETS + ["total"]:
+            totals[k][r["currency"]] = totals[k].get(r["currency"], 0) + r[k]
     if _wants_csv():
-        out = [[r["client"].display_name] + [_money_csv(r[k]) for k in BUCKETS + ["total"]] for r in rows]
-        out.append(["TOTAL"] + [_money_csv(totals[k]) for k in BUCKETS + ["total"]])
-        return _csv("ar-aging.csv", ["Client", "Current", "1-30", "31-60", "61-90", "90+", "Total"], out)
+        out = [[r["client"].display_name, r["currency"]] + [_money_csv(r[k]) for k in BUCKETS + ["total"]]
+              for r in rows]
+        for currency in sorted({r["currency"] for r in rows}):
+            out.append(["TOTAL", currency] + [_money_csv(totals[k].get(currency, 0)) for k in BUCKETS + ["total"]])
+        return _csv("ar-aging.csv", ["Client", "Currency", "Current", "1-30", "31-60", "61-90", "90+", "Total"], out)
     return render_template("reports/ar_aging.html", rows=rows, totals=totals, buckets=BUCKETS, today=today)
 
 
@@ -133,6 +142,12 @@ def wip():
 
 
 # ---------------------------------------------------------------- revenue
+def _payment_currency(p):
+    """Stripe only ever settles USD (see payments.pay_confirm), so a non-USD payment is always a
+    manual method with no surcharge/processor fee; every payment counted here has an invoice."""
+    return (p.invoice.currency or "USD").upper() if p.invoice else "USD"
+
+
 @bp.route("/revenue")
 @login_required
 def revenue():
@@ -142,34 +157,41 @@ def revenue():
                 .order_by(Payment.received_on).all())
     by_month = OrderedDict()
     by_matter = {}
-    by_method = defaultdict(int)
+    by_method = {}
+    total_by_currency = {}
     for p in payments:
+        currency = _payment_currency(p)
         key = p.received_on.strftime("%Y-%m") if p.received_on else "unknown"
-        m = by_month.setdefault(key, {"month": key, "cents": 0, "surcharge": 0, "fees": 0, "count": 0})
-        m["cents"] += p.amount_cents or 0
+        m = by_month.setdefault(key, {"month": key, "by_currency": {}, "surcharge": 0, "fees": 0, "count": 0})
+        m["by_currency"][currency] = m["by_currency"].get(currency, 0) + (p.amount_cents or 0)
         m["surcharge"] += p.surcharge_cents or 0
         m["fees"] += p.stripe_fee_cents or 0
         m["count"] += 1
         matter = p.matter or (p.invoice.matter if p.invoice else None)
         mk = matter.id if matter else 0
-        r = by_matter.setdefault(mk, {"matter": matter, "cents": 0, "count": 0})
-        r["cents"] += p.amount_cents or 0
+        r = by_matter.setdefault(mk, {"matter": matter, "by_currency": {}, "count": 0})
+        r["by_currency"][currency] = r["by_currency"].get(currency, 0) + (p.amount_cents or 0)
         r["count"] += 1
-        by_method[p.method or "other"] += p.amount_cents or 0
-    matter_rows = sorted(by_matter.values(), key=lambda r: -r["cents"])
-    total = sum(p.amount_cents or 0 for p in payments)
+        method_row = by_method.setdefault(p.method or "other", {})
+        method_row[currency] = method_row.get(currency, 0) + (p.amount_cents or 0)
+        total_by_currency[currency] = total_by_currency.get(currency, 0) + (p.amount_cents or 0)
+    matter_rows = sorted(by_matter.values(), key=lambda r: -sum(r["by_currency"].values()))
     if _wants_csv():
-        out = [["month", m["month"], "", m["count"], _money_csv(m["cents"]), _money_csv(m["surcharge"]),
-                _money_csv(m["fees"])] for m in by_month.values()]
+        out = [["month", m["month"], "", currency, m["count"], _money_csv(cents),
+                # surcharge/fees are always USD (see _payment_currency), so they only land on that row.
+                _money_csv(m["surcharge"]) if currency == "USD" else "0.00",
+                _money_csv(m["fees"]) if currency == "USD" else "0.00"]
+               for m in by_month.values() for currency, cents in sorted(m["by_currency"].items())]
         out += [["matter", r["matter"].number if r["matter"] else "(none)",
-                 r["matter"].name if r["matter"] else "", r["count"], _money_csv(r["cents"]), "", ""]
-                for r in matter_rows]
-        out.append(["total", f"{d_from.isoformat()} to {d_to.isoformat()}", "", len(payments), _money_csv(total),
-                    "", ""])
-        return _csv("revenue.csv", ["Group", "Key", "Name", "Payments", "Amount", "Surcharge", "Processor fees"],
-                    out)
+                 r["matter"].name if r["matter"] else "", currency, r["count"], _money_csv(cents), "", ""]
+                for r in matter_rows for currency, cents in sorted(r["by_currency"].items())]
+        out += [["total", f"{d_from.isoformat()} to {d_to.isoformat()}", "", currency, len(payments),
+                 _money_csv(cents), "", ""] for currency, cents in sorted(total_by_currency.items())]
+        return _csv("revenue.csv",
+                    ["Group", "Key", "Name", "Currency", "Payments", "Amount", "Surcharge", "Processor fees"], out)
     return render_template("reports/revenue.html", months=list(by_month.values()), matter_rows=matter_rows,
-                           by_method=dict(by_method), total=total, count=len(payments), d_from=d_from, d_to=d_to)
+                           by_method=by_method, total=total_by_currency, count=len(payments),
+                           d_from=d_from, d_to=d_to)
 
 
 # ---------------------------------------------------------------- trust balances
