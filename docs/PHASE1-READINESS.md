@@ -1,5 +1,28 @@
 # Coil Phase 1 completion pass
 
+## September 27 restore target preservation, 09:36 UTC
+
+Reviewed shared df8fd3e and installed restore0423182. The restore command only refused an existing database, so a target with uploads/PDFs but no database could have those files overwritten by extraction. A nightly-layout restore through an existing data symlink wrote to the linked directory. A CLI-layout symlink case failed extraction but still changed the install target. Hidden leftovers were merged with a new database rather than refused.
+
+Synthetic fixture QA-RESTORE-TARGET-20260927, integer12345 cents, two archive layouts and five target states. Corrected baseline eight failures/two fresh-target controls passed. Target snapshots compare all file hashes before and after; linked destinations checked separately. Evidence restore-target-baseline.log and restore-target-baseline-evidence.json.
+
+Isolated /private/tmp/coil-restore-target-review. Changed ops/restore.sh, tests/test_restore_target_preservation.py, docs/SELF-HOSTING.md. New guard refuses nonempty data directories, data symlinks and data files before extraction. Existing app code outside data and an empty real data directory remain allowed. Existing database/environment refusal retained. Focused28 passed; candidate ten synthetic Linux cases passed with exact12345 cents and preserved files. No schema/provider changes.
+
+Source SHA16486fdfc8319158639716f9ee7a52266e8284f992610260f2305fef26055ab2. This is an offline preflight guard. Concurrent writers, power loss, transactional extraction, untrusted-archive member validation and automatic version refusal are not established by these tests. Operator/offsite and exact-source/disposable independent acceptance prerequisites remain open.
+
+Grok results on51a3da8: AR65-CREDIT PASS5854417657, WIP64-MONEY PASS5854417756, WIP64-HOURS FAIL5854417845 (issue67). Case51 compensation FAIL5854545628: EUR matter3078 shows USD0.50 and no euro sign; main fees4329.01 dollars. Cursor owns the browser queue. Origination66 remains defective with uncommitted loop work. No duplicate case assignments. Existing fixture protections retained, including unbilled3093/3094 and paused webhooks9/10.
+
+Initial full suite975 passed,1 skipped,126 warnings in184.43 seconds; bash syntax check passed. Isolated tested commit2ed6271. Both host scripts installed from that exact commit/hash with automatic rollback available, not used. Each installed copy passed all ten Linux cases. Existing environment/Compose hashes unchanged. Backups /home/deploy/backups/coil/{testfirm.coil.legal,demo.coil.legal}/restore-before-2ed6271.sh. No live backup/restore, financial write or application restart by Codex. Installation log restore-target-install.log.
+
+The shared branch advanced to autonomous origination commitfbfffe9 before fast-forward integration, which correctly refused. The tested restore delta was then cherry-picked asabd32b3. A comparison against older uncommitted report hashes detected the loop's intervening edits; final diff againstfbfffe9 confirmed every committed report file was unchanged by the cherry-pick. New test_wip_currency.py working changes were left untouched. Isolated checkout rebased toabd32b3 for a combined full-suite run. The installed restore bytes remain identical to the original tested candidate.
+
+Final combined suite onabd32b3 (including autonomous originationfbfffe9):979 passed,1 skipped,126 warnings in182.99 seconds. No repeat deployment needed because restore bytes were unchanged. Autonomous loop reports origination full969 passed/1 skipped and completed deployment; both public health endpoints independently verified healthyfbfffe9. New reports/WIP working changes remain excluded.
+
+Grok new batch https://github.com/Coil-Legal/coil/issues/12#issuecomment-5854685200: ORIG66-HTML and ORIG66-CSV assigned independently, ACK5854687654 with healthyfbfffe9 gate; results pending. RESTORE-TARGET-A/B explicitly deferred with existing operational prerequisites; no repeated access ping. Case52 old release-gate blocker resolved in5854695793 after verifying profitability_data and profitability function bytes match51a3da8 exactly. Original read-only/no-CSV scope retained. Compensation68 and WIP67 remain defective, origination66 independent acceptance pending.
+
+SheetS68: six ranges/23 cells freshly read, updated and exactly verified. Existing history, Cursor J29/K29 and OverviewB2 preserved. Evidence restore-target-sheet-current.json, restore-target-sheet-changes.json and restore-target-sheet-readback.json. Phase1 incomplete; Phase2/3 outcomes remain open; main unpushed;30-minute schedule unchanged.
+
+
 ## September 27 dashboard credit fix and WIP currency review, 08:53 UTC
 
 Grok acknowledgment5854387684 confirms health51a3da8 and acceptance of all three read-only cases; separate results pending. Sheet Overview and QA queue acknowledgment status updated after fresh reads. New reports.py, origination.html and test_phase2_c.py working changes observed at close were left untouched for the autonomous loop. Shared review commitbe543d1, main unpushed.
