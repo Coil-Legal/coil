@@ -1,5 +1,24 @@
 # Tool readiness register
 
+## September27 deadline boundaries and conflict acceptance,17:10 UTC
+
+Reviewed committed971d411/application74ffffc in /private/tmp/coil-deadline-review-971d411 at2026-09-27 17:10 UTC. No application source change, deployment, provider action, live rule/holiday/fixture mutation or GitHub push. Synthetic local rule set/rule96001 and matter1 belong only to disposable test databases.
+
+Six new route/configuration cases plus20 existing month-arithmetic checks passed,26 total in2.94 seconds. Authenticated preview and POST application agree for January31 2026 plus one month without rolling (February28); February29 2024 plus one year (February28 2025); January31 2027 plus one month with weekend rolling (March1); May15 2026 minus three months (February15); and an already-past January10 2000 plus one calendar day (January11). Persisted tasks retain original trigger, source rule, synthetic rule note and applicable construction warning. The January case retains alternate March3, the leap case alternate March1, and the rolled case the pre-roll February28 explanation. Repeated identical application creates only one task per rule/trigger. Past unfinished tasks show overdue on task detail and the rule application history.
+
+Holiday controls: with no configured holidays, the preview warns that only weekends are skipped; one court day after November25 2026 lands on November26. Explicit synthetic closures on November26/27 move that case to November30; one court day before November30 then lands on November25. These are configured date-arithmetic checks, not certification of federal or local court holidays. The old review-register statement that holidays are not modeled was stale: Holiday rows, owner-managed entries and a US-federal load action exist. Corrected the register to distinguish configured holiday support from court-specific completeness. The no-holidays warning checks whether the table is empty, not coverage of each jurisdiction/year.
+
+Evidence: outputs/deadline-acceptance-probe.py and deadline-acceptance.log. Local HTTP integrations disabled by the inherited synthetic fixture. These cases do not establish actual court-rule applicability, calendar-client subscription behavior, DST-gap handling or full calendar signoff. Existing full1033 passed/1 skipped and44 deployment-container checks remain the deployed source validation; no code change required another full suite.
+
+Grok CONFLICT-TWO-ROLES, CONFLICT-ROLE-ORDER and ALIAS-SAVED-HISTORY independently PASS5857910912, ACK5857774417, on stable74ffffc. Fresh contacts1836/1837, matter3099 M-1075, party12 adverse then13 witness, saved87 retains both and stays unresolved. Independent contacts1838/1839, matter3100 M-1076, party14 witness then15 adverse, saved88 retains both; duplicate adverse16 still yields exactly two distinct role hits in saved89. Read-only checks82/85 continue to exclude1834/1835 respectively, while83/86 retain post-alias hits. Existing1833-1835 and77-86 preserved. Exhibits /workspace/coil-qa/phase5/exhibits/codex-74ffffc-conflict-roles/. These close the assigned role/history cases, not the whole tool.
+
+New independent deadline batch https://github.com/Coil-Legal/coil/issues/12#issuecomment-5857978175: DEADLINE-MONTH-END and DEADLINE-LEAP-YEAR. Requires fresh synthetic rules/matters only, rolling disabled, exact preview/persisted dates and warnings, duplicate-skip feedback, overdue indicators and actual live IDs. No shared holiday edits. Assigned, no acknowledgment observed at assignment. Existing independent passes remain recorded; expanded deadline acceptance awaits results.
+
+Phase1 remains incomplete. Automatic Greek/Cyrillic transliteration is not built. Operational recovery exact-source/disposable access, Stripe test access, authentic handset SMS, remaining AI/browser evidence, operator/offsite recovery and external calendar subscriptions remain blocked/pending. Productivity Case54 stays with the existing autonomous/Cursor queue. No Phase2/3 signoff. The30-minute automation is unchanged.
+
+
+Sheet S79 synced and exactly verified at 2026-09-27 17:14 UTC:24 cells across7 ranges. Fresh reads and RAW writes preserve earlier evidence, Overview B2, Cursor J/K cells, formulas and formatting. Expanded deadline scope remains QA pending. Evidence deadline-sheet-fresh.json, deadline-sheet-changes.json and deadline-sheet-readback.json. Final issue12 check found no new acknowledgment/result for5857978175.
+
 ## September27 same-matter conflict roles,16:34 UTC
 
 Tested and integrated74ffffc04e5ba4567f103b973d00cb56f8be98e9 from isolated /private/tmp/coil-conflict-role-review, preserving shared26ae436 and the existing coordination changes. Application changes are limited to app/blueprints/conflicts.py and tests/test_conflict_multiple_roles.py. No schema changes or GitHub push.
@@ -519,7 +538,7 @@ Inputs that could trip it: contacts imported from CSV with trailing whitespace, 
 Limitation date verified against the source document, chains land on business days, recurrence stops at its end, court rules honest about being generic, iCal correct across time zones and DST, deadlines in both feeds.
 
 Further checks:
-- A deadline chain that crosses a federal holiday. Court holidays are not modelled; confirm the page says so rather than silently landing on Thanksgiving.
+- A deadline chain that crosses a configured closure. Holiday rows and a federal-holiday load action are built; verify the relevant dates are configured and the court-specific set is complete. Empty configuration warns that only weekends are skipped. Synthetic forward/backward exclusion passed September27; jurisdictional completeness is not established.
 - A trigger date on 29 February, and one on 31 January with a "one month" step.
 - A trigger date in the past. Should compute, and every resulting deadline that is already overdue should say so.
 - A rule that counts backwards from a hearing date.
