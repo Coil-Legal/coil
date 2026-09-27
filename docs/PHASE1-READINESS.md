@@ -1,5 +1,26 @@
 # Coil Phase 1 completion pass
 
+## September 27 restore database preflight, 10:18 UTC
+
+Source a924968, installed restoreabd32b3. Restore checked SQLite only after extracting all files, so a corrupt database left a populated data directory and an archived environment in the target. A valid retry was then refused by the existing-data guard. Empty and duplicate database members were also accepted.
+
+Eight baseline regressions failed: corrupt database with root/data and leading-dot layouts, plus empty/duplicate members in both main layouts. New tests require the original target to remain unchanged, no private scratch residue, and a valid retry with exact12345 cents and upload bytes. Fixture QA-RESTORE-PREFLIGHT-20260927. No live data involved.
+
+Changed ops/restore.sh, tests/test_restore_preflight.py, tests/test_restore_integrity.py (hermetic PATH includes mktemp/rm), docs/SELF-HOSTING.md. Validation now copies the single archived database to a private temporary directory, rejects empty/duplicate members, checks SQLite before target extraction, and rechecks the restored database afterward. EXIT/INT/TERM cleanup is present; this review verifies normal failure/success cleanup, not interruption acceptance. This is not transactional extraction: I/O failure, SIGKILL, concurrent writes and unsafe archive members remain separate review gates. Producer-version manifest/refusal remains not built. Operator/offsite and exact-source/disposable independent acceptance prerequisites remain open.
+
+Focused36 passed; candidate12 synthetic Linux cases passed across root/data and leading-dot layouts, including four successful retries with exact database/upload bytes and no scratch residue. Candidate SHA0d92d8e01eec33caf34b646c3faa9d8d9c1c25a57b1c74f37381f39afc69152d. Evidence restore-preflight-baseline.log, restore-preflight-focused.log and restore-preflight-linux-candidate.log; executable restore-preflight-linux-probe.py.
+
+Autonomous loop completed report66/67/68 asfbfffe9/9d77ed8/a1793c5, with final full983 passed/1 skipped reported. Both public sites independently verified healthya1793c5. Grok prior cases were BLOCKED5854797973 by release changes, not product failures. Cursor refreshed9d77ed8 in5854876896. Codex verified unchanged profitability/origination functions and refresheda1793c5 in5854923887, adding COMP68-HTML to existing Case52,ORIG66-HTML,ORIG66-CSV,WIP67-HOURS. ACK5854940695 confirms all five; results pending. Existing operational cases remain deferred without duplicate access pings. No report edits or fixture writes by Codex.
+
+Tested/integrated/deployed77c2df7. Full991 passed,1 skipped,126 warnings in185.76 seconds. Both installed script copies passed26 synthetic Linux cases each:12 preflight/retry,10 target-preservation and4 WAL/corrupt checks. Settings hashes unchanged; automatic rollback available, not used. Backups /home/deploy/backups/coil/{testfirm.coil.legal,demo.coil.legal}/restore-before-77c2df7.sh. Install log restore-preflight-install.log. No live backup/restore, app restart, financial/provider action or GitHub push by Codex.
+
+Grok result5854953863 on a1793c5: WIP67-HOURS PASS, EUR1.00/USD14247.50 hours and EUR200/USD4679050.68 money; COMP68-HTML PASS, EUR0.50/USD4328.51. Case52 profitability FAIL: M-1058 incorrectlyUSD0.50 and combinedUSD4374.01. ORIG66 HTML/CSV reported FAIL for ID3091 versus displayedM-1071, despite correct currency amounts/totals. Read-only source proof confirms they are the same fixture, linked to INV-1065; source amounts USD25.01 and share100.0% EUR +100.0% USD. Evidence origination-fixture-confirmation.json, confirm-origination-fixture.py. These reported failures are pending clarified independent verdicts, not unilaterally relabeled PASS.
+
+Actionable follow-up https://github.com/Coil-Legal/coil/issues/12#issuecomment-5854968851: confirm HTML href/share cell, resolve CSV fixture mapping using existing artifact, and independently test compensation CSV. No acknowledgment observed at assignment. Recovery preflight criteria explicitly deferred with prior operational cases for exact-source/disposable access. Provider/AI, operator/offsite, compatibility/refusal and transactional extraction gates remain open. Phase1 incomplete; Phase2/3 not signed off. Main unpushed;30-minute schedule unchanged.
+
+Sheet S69: six ranges/23 cells freshly read, updated and verified exactly at10:18 UTC. Prior history, Cursor J29/K29, OverviewB2, formulas and formatting preserved. Evidence restore-preflight-sheet-current.json, restore-preflight-sheet-changes.json and restore-preflight-sheet-readback.json. Public endpoints both healthy a1793c5 after script-only deployment.
+
+
 ## September 27 restore target preservation, 09:36 UTC
 
 Reviewed shared df8fd3e and installed restore0423182. The restore command only refused an existing database, so a target with uploads/PDFs but no database could have those files overwritten by extraction. A nightly-layout restore through an existing data symlink wrote to the linked directory. A CLI-layout symlink case failed extraction but still changed the install target. Hidden leftovers were merged with a new database rather than refused.
