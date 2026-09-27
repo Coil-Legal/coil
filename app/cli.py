@@ -8,10 +8,13 @@ Available commands:
 - voice_reminders, payment_plans, case_audit
 """
 import os
+import fcntl
+import shutil
 import sqlite3
 import sys
 import tarfile
 import tempfile
+from contextlib import contextmanager
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from markupsafe import escape
@@ -407,6 +410,47 @@ def _sqlite_path():
     return Path(uri.split("sqlite:///", 1)[-1])
 
 
+@contextmanager
+def _backup_workspace(backup_dir):
+    """Reclaim only unlocked workspaces; a live job holds its lease until cleanup.
+
+    The registry lock covers creation and deletion, including a crash before a new
+    directory gets its lease. Legacy flat temporary files have no ownership proof
+    and are deliberately left alone. The permanent registry file must not be unlinked.
+    """
+    job = lease = None
+    with (backup_dir / '.coil-backup-registry.lock').open('a+b') as registry:
+        try:
+            fcntl.flock(registry, fcntl.LOCK_EX)
+            try:
+                for old in backup_dir.glob('.coil-backup-job-*'):
+                    if old.is_symlink() or not old.is_dir():
+                        continue
+                    with (old / 'lease').open('a+b') as candidate:
+                        try:
+                            fcntl.flock(candidate, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                        except BlockingIOError:
+                            continue
+                        shutil.rmtree(old)
+                job = Path(tempfile.mkdtemp(prefix='.coil-backup-job-', dir=backup_dir))
+                lease = (job / 'lease').open('a+b')
+                fcntl.flock(lease, fcntl.LOCK_EX)
+            finally:
+                fcntl.flock(registry, fcntl.LOCK_UN)
+            yield job
+        finally:
+            try:
+                if job is not None:
+                    fcntl.flock(registry, fcntl.LOCK_EX)
+                    try:
+                        shutil.rmtree(job)
+                    finally:
+                        fcntl.flock(registry, fcntl.LOCK_UN)
+            finally:
+                if lease is not None:
+                    lease.close()
+
+
 def backup():
     """Dated backup of the database, uploads and generated PDFs.
 
@@ -424,14 +468,11 @@ def backup():
     backup_dir.mkdir(parents=True, exist_ok=True)
 
     stamp = now().strftime("%Y%m%d-%H%M%S")
-    snapshot = None
-    temp_archive = None
     db_path = _sqlite_path()
-    try:
+    with _backup_workspace(backup_dir) as workspace:
+        snapshot = None
         if db_path and db_path.exists():
-            fd, name = tempfile.mkstemp(prefix=".backup-snapshot.", dir=data_dir)
-            os.close(fd)
-            snapshot = Path(name)
+            snapshot = workspace / 'practice.db'
             src = sqlite3.connect(str(db_path))
             try:
                 dst = sqlite3.connect(str(snapshot))
@@ -446,10 +487,10 @@ def backup():
 
         # Each invocation owns its snapshot and private output. Publish only after tar
         # closes successfully, without replacing any earlier or concurrent archive.
-        fd, name = tempfile.mkstemp(prefix=f".coil-backup-{stamp}-", suffix=".partial", dir=backup_dir)
-        os.close(fd)
-        temp_archive = Path(name)
-        backup_file = backup_dir / (temp_archive.name[1:-len(".partial")] + ".tar.gz")
+        temp_archive = workspace / 'archive.partial'
+        temp_archive.touch(mode=0o600, exist_ok=False)
+        suffix = workspace.name.removeprefix('.coil-backup-job-')
+        backup_file = backup_dir / f'coil-backup-{stamp}-{suffix}.tar.gz'
         print(f"Creating backup: {backup_file.name}")
         with tarfile.open(temp_archive, "w:gz") as tar:
             if snapshot:
@@ -460,13 +501,6 @@ def backup():
                     tar.add(d, arcname=f"data/{name}")
         size_mb = temp_archive.stat().st_size / (1024 * 1024)
         os.link(temp_archive, backup_file)
-    finally:
-        if temp_archive:
-            temp_archive.unlink(missing_ok=True)
-        if snapshot:
-            for suffix in ("", "-journal", "-wal", "-shm"):
-                Path(str(snapshot) + suffix).unlink(missing_ok=True)
-
     # Prune oldest first. Without this a nightly cron grows without bound and the
     # disk fills, which takes Coil down for the same reason no backup would have.
     keep = int(os.environ.get("COIL_BACKUP_KEEP", "14"))
