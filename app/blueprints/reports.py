@@ -419,6 +419,48 @@ def _time_lines_by_entry():
     return out
 
 
+def _collected_by_time_entry(lines_by_entry):
+    """Allocate each invoice's time share once, conserving whole receipt cents.
+
+    Round the invoice's combined time share, then distribute remaining cents by
+    fractional remainder with entry ID as a stable tie-breaker. Include entries
+    outside the requested dates so changing report windows cannot move pennies.
+    Expense and tax shares remain outside collected time.
+    """
+    from fractions import Fraction
+
+    invoices = {}
+
+    def add(inv, entry_id, cents):
+        if inv and inv.total_cents:
+            row = invoices.setdefault(inv.id, {"invoice": inv, "weights": defaultdict(int)})
+            row["weights"][entry_id] += cents or 0
+
+    for entry_id, lines in lines_by_entry.items():
+        for line in lines:
+            add(line.invoice, entry_id, line.amount_cents)
+    # Older imports can link an entry to an invoice without creating time lines.
+    legacy = (TimeEntry.query.join(Invoice, TimeEntry.invoice_id == Invoice.id)
+              .options(joinedload(TimeEntry.invoice)).filter(Invoice.status != "void").all())
+    for entry in legacy:
+        if entry.id not in lines_by_entry:
+            add(entry.invoice, entry.id, entry.amount_cents)
+
+    collected = defaultdict(int)
+    for row in invoices.values():
+        inv = row["invoice"]
+        paid = sum(p.amount_cents or 0 for p in inv.payments)
+        shares = {eid: Fraction(paid * cents, inv.total_cents) for eid, cents in row["weights"].items()}
+        cents = {eid: share.numerator // share.denominator for eid, share in shares.items()}
+        remainder = round(sum(shares.values(), Fraction())) - sum(cents.values())
+        order = sorted(shares, key=lambda eid: (-(shares[eid] - cents[eid]), eid))
+        for eid in order[:remainder]:
+            cents[eid] += 1
+        for eid, amount in cents.items():
+            collected[eid] += amount
+    return collected
+
+
 def realization_data(d_from, d_to):
     """Worked / billed / collected per attorney and per matter for time entries dated in the range.
     worked   = every time entry at its rate
@@ -433,33 +475,20 @@ def realization_data(d_from, d_to):
     become per-currency dicts too (issue #70, same class as #68's compensation_data)."""
     entries = TimeEntry.query.filter(TimeEntry.date >= d_from, TimeEntry.date <= d_to).all()
     lines_by_entry = _time_lines_by_entry()
+    collected_by_entry = _collected_by_time_entry(lines_by_entry)
     invoiced_matters = {mid for (mid,) in db.session.query(Invoice.matter_id).filter(Invoice.status != "void")
                         .distinct().all()}
-    paid_cache = {}
-
-    def paid_on(inv):
-        if inv.id not in paid_cache:
-            paid_cache[inv.id] = sum(p.amount_cents or 0 for p in inv.payments)
-        return paid_cache[inv.id]
-
     by_user, by_matter = {}, {}
     for e in entries:
         worked = e.amount_cents
         billed = 0
-        collected = 0.0
+        collected = collected_by_entry.get(e.id, 0)
         lines = lines_by_entry.get(e.id, [])
         if lines:
             for ln in lines:
                 billed += ln.amount_cents or 0
-                inv = ln.invoice
-                if inv and inv.total_cents:
-                    collected += paid_on(inv) * (ln.amount_cents or 0) / inv.total_cents
         elif e.invoice_id and e.invoice and e.invoice.status != "void":
-            inv = e.invoice
             billed = worked
-            if inv.total_cents:
-                collected = paid_on(inv) * worked / inv.total_cents
-        collected = int(round(collected))
         writedown = (worked - billed) if lines or (e.invoice_id and e.invoice and e.invoice.status != "void") else 0
         currency = e.matter.currency_code if e.matter else "USD"
 
