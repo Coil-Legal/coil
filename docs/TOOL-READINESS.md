@@ -1,5 +1,35 @@
 # Tool readiness register
 
+## September 27 calendar recurrence cutoff fix, 20:54 UTC
+
+Reviewed from 9f41d6b in isolated /private/tmp/coil-calendar-until-review. Changes are limited to app/blueprints/calendar.py, new tests/test_calendar_recurrence_until.py and the cutoff assertion in tests/test_small_features.py. No schema or provider changes.
+
+Baseline: nine failures and five passing controls in 2.81 seconds. Daily late-evening Chicago events lost their final local day in the feed, while early Tokyo/Kiritimati events gained a day after the selected cutoff. All-day series used DATE-TIME UNTIL with DATE DTSTART. The form-saved Chicago timed and all-day cases reproduced the same output in firm/owner feeds. Synthetic event 1 and staff user 1 belong only to disposable databases.
+
+The fix keeps all-day UNTIL date-only and converts the timed series' inclusive local end-of-day to UTC. October 7 in Chicago becomes October 8 at 04:59:59Z; its 23:00 final occurrence remains included. All-day October 7 becomes UNTIL=20261007. UTC and invalid-zone fallback, missing cutoff and nonrecurring controls are unchanged. New tests use dateutil recurrence expansion to compare the resulting local dates with the application's screen occurrences. Calendar recurrence across DST transitions and month/year clamping are separate unresolved review gates.
+
+The cutoff typing and inclusive interpretation follow RFC 5545 section 3.3.10: https://www.rfc-editor.org/rfc/rfc5545#section-3.3.10. This source supports the format requirement, not external calendar-client acceptance.
+
+Final focused checks: 50 passed in 8.36 seconds, including 14 new cutoff cases and existing DST, calendar and deadline/feed regressions. Evidence: calendar-until-baseline.log and calendar-until-focused.log. The initial focused run found the old test's hardcoded UTC-midnight cutoff expectation; that assertion was corrected to the Chicago boundary and the focused set rerun.
+
+Grok's prior lifecycle batch independently passed on 9b70380, ACK 5859460789: ICAL-EDIT-DELETE 5859677536, ICAL-TASK-STATE 5859677654 and ICAL-KEY-BOUNDARY 5859677802. Event 36 was intentionally deleted after same-UID edit/feed validation. Task 81 remains open and undated after complete/reopen/clear-date checks. Proper anonymous firm/user feeds returned 200; invalid and wrong-route/user keys returned 404 without event content. Existing events 28-35 and tasks 78-80 were left unchanged. Exhibits: /workspace/coil-qa/phase5/exhibits/codex-9b70380-ical-lifecycle/. Feed secrets are private. These close the three assigned server-response cases, not external calendar refresh acceptance.
+
+Next independent queue will use fresh synthetic daily all-day and late-evening Chicago events with a finite cutoff, preserving events 28-35 and tasks 78-81. Record assignment separately from acknowledgment and acceptance.
+
+Phase 1 remains incomplete. Portal replacement/limit/race acceptance retains issue 49 authorized Mailpit capture access; recovery retains exact-source/disposable access prerequisites. Stripe test keys, authentic handset SMS, remaining AI/browser/operator/offsite checks, external calendar subscriptions and other prior gates remain open. Productivity case 54 stays with autonomous/Cursor. No live Stripe charges, provider credential changes, GitHub push or automation schedule changes.
+
+Full suite: 1076 passed, 1 skipped, 126 warnings in 209.99 seconds. Tested commit 5a89963d9b944d7814230ad4dd2021d5a07b1be4 was integrated by guarded fast-forward, preserving shared coordination edits. Evidence: calendar-until-full.log.
+
+Both sites deployed and verified healthy on 5a89963. Linux candidate: 70 passed, 2 warnings in 76.52 seconds. Runtime/host calendar source SHA f51569e69b8a3001180d18fbcb706f947106a07ba613b97e5d91eb1cd0346552 matches reviewed code. Environment and Compose hashes unchanged. Source/image backups are /home/deploy/backups/coil/{domain}/calendar-until-5a89963-r1; rollback images testfirmcoillegal:before-5a89963 and democoillegal:before-5a89963. Data archives: testfirm coil-backup-20260927-204934-x09qf73y.tar.gz; demo coil-backup-20260927-205106-43j9i6g8.tar.gz. No rollback needed.
+
+Before/after SQLite quick_check is OK. Testfirm 18 portal tokens retain SHA 6f6af2b70d1f0c940c8fb5961e6905fca5e5617c16ac36e2fdaf97e0d9af50ec; events 28-35 retain SHA 1c14f952c2e3af72cd91e3595d4a4b2693a97b6539576c9dadaf4e563dde4e2d; tasks 78-80 retain SHA 0c68690fefcd88ea78ae49374e9ee176e00c25614d6287a5b820f2a0ca1bd4ec. Demo empty fixtures remain unchanged. Evidence: calendar-until-live-check.py, before/after/health JSON, prepare/activate logs.
+
+Independent timed/all-day cutoff batch assigned: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5859728817. No acknowledgment claimed at assignment.
+
+Sheet S84 synced and exactly verified: 21 cells across five ranges. Existing statuses, formula F12, Cursor fields, portal row and Overview B2 preserved. Case acceptance remains separate from whole-tool signoff.
+
+Final issue 12 check found no acknowledgment or result for cutoff batch 5859728817. Prior lifecycle/key cases are accepted; new cutoff acceptance remains pending.
+
 ## September 27 calendar feed lifecycle and access review, 20:12 UTC
 
 Reviewed 2026-09-27 from aeda87d in isolated checkout /private/tmp/coil-calendar-feed-lifecycle. Application commit 9b70380 remains deployed on both sites. No application source, schema, provider settings or live fixtures changed. The local probe is tests/probe_calendar_feed_lifecycle.py, preserved as outputs/calendar-feed-lifecycle-probe.py. It uses disposable SQLite databases, synthetic contact/matter 1, users 1-3, event 1 or task 1 per fresh case, and blocks external HTTP.
