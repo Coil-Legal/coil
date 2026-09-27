@@ -290,7 +290,15 @@ def build_ics(events, name="Calendar", tz_name="UTC", tasks=()):
         if e.recurrence in RRULE_FREQ:
             rule = RRULE_FREQ[e.recurrence]
             if e.recurrence_until:
-                rule += f";UNTIL={e.recurrence_until:%Y%m%d}T235959Z"
+                if e.all_day:
+                    # DATE DTSTART must have a DATE UNTIL (RFC 5545 section 3.3.10).
+                    rule += f";UNTIL={e.recurrence_until:%Y%m%d}"
+                else:
+                    # The form's inclusive date ends in the firm's local zone.
+                    # Convert that boundary just as we convert timed DTSTART.
+                    local_end = datetime.combine(e.recurrence_until, datetime.max.time())
+                    cutoff = _to_utc(local_end, tz_name)
+                    rule += f";UNTIL={cutoff:%Y%m%dT%H%M%SZ}"
             lines.append(f"RRULE:{rule}")
         lines.append(f"SUMMARY:{_ics_escape(e.title)}")
         if e.location:

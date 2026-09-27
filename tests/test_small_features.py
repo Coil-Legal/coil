@@ -126,7 +126,8 @@ def test_recurring_and_per_user_calendar(app, client):
         ics = client.get(f"/calendar/feed/u/{sid}/{feed_secret(sid)}.ics").data.decode()
         firm = client.get(f"/calendar/feed/{feed_secret()}.ics").data.decode()
         owner_ics = client.get(f"/calendar/feed/u/{oid}/{feed_secret(oid)}.ics").data.decode()
-    assert "RRULE:FREQ=WEEKLY;UNTIL=20260930T235959Z" in ics and "Ann deposition prep" in ics
+    # Inclusive September 30 ends at 04:59:59 UTC on October 1 in Chicago.
+    assert "RRULE:FREQ=WEEKLY;UNTIL=20261001T045959Z" in ics and "Ann deposition prep" in ics
     assert "Ann deposition prep" not in owner_ics and "Team standup" in owner_ics
     assert "Ann deposition prep" in firm
     assert client.get(f"/calendar/feed/u/{sid}/wrongsecret.ics").status_code == 404
