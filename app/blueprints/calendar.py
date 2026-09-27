@@ -289,6 +289,14 @@ def build_ics(events, name="Calendar", tz_name="UTC", tasks=()):
             lines += [f"DTSTART:{start_utc:%Y%m%dT%H%M%SZ}", f"DTEND:{end_utc:%Y%m%dT%H%M%SZ}"]
         if e.recurrence in RRULE_FREQ:
             rule = RRULE_FREQ[e.recurrence]
+            # Match the UI's relativedelta clamping for date-only series.
+            # A plain RRULE skips invalid month dates instead of clamping them.
+            if e.all_day and e.recurrence == "monthly" and e.starts_at.day > 28:
+                days = ",".join(str(day) for day in range(28, e.starts_at.day + 1))
+                rule += f";BYMONTHDAY={days};BYSETPOS=-1"
+            elif (e.all_day and e.recurrence == "yearly"
+                  and e.starts_at.month == 2 and e.starts_at.day == 29):
+                rule += ";BYMONTH=2;BYMONTHDAY=28,29;BYSETPOS=-1"
             if e.recurrence_until:
                 if e.all_day:
                     # DATE DTSTART must have a DATE UNTIL (RFC 5545 section 3.3.10).
