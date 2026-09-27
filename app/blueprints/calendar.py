@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from flask import Blueprint, render_template, request, redirect, url_for, flash, abort, current_app, Response
 from sqlalchemy import or_, and_
 from ..extensions import db
-from ..models import CalendarEvent, Task, Matter, User, audit, now
+from ..models import CalendarEvent, Task, Matter, User, Firm, audit, now
 from ..helpers import login_required, current_user, parse_date
 
 bp = Blueprint("calendar", __name__, url_prefix="/calendar")
@@ -68,6 +68,28 @@ def _fill(e, form):
 def _form_context(e):
     return dict(e=e, matters=Matter.query.filter(Matter.status != "closed").order_by(Matter.number).all(),
                 users=User.query.filter_by(is_active=True).order_by(User.name).all(), recurrences=RECURRENCES)
+
+
+def _event_error(e):
+    if not e.title or not e.starts_at:
+        return "A title and a start date are required."
+    if e.all_day:
+        return None
+    # Do not flush an edited event until its wall-clock values are validated.
+    with db.session.no_autoflush:
+        tz_name = Firm.get().timezone or "UTC"
+    try:
+        zone = ZoneInfo(tz_name)
+    except (ZoneInfoNotFoundError, ValueError):
+        return None  # Keep the feed's existing fallback for invalid configuration.
+    for label, value in (("start", e.starts_at), ("end", e.ends_at)):
+        if value is None:
+            continue
+        back = value.replace(tzinfo=zone).astimezone(ZoneInfo("UTC")).astimezone(zone)
+        if back.replace(tzinfo=None) != value:
+            return (f"The {label} time does not exist in {tz_name} because the clocks move forward. "
+                    "Choose a time before or after the clock change.")
+    return None
 
 
 def _month_arg():
@@ -138,8 +160,9 @@ def new():
     e = CalendarEvent()
     if request.method == "POST":
         _fill(e, request.form)
-        if not e.title or not e.starts_at:
-            flash("A title and a start date are required.", "error")
+        error = _event_error(e)
+        if error:
+            flash(error, "error")
             return render_template("calendar/form.html", is_new=True, **_form_context(e))
         db.session.add(e)
         db.session.flush()
@@ -169,9 +192,13 @@ def edit(id):
     e = db.session.get(CalendarEvent, id) or abort(404)
     if request.method == "POST":
         _fill(e, request.form)
-        if not e.title or not e.starts_at:
-            flash("A title and a start date are required.", "error")
-            return render_template("calendar/form.html", is_new=False, **_form_context(e))
+        error = _event_error(e)
+        if error:
+            flash(error, "error")
+            with db.session.no_autoflush:
+                response = render_template("calendar/form.html", is_new=False, **_form_context(e))
+            db.session.rollback()
+            return response
         db.session.commit()
         flash("Event saved.", "ok")
         return redirect(url_for("calendar.detail", id=e.id))
