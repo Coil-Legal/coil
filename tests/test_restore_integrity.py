@@ -21,7 +21,7 @@ def restore(tmp_path, content, prefix='', python=True):
         tar.addfile(item, io.BytesIO(content))
     commands = tmp_path / 'commands'
     commands.mkdir()
-    for name in ['tar', 'sed', 'grep', 'mkdir', 'du', 'cut', 'find', 'wc', 'tr', 'head']:
+    for name in ['tar', 'sed', 'grep', 'mkdir', 'du', 'cut', 'find', 'wc', 'tr', 'head', 'mktemp', 'rm']:
         (commands / name).symlink_to(shutil.which(name))
     if python:
         (commands / 'python3').symlink_to(sys.executable)

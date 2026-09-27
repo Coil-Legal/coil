@@ -65,6 +65,51 @@ else
   exit 1
 fi
 
+check_database() {
+if [ "$VALIDATOR" = sqlite3 ]; then
+  if ! CHECK=$(sqlite3 -readonly "$1" "PRAGMA integrity_check;" 2>&1); then
+    echo "FAILED: database could not be checked ($CHECK)" >&2
+    exit 1
+  fi
+  [ "$CHECK" = "ok" ] || { echo "FAILED: database is not intact ($CHECK)" >&2; exit 1; }
+else
+  python3 - "$1" <<'PY'
+from pathlib import Path
+import sqlite3
+import sys
+
+try:
+    uri = Path(sys.argv[1]).resolve().as_uri() + '?mode=ro'
+    with sqlite3.connect(uri, uri=True) as conn:
+        rows = conn.execute('PRAGMA integrity_check').fetchall()
+    if rows != [('ok',)]:
+        raise ValueError('integrity_check did not return ok')
+except (sqlite3.Error, OSError, ValueError) as exc:
+    print(f'FAILED: database is not intact ({exc})', file=sys.stderr)
+    sys.exit(1)
+PY
+fi
+}
+
+# Validate the single archived database before extracting anything into the target.
+DB_MEMBER='practice.db'
+[ "$CLI_LAYOUT" = 1 ] && DB_MEMBER='data/practice.db'
+if [ "$(grep -Fxc "$DB_MEMBER" <<< "$NORMALIZED")" != 1 ]; then
+  echo "FAILED: archive must contain one database member, without duplicates." >&2
+  exit 1
+fi
+grep -Fxq "$DB_MEMBER" <<< "$MEMBERS" || DB_MEMBER="./$DB_MEMBER"
+RESTORE_STAGE=$(mktemp -d "${TMPDIR:-/tmp}/coil-restore-check.XXXXXXXX")
+trap 'rm -rf "$RESTORE_STAGE"' EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+tar -xOzf "$ARCHIVE" "$DB_MEMBER" > "$RESTORE_STAGE/practice.db"
+if [ ! -s "$RESTORE_STAGE/practice.db" ]; then
+  echo "FAILED: archived database is empty or is not a readable database file." >&2
+  exit 1
+fi
+check_database "$RESTORE_STAGE/practice.db"
+
 mkdir -p "$TARGET"
 if [ "$CLI_LAYOUT" = 1 ]; then
   tar -xzf "$ARCHIVE" -C "$TARGET"
@@ -86,29 +131,7 @@ if [ ! -f "$TARGET/data/practice.db" ]; then
   tar -tzf "$ARCHIVE" | head -10 >&2
   exit 1
 fi
-if [ "$VALIDATOR" = sqlite3 ]; then
-  if ! CHECK=$(sqlite3 -readonly "$TARGET/data/practice.db" "PRAGMA integrity_check;" 2>&1); then
-    echo "FAILED: restored database could not be checked ($CHECK)" >&2
-    exit 1
-  fi
-  [ "$CHECK" = "ok" ] || { echo "FAILED: restored database is not intact ($CHECK)" >&2; exit 1; }
-else
-  python3 - "$TARGET/data/practice.db" <<'PY'
-from pathlib import Path
-import sqlite3
-import sys
-
-try:
-    uri = Path(sys.argv[1]).resolve().as_uri() + '?mode=ro'
-    with sqlite3.connect(uri, uri=True) as conn:
-        rows = conn.execute('PRAGMA integrity_check').fetchall()
-    if rows != [('ok',)]:
-        raise ValueError('integrity_check did not return ok')
-except (sqlite3.Error, OSError, ValueError) as exc:
-    print(f'FAILED: restored database is not intact ({exc})', file=sys.stderr)
-    sys.exit(1)
-PY
-fi
+check_database "$TARGET/data/practice.db"
 
 echo "restored into $TARGET"
 echo "  database: $(du -h "$TARGET/data/practice.db" | cut -f1)"

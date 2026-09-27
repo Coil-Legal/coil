@@ -249,3 +249,5 @@ all. No token, however configured, can reach client funds or remove a record.
 ### Restore into a fresh data directory
 
 The restore script refuses an existing database, a nonempty `data/` directory, or a `data` path that is a file or symbolic link. Existing uploads and PDFs remain valuable even when the database is missing. Choose a fresh target directory or move the complete old data directory aside first. Existing application code outside `data/` is allowed; an empty real `data/` directory is allowed. An archived `.env` never replaces an existing `.env`. Stop the application and other writers before restoring.
+
+Before extracting into the target, the restore script checks that the archive has one nonempty database member and validates its SQLite integrity in a private temporary directory. A rejected database leaves the target unchanged, so a valid archive can be tried without deleting partial restore files. The database is checked again after extraction. This does not make the complete extraction transactional: disk errors, interruption or concurrent writers can still leave partial output. Keep the application stopped and use trusted backup archives.
