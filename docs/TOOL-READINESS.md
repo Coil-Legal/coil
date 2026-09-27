@@ -1,5 +1,24 @@
 # Tool readiness register
 
+## September27 financial restore compatibility,13:50 UTC
+
+Reviewed shared 7c7a01d and restore eec47ab, SHA df1adac4d87ff82cc7bc7bf70f44bf7e42964e662523aeb920415cae98a27675. Used isolated git archives of committed sources, never the autonomous realization working copy. No application source edits, deployment, live restore, app restart, provider request or financial mutation. External HTTP disabled and synthetic configuration only.
+
+Two local application-level cases passed: CLI backup produced by40b4c35 restored into7c7a01d, and CLI backup produced by7c7a01d restored into the same commit. Fixture QA-RESTORE-FINANCIAL-20260927, IDs93001/93002/93003 in disposable databases, one separate client/matter/invoice per USD/EUR/GBP. Each invoice retains total10001, payment2501, issued credit1000, balance6500, statuspartial and its currency. A void99-cent credit stays void and excluded. Separate trust deposit10000/disbursement2501 retain7499 cents per matter. These are stored synthetic ledger rows, not live payment or trust workflow execution.
+
+Restored statements independently reconcile10001 to7500 to6500 in their own currencies, with payments2501 and credits1000. Invoice pages and authenticated document downloads return200; all three upload byte strings and a generated control PDF match the original hashes. PDF byte preservation is verified, not rendered PDF layout. Restored database bytes match the archived snapshot before app startup; integrity isok. A second fresh Python app startup preserves all six financial/document table snapshots and the observed balances/files exactly. The login audit may add audit entries; those are outside the six preserved tables.
+
+Evidence: outputs/restore-financial-worker.py, restore-financial-probe.py, restore-financial.log and restore-financial-results.json. The first harness attempt treated trust_balance_cents as a property; corrected to call the method before running both complete cases. The failed harness log is retained as restore-financial-harness-first.log. No product defect was inferred from that harness error. Disposable databases, archives and isolated sources were removed after recording hashes/results.
+
+The actual CLI archive member lists contain database/uploads/PDF only, despite an explicit producer commit in app health. No producer-version manifest or archived environment is present. Source review of ops/backup.sh likewise finds database/uploads/PDF/optional environment but no release manifest. Restore validates database integrity and layout, not producer/consumer compatibility. Automatic version metadata and refusal remain NOT BUILT. Prior unsupported downgrade evidence remains applicable; these two successful paths do not establish arbitrary upgrade/downgrade compatibility. Keep the producer commit/image with the archive and restore matching application code first.
+
+Issue12 and related findings checked this run: no new Grok reply since the prior handoff5856149070. PROFIT69-PCT remains independently passed5855896593, acknowledged5855891012. Operational recovery cases remain BLOCKED/deferred for exact-source/disposable access, with no start or acknowledgment inferred. No duplicate unchanged ping or assignment posted. Prioritized queue remains PUB-ENOSPC/PUB-BOUNDARY and other operational cases after access, then report retests after completed autonomous deployment handoffs. Case54 productivity and realization70 remain defective/loop-owned.
+
+Phase1 remains incomplete. Working: these two local financial restore cases. Not built: producer metadata/refusal and automatic SIGKILL cleanup. Blocked/pending: independent operational acceptance, operator/offsite recovery, Stripe test access, authentic handset SMS, remaining AI/browser acceptance. Power-loss durability, untrusted archive and concurrent-writer acceptance remain open. No Phase2/3 or full-tool signoff. The prior full1017 passed/1skipped result is retained; no source change requires a new suite. GitHub main unpushed;30-minute schedule unchanged.
+
+
+Sheet S74 synced and exactly verified at 2026-09-27 13:50 UTC: four ranges/18 cells, preserving prior history, Overview B2, the currency tool row, formulas and formatting. Evidence restore-financial-sheet-fresh.json, restore-financial-sheet-changes.json and restore-financial-sheet-readback.json.
+
 ## September 27 bounded SIGKILL recovery review, 13:10 UTC
 
 Reviewed shared da42515 and unchanged installed restore eec47ab. Both installed copies match SHA df1adac4d87ff82cc7bc7bf70f44bf7e42964e662523aeb920415cae98a27675. App endpoints remain healthy aec23fc. No application source change, deployment, live restore, app restart, provider action or financial mutation.
