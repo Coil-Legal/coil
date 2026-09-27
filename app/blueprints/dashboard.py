@@ -5,12 +5,12 @@ import json
 from datetime import date, timedelta
 from collections import OrderedDict
 from flask import Blueprint, render_template, request, redirect, url_for, flash
-from sqlalchemy import func
+from sqlalchemy import case, func
 from sqlalchemy.orm import joinedload
 from ..aggregates import money_for
 from ..extensions import db
 from ..models import (Matter, Invoice, Task, TimeEntry, IntakeLead, Engagement, TrustTransaction, Timer,
-                      DocumentSignature, Message)
+                      DocumentSignature, Message, CreditNote)
 from ..helpers import login_required, current_user
 from ..permissions import has_permission
 
@@ -120,7 +120,18 @@ def load_card_data(keys, u, today):
         elif k == "ar":
             ar_by_currency = {}
             currency_expr = func.coalesce(Invoice.currency, "USD")
-            for code, cents in (db.session.query(currency_expr, func.sum(Invoice.total_cents - Invoice.paid_cents))
+            # Match Invoice.balance_cents without loading every invoice and its credits.
+            # Aggregate credits first so multiple notes cannot duplicate invoice amounts.
+            credits = (db.session.query(CreditNote.invoice_id,
+                        func.sum(CreditNote.total_cents).label("cents"))
+                       .filter(CreditNote.status == "issued")
+                       .group_by(CreditNote.invoice_id).subquery())
+            balance = (func.coalesce(Invoice.total_cents, 0)
+                       - func.coalesce(Invoice.paid_cents, 0)
+                       - func.coalesce(credits.c.cents, 0))
+            remaining = case((balance > 0, balance), else_=0)
+            for code, cents in (db.session.query(currency_expr, func.sum(remaining))
+                                .outerjoin(credits, credits.c.invoice_id == Invoice.id)
                                 .filter(Invoice.status.in_(OPEN_INVOICE)).group_by(currency_expr).all()):
                 ar_by_currency[code.upper()] = ar_by_currency.get(code.upper(), 0) + int(cents or 0)
             ctx["ar_by_currency"] = ar_by_currency
