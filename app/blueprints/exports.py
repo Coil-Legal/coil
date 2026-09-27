@@ -121,12 +121,26 @@ def ledes_export():
     return resp
 
 
+def _non_usd_flash(kind, numbers):
+    """QuickBooks' basic CSV import has no currency field; ItemAmount/Amount is read as a plain
+    number, so a foreign-currency row would land as if it were that many USD. Leaving the row out
+    and saying so beats silently mislabeling it."""
+    if not numbers:
+        return
+    flash(f"QuickBooks import assumes USD. Left out {len(numbers)} non-USD {kind}{'s' if len(numbers) != 1 else ''} "
+          f"({', '.join(numbers)}); use the full data dumps, which carry a Currency column.", "error")
+
+
 @bp.route("/quickbooks/invoices.csv")
 @login_required
 def qb_invoices():
     rows = []
+    skipped = []
     invoices = Invoice.query.filter(Invoice.status.notin_(["draft", "void"])).order_by(Invoice.issued_on, Invoice.id).all()
     for inv in invoices:
+        if (inv.currency or "USD") != "USD":
+            skipped.append(inv.number)
+            continue
         customer = inv.client.display_name if inv.client else ""
         lines = inv.lines or []
         if not lines:
@@ -138,6 +152,7 @@ def qb_invoices():
             rows.append([inv.number, customer, _d(inv.issued_on), _d(inv.due_on), _item(l.kind),
                          (l.description or "").replace("\n", " ").strip() or _item(l.kind),
                          f"{qty:g}", _dollars(l.unit_cents if l.unit_cents else l.amount_cents), _dollars(l.amount_cents)])
+    _non_usd_flash("invoice", skipped)
     return _csv("quickbooks-invoices.csv", QBO_INVOICE_COLUMNS, rows)
 
 
@@ -145,10 +160,17 @@ def qb_invoices():
 @login_required
 def qb_payments():
     rows = []
+    skipped = []
+    firm_currency = Firm.get().currency or "USD"
     for p in Payment.query.order_by(Payment.received_on, Payment.id).all():
+        currency = p.invoice.currency if p.invoice else firm_currency
+        if (currency or "USD") != "USD":
+            skipped.append(p.invoice.number if p.invoice else f"payment {p.id}")
+            continue
         customer = p.client.display_name if p.client else (p.invoice.client.display_name if p.invoice and p.invoice.client else "")
         rows.append([_d(p.received_on), customer, p.invoice.number if p.invoice else "", _dollars(p.amount_cents),
                      p.method or "", p.reference or p.stripe_payment_intent or ""])
+    _non_usd_flash("payment", skipped)
     return _csv("quickbooks-payments.csv", QBO_PAYMENT_COLUMNS, rows)
 
 

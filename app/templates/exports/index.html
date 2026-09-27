@@ -7,6 +7,7 @@
     <tr><td><a href="/exports/quickbooks/payments.csv">Payments</a></td><td class="small muted">Every payment with its invoice number, method, and reference.</td></tr>
     <tr><td><a href="/exports/quickbooks/customers.csv">Customers</a></td><td class="small muted">Clients only, with billing address on one line.</td></tr>
   </table>
+  <p class="small muted" style="margin-top:8px">These files have no currency column and assume USD. An invoice or payment in another currency is left out, with a note listing which; use the full data dumps for those instead.</p>
   <h3 style="margin-top:14px">Importing invoices</h3>
   <p class="small">In QuickBooks Online go to Settings (the gear) > Import data > Invoices and upload the invoices CSV. Each row is one invoice line, and rows sharing an InvoiceNo are combined into one invoice. On the mapping step match InvoiceNo, Customer, InvoiceDate, DueDate, Item(Product/Service), ItemDescription, ItemQuantity, ItemRate, and ItemAmount to the QuickBooks fields of the same name, and pick MM/DD/YYYY as the date format.</p>
   <p class="small">Import customers first so the Customer names match, then invoices, then payments through Settings > Import data > Bank data or by entering them as Receive payment. Items are named Legal Services (time and flat fees), Reimbursable Expenses, and Adjustment; tick "add new products/services" the first time or create those three items in QuickBooks before importing.</p>
