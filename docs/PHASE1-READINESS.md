@@ -1,5 +1,32 @@
 # Coil Phase 1 completion pass
 
+## September 27 dashboard credit fix and WIP currency review, 08:53 UTC
+
+Issue65: the dashboard summed invoice totals minus payments, omitting issued credits. Grok independently traced GBP invoice3048/INV-1049 and CN-1009 to card1.00 versus invoicebalance0.50 in comment5854142678. Earlier isolated fixture92001 reproduced9000-cent invoicebalance versus10000-cent card.
+
+The fix aggregates issued credits once per invoice, subtracts payments and credits, clamps each remaining balance at zero, and retains currency grouping. Voided credits and draft/void/paid invoices do not contribute. No schema or provider changes.
+
+Changed app/blueprints/dashboard.py and new tests/test_dashboard_credit_balance.py. Four corrected baseline failures and one control pass. Final focused13 passed. Initial isolated full962 passed,1 skipped,126 warnings in179.08 seconds. Rebased onto completed WIP release0edc7be and coordinationffc1f03, preserving the autonomous loop's changes. Final tested isolated51a3da8.
+
+Grok Case49 FAIL5854142774 confirms origination66 still labels EUR0.50 as USD. Cursor Case50 PASS5854243353 is a report observation with no foreign-currency fixture, so it does not establish foreign-currency realization acceptance. Existing60/61/62/63 display case passes remain separate from credit arithmetic and tool readiness.
+
+Independent restore/nightly/CLI acceptance remains deferred for exact-source/disposable access. Provider/AI, offsite/operator, version metadata/refusal and remaining recovery gates remain open. Phase1 incomplete; Phase2/3 inventory not signed off. Main unpushed;30-minute schedule unchanged.
+
+Final combined full965 passed,1 skipped,126 warnings in180.24 seconds. Integrated/deployed51a3da8. Linux16 passed in14.64 seconds. First image test attempt ran no tests because two source regression files were absent from the previous image; added them to the disposable image and reran successfully before activation. Both public HTTPS endpoints healthy51a3da8; host/runtime dashboard hash33808bf1c8e819495a85f69d2ee50139bcf8f2f335de1761eb018a0d9030cb47; environment/Compose unchanged. Startup connection refusals resolved within health polling. No rollback needed.
+
+Backups: /home/deploy/backups/coil/{testfirm.coil.legal,demo.coil.legal}/dashboard-51a3da8-r2; rollback images testfirmcoillegal:before-51a3da8 and democoillegal:before-51a3da8. Data archives under each app data/backups: testfirm coil-backup-20260927-084902-dhpbhqt4.tar.gz; demo coil-backup-20260927-084927-j1sq9vfb.tar.gz. Earlier preparation backup retained. Logs: dashboard-credit-combined-full.log, dashboard-credit-prepare.log, dashboard-credit-prepare-r2.log, dashboard-credit-activate.log.
+
+Read-only deployed comparison: GBP50 cents and USD101387525 cents exactly equal the sum of all open invoice.balance_cents values. GBP3048/INV-1049 total100-paid0-credit50=balance50; USD3064/INV-1065 total10001-paid2501-credit1000=balance6500. Demo has no open invoices.
+
+Created only two new synthetic unbilled WIP fixtures on testfirm:3093 QA-WIP-USD-20260927-CX, time41562,60min at10000 cents;3094 QA-WIP-EUR-20260927-CX,time41563,60min at20000 cents. Auto invoicing disabled. Existing invoices3044/3048/3064/3065/3066 monetary fingerprints unchanged. No invoice, payment, credit, provider charge or message created. HTML/CSV fixture amounts correct; footer EUR200.00 plus USD4679050.68.
+
+New defect: WIP CSV currency TOTAL rows both repeat14248.50 hours; EUR should1.00 and USD14247.50 from current fixture rows. Monetary splitting works for the sampled rows, but WIP remains defective overall. Left reports.py to autonomous loop; finding included in the independent batch. Evidence dashboard-credit-wip-fixtures.log and executable create-wip-review-fixtures.py.
+
+Grok queue https://github.com/Coil-Legal/coil/issues/12#issuecomment-5854362540: AR65-CREDIT, WIP64-MONEY and WIP64-HOURS separately assigned. No acknowledgment observed at assignment. Existing operational cases remain deferred. Origination66 remains defective, realization foreign-currency acceptance untested. No full tool signoff.
+
+Sheet S67: freshly read affected cells, updated five disjoint ranges/16 cells and verified exact readback. Preserved OverviewB2, Cursor J29/K29, formulas and formatting. Evidence dashboard-credit-sheet-current.json, dashboard-credit-sheet-changes.json and dashboard-credit-sheet-readback.json.
+
+
 ## September 27 WAL snapshot restore fix and version compatibility review, 08:04 UTC
 
 The native macOS SQLite CLI rejected an intact WAL-mode snapshot when its sidecars did not exist. Both nightly-root and CLI-data layouts reproduced the failure. Python read-only integrity validation accepted the same bytes and exact12345-cent row. Restore now prefers Python3 when available and retains the native CLI fallback for hosts without Python. CLI-only WAL behavior is not expanded by this fix. No database bytes are changed by validation. Two baseline regressions failed; focused18 passed. Candidate Linux checks passed both valid layouts, both corrupt rejections, exact bytes/rows and repeat refusal.
