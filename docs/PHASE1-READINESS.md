@@ -1,5 +1,15 @@
 # Coil Phase 1 completion pass
 
+## September 27 interruption review and acceptance audit, 04:16 UTC
+
+Unchanged source **c214154**, application573222b. Disposable **QA-SIGKILL-20260927** killed actual child processes at three CLI backup boundaries: before tar opening after snapshot, after upload addition before close, and after atomic publication. Prior100-cent archives stayed byte-identical; first two published nothing new, third published a valid200-cent archive. All three subsequent backups restored300 cents. Seven total archives restored exact rows/uploads with SQLite integrity OK. No live backup/restore or application edits. Evidence: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/backup-sigkill-results.json`.
+
+The existing **SIGKILL cleanup gap is confirmed**: each killed job leaves one private snapshot and one partial path, retained after the next successful backup. Safe cleanup must distinguish active jobs; age-only deletion is insufficient. Process-death publication/retry checks passed at these boundaries, but power loss, Linux container termination, actual app restart during snapshot, offsite/operator access and broader recovery gates remain open. No full suite rerun or deployment for unchanged application source. Last full928 passed/1 skipped remains the statement release.
+
+Grok ACK5852379150; statement **HTML PASS5852513840**, **PDF content PASS5852513925** on573222b for3091/INV-1065/payment13/CN-1018, correctly closing65.00. PDF layout evidence was text extraction; actual rendered-page acceptance remains pending. Case41 observation PASS5852514018 confirms EUR INV-1045 exports an unlabeled1.00 in QuickBooks CSV, so broader currency export remains defective. New read-only visual PDF/payment-denomination batch5852542632 assigned, no acknowledgment observed. Cursor retains broader queue; independent CLI batch deferred. https://github.com/Coil-Legal/coil/issues/12#issuecomment-5852542632.
+
+Sheet **S61**, five ranges/32 cells read then verified exactly. Handoff: `/Users/iandolan/Documents/Codex/2026-09-19/reve/outputs/coil-interruption-acceptance-handoff.md`. Next executable Phase1 work is safe abandoned-backup cleanup; provider/AI and remaining phase gates stay open. No tool-wide signoff. Main unpushed,30-minute schedule unchanged.
+
 ## September 27 statement credit fix, 03:40 UTC
 
 Deployed **573222b** to both apps with separate backups and rollback images. Issued credit notes now appear as dated activity and reduce statement opening/closing balances. Paid receipts remain separate from credited amounts in HTML/PDF/email summaries. Seven regressions failed before the fix; focused15 passed, full **928 passed/1 skipped**, Linux image15 passed. Synthetic PDF rendered and visually checked. Tested isolated406ca9d, integrated573222b. No migrations or live financial writes.
