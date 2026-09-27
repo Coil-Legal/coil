@@ -1,5 +1,30 @@
 # Tool readiness register
 
+## September 27 restore publication, 2026-09-27 12:30 UTC
+
+Reviewed source d3bd22e and installed restore4dc6249. Eight controlled destination-write regressions leave target files behind on the baseline. Actual Linux reproduction used a private8 MiB destination tmpfs and a12 MiB synthetic upload: cp returned No space left on device with zero free bytes and left .env, data/practice.db and an incomplete data/uploads/fixture.bin. The existing-data guard blocks clean retry. Evidence restore-publication-baseline.log and restore-publication-linux-baseline.log. The baseline log also contains six publication-boundary expectations added for the new implementation, not six additional baseline reproductions.
+
+Isolated /private/tmp/coil-restore-publication. Fix eec47abce0b1fdee5b44b614fd5ff78af19c2e80 extracts into a private destination directory, checks SQLite and publishes the complete data directory by same-filesystem rename. The optional environment is linked without clobbering an existing path. A database inode marker distinguishes completed publication even if SIGTERM arrives immediately after rename. Cleanup removes only this invocation's unpublished environment link and staging directories; a complete published data/environment pair is retained. Unexpected install-root entries and nonregular archived environments are refused. Existing application files remain preserved.
+
+Changed ops/restore.sh, tests/test_restore_publication.py, tests/test_restore_integrity.py and docs/SELF-HOSTING.md. No schema/provider/application changes. Destination filesystem needs hard links and rename support, with space for the full extracted payload; temporary storage needs one database validation copy. SIGKILL/power-loss recovery across environment and data paths is not implemented. Concurrent writers, untrusted archive-member security, version metadata/refusal, operator/offsite and provider prerequisites remain open. The application and other writers must be stopped during actual restores. No whole-tool or Phase1 signoff.
+
+Focused58 passed; full1017 passed,1 skipped,126 warnings in196.05 seconds. Candidate Linux six actual destination-ENOSPC/extraction-SIGTERM cases passed, plus14 controlled destination-write/rename-refusal/before-and-after-rename interruption cases. Each successful retry restores12345 cents, exact12582912-byte upload/environment bytes and integrity; original archive and application files preserved. After successful rename followed by SIGTERM, complete data/environment remain and repeat restore correctly refuses. Probe initially held a verification SQLite connection open and could not unmount its private filesystem; explicit connection close fixed the harness, and the complete rerun passed. No application-code adjustment was needed for that harness correction.
+
+Candidate SHA df1adac4d87ff82cc7bc7bf70f44bf7e42964e662523aeb920415cae98a27675. Evidence restore-publication-focused.log, restore-publication-full.log, restore-publication-linux-candidate.log, restore-publication-linux-boundaries.log; executable restore-publication-linux-probe.py and restore-publication-boundaries-probe.py. Integration fast-forwarded eec47ab after checking five autonomous realization working-file hashes before and after; all unchanged. Installed on both hosts;54 synthetic checks per installed script,108 total, all passed. Settings hashes unchanged; rollback available, not used. Backups /home/deploy/backups/coil/{testfirm.coil.legal,demo.coil.legal}/restore-before-eec47ab.sh. Install evidence restore-publication-install.log. Both public endpoints remain healthyaec23fc. No live restore, backup, app restart, financial mutation or GitHub push by Codex.
+
+Grok ACK5855527583 covers the aec23fc profitability/productivity batch. PROFIT69-HTML PASS5855690721: EUR3078/M-1058 revenue0.50, USD3091/M-1071 revenue25.01; totals CAD0/EUR0.50/USD4373.51, cost CAD151.67/EUR100/USD59999.14, margin CAD-151.67/EUR-99.50/USD-55625.63. Missing-cost card reports250 flagged; unknown cost is not confirmed zero. PROFIT69-CSV PASS5855692777 independently downloaded397 rows, separate CAD/EUR/USD totals and hours1.52/1.00/1167.67, row sums reconcile. Percentage ratios need a focused independent check; they must be recomputed, not summed.
+
+Case54 productivity FAIL5855692865 on aec23fc: Billable value USD288091.81, billable hours922.58, nonbillable247.60, no euro sign despite protected unbilled EUR3094. No mutations. Cursor/autonomous queue owns report implementation; realization70 remains under active working edits. No duplicate unchanged retest or report edit by Codex. Prior case passes remain separate from currency tool signoff. Fixture3078/3091/3093/3094 protected.
+
+Phase1 remains incomplete; Phase2/3 open. Main unpushed;30-minute schedule unchanged. Next independent recovery work is SIGKILL/power-loss residue and producer-version metadata/refusal.
+
+New issue12 handoff https://github.com/Coil-Legal/coil/issues/12#issuecomment-5855818595 assigns PROFIT69-PCT using the existing CSV: check actual exported ratios against margin/revenue, with zero-revenue CAD undefined. No ACK observed at assignment. RESTORE-PUB-ENOSPC and RESTORE-PUB-BOUNDARY criteria updated for eec47ab, explicitly deferred for existing exact-source/disposable access. No duplicate unchanged report retest or repeated access ping. Known disposable probe residue removed after verifying no mount remained.
+
+
+
+Sheet S72 synced and exactly verified at 2026-09-27 12:31 UTC: six ranges/23 cells. Existing history, Cursor Tools J29/K29, Overview B2, formulas and formatting preserved. Evidence restore-publication-sheet-fresh.json, restore-publication-sheet-changes.json and restore-publication-sheet-readback.json.
+
+
 ## September 27 restore staging acceptance, 2026-09-27 11:43 UTC
 
 Reviewed shared59d32d1 and unchanged installed restore4dc6249. Both installed copies have SHA9e17affda2ca183a062ed74d0faedefcf3ff832de06f1a6e3df79250f25e469f. No application source change or new deployment by Codex. The prior exact-commit full suite remains999 passed/1 skipped; it was not repeated for this probe-only review.
