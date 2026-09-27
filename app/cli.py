@@ -11,6 +11,7 @@ import os
 import sqlite3
 import sys
 import tarfile
+import tempfile
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from markupsafe import escape
@@ -423,19 +424,14 @@ def backup():
     backup_dir.mkdir(parents=True, exist_ok=True)
 
     stamp = now().strftime("%Y%m%d-%H%M%S")
-    backup_file = backup_dir / f"coil-backup-{stamp}.tar.gz"
-    # Two backups in the same second would otherwise silently overwrite each other, and
-    # the nightly cron and an update can land together.
-    n = 1
-    while backup_file.exists():
-        backup_file = backup_dir / f"coil-backup-{stamp}-{n}.tar.gz"
-        n += 1
-    snapshot = data_dir / ".backup-snapshot.db"
-
-    print(f"Creating backup: {backup_file.name}")
+    snapshot = None
+    temp_archive = None
     db_path = _sqlite_path()
     try:
         if db_path and db_path.exists():
+            fd, name = tempfile.mkstemp(prefix=".backup-snapshot.", dir=data_dir)
+            os.close(fd)
+            snapshot = Path(name)
             src = sqlite3.connect(str(db_path))
             try:
                 dst = sqlite3.connect(str(snapshot))
@@ -446,19 +442,30 @@ def backup():
             finally:
                 src.close()
         else:
-            snapshot = None
             print("  no SQLite database found; backing up files only")
 
-        with tarfile.open(backup_file, "w:gz") as tar:
+        # Each invocation owns its snapshot and private output. Publish only after tar
+        # closes successfully, without replacing any earlier or concurrent archive.
+        fd, name = tempfile.mkstemp(prefix=f".coil-backup-{stamp}-", suffix=".partial", dir=backup_dir)
+        os.close(fd)
+        temp_archive = Path(name)
+        backup_file = backup_dir / (temp_archive.name[1:-len(".partial")] + ".tar.gz")
+        print(f"Creating backup: {backup_file.name}")
+        with tarfile.open(temp_archive, "w:gz") as tar:
             if snapshot:
                 tar.add(snapshot, arcname="data/practice.db")
             for name in ("uploads", "pdf"):
                 d = data_dir / name
                 if d.exists():
                     tar.add(d, arcname=f"data/{name}")
+        os.link(temp_archive, backup_file)
+        size_mb = backup_file.stat().st_size / (1024 * 1024)
     finally:
-        if snapshot and snapshot.exists():
-            snapshot.unlink()
+        if temp_archive:
+            temp_archive.unlink(missing_ok=True)
+        if snapshot:
+            for suffix in ("", "-journal", "-wal", "-shm"):
+                Path(str(snapshot) + suffix).unlink(missing_ok=True)
 
     # Prune oldest first. Without this a nightly cron grows without bound and the
     # disk fills, which takes Coil down for the same reason no backup would have.
@@ -470,7 +477,6 @@ def backup():
         old_file.unlink()
         print(f"  removed old backup {old_file.name}")
 
-    size_mb = backup_file.stat().st_size / (1024 * 1024)
     print(f"Backup complete: {backup_file.name} ({size_mb:.1f} MB)")
     print(f"Keeping the newest {keep} (set COIL_BACKUP_KEEP to change).")
     print(f"Backups are stored in: {backup_dir}")
