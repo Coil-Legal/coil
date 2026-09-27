@@ -109,7 +109,8 @@ def search_hits(names, exclude_contact_id=None, exclude_lead_id=None):
             score = _score(q, text, content=role in CONTENT_ROLES)
             if score is None:
                 continue
-            key = (q, source, url, label)
+            # One person can hold distinct roles on the same matter.
+            key = (q, source, url, label, role)
             if key not in hits or hits[key]["score"] < score:
                 hits[key] = {"query": q, "source": source, "label": label, "score": score,
                              "url": url, "role": role, "match": text, "kind": source}
