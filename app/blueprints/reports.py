@@ -424,7 +424,13 @@ def realization_data(d_from, d_to):
     worked   = every time entry at its rate
     billed   = the time lines those entries produced on non-void invoices (entry value when the line is missing)
     collected = payments on those invoices, prorated by each time line's share of the invoice total
-    write-downs = worked minus billed for invoiced entries; unbilled WIP is not a write-down."""
+    write-downs = worked minus billed for invoiced entries; unbilled WIP is not a write-down.
+
+    A matter has exactly one currency, so matter_rows keep worked/billed/collected/writedown scalar, tagged
+    with that matter's currency_code (same as profitability_data's matter rows, issue #69). But an attorney
+    can log time across matters in more than one currency, so user_rows and totals keep worked/billed/
+    collected/writedown as per-currency dicts instead of one combined sum, and billing_pct/collection_pct
+    become per-currency dicts too (issue #70, same class as #68's compensation_data)."""
     entries = TimeEntry.query.filter(TimeEntry.date >= d_from, TimeEntry.date <= d_to).all()
     lines_by_entry = _time_lines_by_entry()
     invoiced_matters = {mid for (mid,) in db.session.query(Invoice.matter_id).filter(Invoice.status != "void")
@@ -435,9 +441,6 @@ def realization_data(d_from, d_to):
         if inv.id not in paid_cache:
             paid_cache[inv.id] = sum(p.amount_cents or 0 for p in inv.payments)
         return paid_cache[inv.id]
-
-    def blank(key):
-        return {key: None, "minutes": 0, "worked": 0, "billed": 0, "collected": 0, "writedown": 0, "entries": 0}
 
     by_user, by_matter = {}, {}
     for e in entries:
@@ -458,31 +461,50 @@ def realization_data(d_from, d_to):
                 collected = paid_on(inv) * worked / inv.total_cents
         collected = int(round(collected))
         writedown = (worked - billed) if lines or (e.invoice_id and e.invoice and e.invoice.status != "void") else 0
-        for key, store, obj in (("user", by_user, e.user), ("matter", by_matter, e.matter)):
-            k = obj.id if obj else 0
-            r = store.setdefault(k, blank(key))
-            r[key] = obj
-            r["minutes"] += e.minutes or 0
-            r["worked"] += worked
-            r["billed"] += billed
-            r["collected"] += collected
-            r["writedown"] += writedown
-            r["entries"] += 1
+        currency = e.matter.currency_code if e.matter else "USD"
 
-    def finish(rows):
-        for r in rows:
-            r["billing_pct"] = _pct(r["billed"], r["worked"])
-            r["collection_pct"] = _pct(r["collected"], r["billed"])
-        return rows
+        mk = e.matter.id if e.matter else 0
+        mr = by_matter.setdefault(mk, {"matter": e.matter, "currency": currency, "minutes": 0, "worked": 0,
+                                       "billed": 0, "collected": 0, "writedown": 0, "entries": 0})
+        mr["minutes"] += e.minutes or 0
+        mr["worked"] += worked
+        mr["billed"] += billed
+        mr["collected"] += collected
+        mr["writedown"] += writedown
+        mr["entries"] += 1
 
-    user_rows = finish(sorted(by_user.values(), key=lambda r: -r["worked"]))
-    matter_rows = finish(sorted(by_matter.values(), key=lambda r: -r["worked"]))
-    for r in matter_rows:
+        uk = e.user.id if e.user else 0
+        ur = by_user.setdefault(uk, {"user": e.user, "minutes": 0, "minutes_by_currency": {}, "worked": {},
+                                     "billed": {}, "collected": {}, "writedown": {}, "entries": 0})
+        ur["minutes"] += e.minutes or 0
+        ur["minutes_by_currency"][currency] = ur["minutes_by_currency"].get(currency, 0) + (e.minutes or 0)
+        ur["worked"][currency] = ur["worked"].get(currency, 0) + worked
+        ur["billed"][currency] = ur["billed"].get(currency, 0) + billed
+        ur["collected"][currency] = ur["collected"].get(currency, 0) + collected
+        ur["writedown"][currency] = ur["writedown"].get(currency, 0) + writedown
+        ur["entries"] += 1
+
+    for r in by_matter.values():
+        r["billing_pct"] = _pct(r["billed"], r["worked"])
+        r["collection_pct"] = _pct(r["collected"], r["billed"])
         r["invoiced"] = (r["matter"].id in invoiced_matters) if r["matter"] else False
-    totals = {k: sum(r[k] for r in user_rows) for k in ("minutes", "worked", "billed", "collected", "writedown",
-                                                        "entries")}
-    totals["billing_pct"] = _pct(totals["billed"], totals["worked"])
-    totals["collection_pct"] = _pct(totals["collected"], totals["billed"])
+    matter_rows = sorted(by_matter.values(), key=lambda r: -r["worked"])
+
+    for r in by_user.values():
+        r["billing_pct"] = {c: _pct(r["billed"].get(c, 0), w) for c, w in r["worked"].items()}
+        r["collection_pct"] = {c: _pct(r["collected"].get(c, 0), b) for c, b in r["billed"].items()}
+    user_rows = sorted(by_user.values(), key=lambda r: -sum(r["worked"].values()))
+
+    totals = {"minutes": sum(r["minutes"] for r in user_rows), "entries": sum(r["entries"] for r in user_rows),
+              "minutes_by_currency": {}, "worked": {}, "billed": {}, "collected": {}, "writedown": {}}
+    for r in user_rows:
+        for code, minutes in r["minutes_by_currency"].items():
+            totals["minutes_by_currency"][code] = totals["minutes_by_currency"].get(code, 0) + minutes
+        for k in ("worked", "billed", "collected", "writedown"):
+            for code, cents in r[k].items():
+                totals[k][code] = totals[k].get(code, 0) + cents
+    totals["billing_pct"] = {c: _pct(totals["billed"].get(c, 0), w) for c, w in totals["worked"].items()}
+    totals["collection_pct"] = {c: _pct(totals["collected"].get(c, 0), b) for c, b in totals["billed"].items()}
     return user_rows, matter_rows, totals
 
 
@@ -494,20 +516,26 @@ def realization():
     if _wants_csv():
         out = []
         for r in user_rows:
-            out.append(["attorney", r["user"].name if r["user"] else "(unknown)", "", _hours_csv(r["minutes"]),
-                        _money_csv(r["worked"]), _money_csv(r["billed"]), _money_csv(r["collected"]),
-                        _pct_csv(r["billing_pct"]), _pct_csv(r["collection_pct"]), _money_csv(r["writedown"]), ""])
+            name = r["user"].name if r["user"] else "(unknown)"
+            for currency in sorted(r["worked"]):
+                out.append(["attorney", name, "", currency, _hours_csv(r["minutes_by_currency"].get(currency, 0)),
+                            _money_csv(r["worked"][currency]), _money_csv(r["billed"][currency]),
+                            _money_csv(r["collected"][currency]), _pct_csv(r["billing_pct"].get(currency)),
+                            _pct_csv(r["collection_pct"].get(currency)), _money_csv(r["writedown"][currency]), ""])
         for r in matter_rows:
             m = r["matter"]
-            out.append(["matter", m.number if m else "", m.name if m else "(no matter)", _hours_csv(r["minutes"]),
-                        _money_csv(r["worked"]), _money_csv(r["billed"]), _money_csv(r["collected"]),
-                        _pct_csv(r["billing_pct"]), _pct_csv(r["collection_pct"]), _money_csv(r["writedown"]),
-                        "" if r["invoiced"] else "not yet invoiced"])
-        out.append(["total", f"{d_from.isoformat()} to {d_to.isoformat()}", "", _hours_csv(totals["minutes"]),
-                    _money_csv(totals["worked"]), _money_csv(totals["billed"]), _money_csv(totals["collected"]),
-                    _pct_csv(totals["billing_pct"]), _pct_csv(totals["collection_pct"]),
-                    _money_csv(totals["writedown"]), ""])
-        return _csv("realization.csv", ["Group", "Key", "Name", "Hours", "Worked", "Billed", "Collected",
+            out.append(["matter", m.number if m else "", m.name if m else "(no matter)", r["currency"],
+                        _hours_csv(r["minutes"]), _money_csv(r["worked"]), _money_csv(r["billed"]),
+                        _money_csv(r["collected"]), _pct_csv(r["billing_pct"]), _pct_csv(r["collection_pct"]),
+                        _money_csv(r["writedown"]), "" if r["invoiced"] else "not yet invoiced"])
+        for currency in sorted(totals["worked"]):
+            out.append(["total", f"{d_from.isoformat()} to {d_to.isoformat()}", "", currency,
+                        _hours_csv(totals["minutes_by_currency"].get(currency, 0)),
+                        _money_csv(totals["worked"][currency]), _money_csv(totals["billed"][currency]),
+                        _money_csv(totals["collected"][currency]), _pct_csv(totals["billing_pct"].get(currency)),
+                        _pct_csv(totals["collection_pct"].get(currency)), _money_csv(totals["writedown"][currency]),
+                        ""])
+        return _csv("realization.csv", ["Group", "Key", "Name", "Currency", "Hours", "Worked", "Billed", "Collected",
                                         "Billing realization %", "Collection realization %", "Write-downs", "Flag"],
                     out)
     return render_template("reports/realization.html", user_rows=user_rows, matter_rows=matter_rows, totals=totals,

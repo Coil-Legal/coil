@@ -178,9 +178,11 @@ def test_realization_known_writedown(app, client):
     assert mb["billing_pct"] == 0.0 and mb["collection_pct"] is None
     assert mb["writedown"] == 0 and mb["invoiced"] is False
     # Ann across both matters.
-    assert ann["worked"] == 90000 and ann["billed"] == 45000 and ann["collected"] == 22500
-    assert ann["billing_pct"] == 50.0 and ann["collection_pct"] == 50.0 and ann["writedown"] == 15000
-    assert totals["worked"] == 90000 and totals["billed"] == 45000 and totals["writedown"] == 15000
+    assert ann["worked"] == {"USD": 90000} and ann["billed"] == {"USD": 45000} and ann["collected"] == {"USD": 22500}
+    assert ann["billing_pct"] == {"USD": 50.0} and ann["collection_pct"] == {"USD": 50.0}
+    assert ann["writedown"] == {"USD": 15000}
+    assert totals["worked"] == {"USD": 90000} and totals["billed"] == {"USD": 45000}
+    assert totals["writedown"] == {"USD": 15000}
     r = client.get("/reports/realization", query_string=RANGE)
     assert r.status_code == 200
     assert b"75.0%" in r.data and b"$150.00" in r.data and b"not yet invoiced" in r.data
@@ -191,10 +193,10 @@ def test_realization_csv(client):
     assert r.status_code == 200 and r.mimetype == "text/csv"
     assert r.data.startswith(b"\xef\xbb\xbf"), "export has no UTF-8 BOM, Excel on Windows will mojibake it"
     lines = r.data.decode("utf-8-sig").splitlines()
-    assert lines[0] == ("Group,Key,Name,Hours,Worked,Billed,Collected,Billing realization %,"
+    assert lines[0] == ("Group,Key,Name,Currency,Hours,Worked,Billed,Collected,Billing realization %,"
                         "Collection realization %,Write-downs,Flag")
     ma = next(l for l in lines if l.startswith("matter,M-C001,"))
-    assert ma.split(",")[3:10] == ["2.00", "600.00", "450.00", "225.00", "75.0", "50.0", "150.00"]
+    assert ma.split(",")[3:11] == ["USD", "2.00", "600.00", "450.00", "225.00", "75.0", "50.0", "150.00"]
     assert lines[-1].startswith("total,")
 
 
