@@ -1,5 +1,29 @@
 # Coil Phase 1 completion pass
 
+## Calendar form date-boundary fix, 2026-09-28 00:54 UTC
+
+Reviewed from 59393f6 in isolated /private/tmp/coil-calendar-boundary-review. Files: app/blueprints/calendar.py and tests/test_calendar_form_boundaries.py. No schema change. Synthetic disposable event 1 and API/import fixture IDs only; no live boundary records created by Codex.
+
+Ten baseline cases failed and three controls passed in 5.57 seconds. Actual create/edit submissions crashed when the default one-hour end overflowed, or when an explicit local start/end could not convert to UTC. All-day 9999-12-31 and timed recurring UNTIL 9999-12-31 in Chicago were accepted, then crashed feed generation. A rejected edit must keep the prior event intact.
+
+The form now returns a clear validation error for default-end overflow. Shared calendar validation checks the all-day exclusive end, timed start/end UTC conversion and timed inclusive recurrence cutoff before saving. Invalid timezone configuration retains the existing UTC fallback. Invalid edit rendering uses the existing no-autoflush and rollback path. Existing historical data is not rewritten and subscriptions are not silently truncated. Focused form/API/CSV/DST checks: 66 passed, 23 warnings in 23.10 seconds, including API naive lower-bound JSON refusal and CSV all-day upper-bound row refusal.
+
+Grok independently passed CAL-CSV-OFFSETS 5861171420, CAL-CSV-REFUSALS 5861171568 and CAL-CSV-REIMPORT 5861171723 on 37ba7e9, ACK 5861026697. Events 47/48, job 34 preserve UTC/+09:00 local and firm/owner feed times. Job 35 rejects five bad rows with 0 created/0 updated/5 errors. Controls events 49/50, jobs 36/37 preserve all-day DATE and legacy timed date/default end. Event 51, jobs 38/39 keeps ID/UID/title/times after invalid re-import. Source clio, firm-wide/no matter, tag QA-CAL-CSV-20260927. Exhibits /workspace/coil-qa/phase5/exhibits/codex-37ba7e9-cal-csv/. These are bounded case passes, not full calendar/import signoff.
+
+Phase 1 remains incomplete. Timed recurring DST/month-year alignment, external calendar clients, second-fold selection and broader importer cases remain open. Historical discarded offsets require original source/request evidence. Portal capture, operational recovery, Stripe test keys, handset SMS and remaining AI/browser/operator/offsite gates remain blocked or pending as previously recorded. Productivity 54 remains autonomous/Cursor-owned. Main unpushed; 30-minute schedule unchanged.
+
+A separate synthetic timed-recurrence probe confirms the existing open defect. Chicago weekly 09:00 on October 25, November 1 and November 8, 2026 stays at 09:00 in the UI, but UTC RRULE expansion becomes 08:00 after the clock change. Monthly January 31 at 09:00 through April 2027 yields four clamped UI dates, while the feed yields only January 31 at 09:00 and March 31 at 10:00. Evidence calendar-timed-recurrence-repro.json. This boundary fix does not change recurrence encoding. A timezone-aware recurrence design and independent acceptance are still required.
+
+Full suite: 1155 passed, 1 skipped, 149 warnings in 239.34 seconds. Tested isolated commit 66bcabc6fb24719e1489d0cd1d8dc682db20329f. Evidence: calendar-boundary-baseline.log, calendar-boundary-focused.log and calendar-boundary-full.log. Reviewed calendar.py SHA 646d1cd7a6f4ecd2226e3bd3a1a4e8b9079be3fac4867384e38300fb73dd2f10; predecessor 144111d3b1192c354eb9d59135015d54de58bf92fa4ac03006b1aa2393208c40.
+
+Both sites deployed and publicly verified healthy on 66bcabc (stable, demo-20260927). Linux candidate: 120 passed, 53 warnings in 162.74 seconds. Guarded fast-forward preserved shared coordination edits. Host/runtime calendar.py hashes match the reviewed commit; environment and Compose hashes unchanged. Backups /home/deploy/backups/coil/{domain}/calendar-boundary-66bcabc-r1, rollback images testfirmcoillegal:before-66bcabc and democoillegal:before-66bcabc. Data archives: testfirm coil-backup-20260928-004743-li7srdc0.tar.gz; demo coil-backup-20260928-005042-zdl6hf6o.tar.gz. A normal startup connection refusal recovered on health retry; no rollback needed.
+
+SQLite quick_check passed before/after. Testfirm events 28-51 (24 rows) retain SHA 0f3b63e508d71e76cdb105b9ae5c5712b198343c93901143d534eccbaba154f5; tasks 78-81 retain SHA 58ab150b3b11b59bf64799ba31392d7faa9b061b912ccbe5f40c19a5d33ab241; 18 portal tokens retain SHA 6f6af2b70d1f0c940c8fb5961e6905fca5e5617c16ac36e2fdaf97e0d9af50ec. Unchanged importer source and empty demo fingerprints also verified. The deployer now enforces protected fingerprints within activation, with rollback on mismatch; separate before/after comparisons also passed. Evidence: calendar-boundary-prepare.log, calendar-boundary-activate.log and before/after/health JSON.
+
+Independent batch assigned: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5861431619. Priority1 CAL-FORM-BOUNDARIES/CAL-FORM-EDIT-PRESERVE, priority2 independent CAL-TIMED-RECURRENCE-REPRO for the existing unfixed defect. Fresh tag QA-CAL-BOUNDS-20260928, firm-wide/no matter, actual live IDs pending. Existing events 28-51/tasks 78-81 remain protected. No acknowledgment at assignment. Existing portal/recovery prerequisites and autonomous/Cursor productivity ownership remain visible.
+
+Verified 16 cells across five ranges; statuses, portal formula F12, Cursor fields, task/portal rows and Overview B2 preserved. S89 row104 synced. No acknowledgment/result observed for assignment5861431619 at final check.
+
 ## Calendar CSV timestamp fix, 2026-09-28 00:07 UTC
 
 Reviewed from ab4ac4b in isolated /private/tmp/coil-calendar-import-review. Files: app/blueprints/importer.py and tests/test_calendar_import_time.py. The shared _importmap datetime parser, schema, provider settings and historical event rows stay unchanged. All local fixtures are synthetic, disposable event 1 and external ID qa-import-clock.
