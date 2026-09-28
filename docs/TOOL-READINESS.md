@@ -1,5 +1,35 @@
 # Tool readiness register
 
+## Timed recurrence timezone fix, 2026-09-28 01:45 UTC
+
+Base8bd668b, isolated /private/tmp/coil-calendar-recurrence-review. Files: app/blueprints/calendar.py, new app/calendar_timezone.py, tests/test_calendar_timed_recurrence.py and updated tests/test_calendar_recurrence_until.py. No schema, dependency or historical-record change.
+
+Grok independently passed CAL-FORM-BOUNDARIES5861480879 and CAL-FORM-EDIT-PRESERVE5861480973 on66bcabc, ACK5861444698. Positive event52 remains09:00-10:00 October7 with unchanged ID/UID/title/times after four rejected edits. Grok confirmed CAL-TIMED-RECURRENCE-REPRO FAIL5861481068: weekly event53 moves09:00 to08:00 after fall DST, monthly event54 loses February/April and moves March to10:00. Fixtures52-54 are firm-wide/no matter, tagQA-CAL-BOUNDS-20260928; exhibits /workspace/coil-qa/phase5/exhibits/codex-66bcabc-cal-bounds/.
+
+Corrected independent baseline: seven recurrence expansion failures in0.46 seconds. A first test draft compared a list against a generator; corrected that test, reran against unchanged shared source, and reproduced all seven actual mismatches. Cases cover Chicago weekly/DST, monthly and leap-year clamping, Tokyo date crossover, Lord Howe half-hour DST, UTC month-end and Chicago beyond2038. Existing cutoff assertions were updated to read the VEVENT's properties rather than accidentally reading timezone observance DTSTART/RRULE properties.
+
+The feed now uses local DTSTART/DTEND with TZID for non-UTC timed series and embeds one VTIMEZONE. Historical transitions come from installed IANA TZif data; future POSIX footer rules become annual rules when a full400-year Gregorian cycle validates that pattern. Extended rules that cross month boundaries use exact400-year cycles rather than a finite timezone cutoff. Results are cached by zone. Timed month/year rules use the same clamping already accepted for all-day series. Nonrecurring timed events retain UTC output; all-day DATE, invalid-zone UTC fallback, UIDs, filters and inclusive local cutoff remain in place.
+
+Implementation references: https://www.rfc-editor.org/rfc/rfc9636.html (TZif blocks and future footer), https://www.rfc-editor.org/rfc/rfc5545 (timezone observances and recurrence). The common default2038 cutoff of generated timezone components was deliberately avoided. No runtime network timezone lookup or new dependency.
+
+Focused checks:76 passed,1 warning in17.35 seconds. Independent dateutil.tzical parsing uses the embedded timezone rather than looking up the TZID in system data; expansion agrees with UI dates/local starts. Nine representative zones checked at sampled dates from1800 through9998, including Dublin negative DST, Lord Howe half-hour DST, Morocco, Gaza, Nuuk and Auckland. Inventory: all598 locally installed zones parsed and matched ZoneInfo at12 sampled instants each across2026/2040/2100, zero errors,8.19 seconds. Largest component135284 bytes (Asia/Hebron); Chicago4776 bytes, cold generation0.002 seconds. These bounded checks do not certify every historical instant or an external subscription client. Evidence calendar-recurrence-baseline.log, calendar-recurrence-focused.log, calendar-timezone-inventory.json.
+
+Phase1 remains incomplete. Independent deployed acceptance, external calendar clients, recurrence instances landing in nonexistent/repeated hours, cross-transition duration semantics and second-fold selection remain separate gates. Broader imports and source-backed historical offset repair remain open. Portal capture, operational recovery, provider test keys/handset SMS and AI/browser/operator/offsite prerequisites remain blocked or pending. Productivity54 remains autonomous/Cursor-owned. Main unpushed;30-minute schedule unchanged.
+
+A second independent probe binary-searched actual ZoneInfo UTC transitions in seven representative zones for2026/2040/2100, then compared embedded-zone conversion at one second before, exactly at and one second after each.41 transitions,123 checks, zero errors. Evidence calendar-timezone-transition-probe.json. This specifically covers transition timing, not just seasonal offset samples.
+
+Full suite:1174 passed,1 skipped,149 warnings in233.21 seconds. Tested commit e7c6b79f23c4235349861c28b2324b20f27e8ae6. Evidence calendar-recurrence-full.log.
+
+Both sites deployed and publicly verified healthy on e7c6b79 (stable, demo-20260927). Guarded fast-forward preserved shared coordination edits. Linux candidate:166 passed,53 warnings in175.70 seconds. Linux timezone inventory:486 installed zones,12 sampled instants each across2026/2040/2100, zero mismatches in8.91 seconds. Host/runtime calendar.py SHA f50ff77c0ea1809d4bddbced6adbe42ef4a7bbcd2ff96c882e3cb59f99d58936 and new calendar_timezone.py SHA104e290edf069532827531a46e7b32f9e16d63619b43f77ef9cf204ace6a9210 match the reviewed source. Predecessor calendar.py SHA646d1cd7a6f4ecd2226e3bd3a1a4e8b9079be3fac4867384e38300fb73dd2f10; helper previously absent. Environment and Compose hashes unchanged.
+
+Backups /home/deploy/backups/coil/{domain}/calendar-recurrence-e7c6b79-r1; rollback images testfirmcoillegal:before-e7c6b79 and democoillegal:before-e7c6b79. Data archives testfirm coil-backup-20260928-013801-4j5e0tau.tar.gz, demo coil-backup-20260928-014114-7pv69n1t.tar.gz. Rollback handles both replacement of calendar.py and removal of the newly introduced helper. No rollback was needed.
+
+SQLite quick_check passed before/after. Testfirm events28-54 (27 rows) retain SHA539ff29626661abf27474b7473f78724771534ac0e9381fec576fa0874dfd3d6; tasks78-81 retain SHA58ab150b3b11b59bf64799ba31392d7faa9b061b912ccbe5f40c19a5d33ab241;18 portal tokens retain SHA6f6af2b70d1f0c940c8fb5961e6905fca5e5617c16ac36e2fdaf97e0d9af50ec. Unchanged importer source and empty demo fingerprints verified. Evidence calendar-recurrence-prepare.log, calendar-recurrence-activate.log, before/after/health JSON and calendar-timezone-linux-inventory.json.
+
+Independent three-case batch assigned: https://github.com/Coil-Legal/coil/issues/12#issuecomment-5861831573. ICAL-TIMED-EXISTING reuses events53/54 read-only; ICAL-TIMED-LEAP and ICAL-TIMED-OPEN use fresh QA-ICAL-TZ-20260928 firm-wide/no matter fixtures, IDs pending. Requires parsing the embedded VTIMEZONE and preserves protected events28-54/tasks78-81 and private feed keys. No acknowledgment at assignment.
+
+Sheet S90 row105 synced and exactly verified:16 cells across five ranges. Existing tool statuses, formula F12, Cursor fields, task/portal rows and Overview B2 preserved. Final issue12 check found no Grok acknowledgment/result for batch5861831573. Assignment remains separate from acceptance; no full tool or phase signoff.
+
 ## Calendar form date-boundary fix, 2026-09-28 00:54 UTC
 
 Reviewed from 59393f6 in isolated /private/tmp/coil-calendar-boundary-review. Files: app/blueprints/calendar.py and tests/test_calendar_form_boundaries.py. No schema change. Synthetic disposable event 1 and API/import fixture IDs only; no live boundary records created by Codex.
