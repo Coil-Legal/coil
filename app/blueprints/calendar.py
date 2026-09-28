@@ -140,8 +140,21 @@ def index():
     evs = q.filter(or_(CalendarEvent.recurrence != "none",
                        and_(CalendarEvent.starts_at >= win_start, CalendarEvent.starts_at < win_end))).order_by(
         CalendarEvent.starts_at).all()
+    try:
+        zone = ZoneInfo(Firm.get().timezone or "UTC")
+    except (ZoneInfoNotFoundError, ValueError):
+        zone = ZoneInfo("UTC")
     for e in evs:
         for occ in e.occurrences(win_start, win_end):
+            if not e.all_day and e.recurrence in RRULE_FREQ:
+                # RFC 5545 3.3.10 excludes generated nonexistent local starts.
+                # Round-trip through UTC; fold=0 retains the first repeated time.
+                try:
+                    back = occ.replace(tzinfo=zone, fold=0).astimezone(ZoneInfo("UTC")).astimezone(zone)
+                except OverflowError:
+                    continue
+                if back.replace(tzinfo=None) != occ:
+                    continue
             add(occ.date(), {"kind": "event", "title": e.title + (" \u21bb" if e.recurrence != "none" else ""),
                              "url": f"/calendar/{e.id}", "time": "" if e.all_day else occ.strftime("%-I:%M %p"),
                              "sort": 0 if e.all_day else 1, "at": occ,

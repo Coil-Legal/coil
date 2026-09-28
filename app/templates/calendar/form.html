@@ -17,6 +17,7 @@
     <div><label>Repeats</label><select name="recurrence" id="recurrence">{% for k, lbl in recurrences %}<option value="{{ k }}" {{ 'selected' if (e.recurrence or 'none') == k }}>{{ lbl }}</option>{% endfor %}</select></div>
     <div data-until><label>Until (optional)</label><input type="date" name="recurrence_until" value="{{ e.recurrence_until|iso if e.recurrence_until else '' }}"></div>
   </div>
+  <p class="small muted">Repeating timed events skip dates when their start time does not exist because clocks move forward. When clocks move back, a repeated start time uses its first occurrence.</p>
   <div><label>Notes</label><textarea name="notes">{{ e.notes or '' }}</textarea></div>
   <div class="actions"><button class="btn">{{ 'Add event' if is_new else 'Save' }}</button><a class="btn secondary" href="{{ '/calendar' if is_new else '/calendar/' ~ e.id }}">Cancel</a></div>
 </form>
