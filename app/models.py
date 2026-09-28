@@ -773,27 +773,33 @@ class CalendarEvent(db.Model):
     matter = db.relationship("Matter")
     user = db.relationship("User")
 
-    def occurrences(self, start, end):
-        """Yield occurrence start datetimes within [start, end) for this event, expanding recurrence."""
+    def _recurrence_step(self):
         from dateutil.relativedelta import relativedelta
-        if not self.starts_at:
-            return
         step = {"daily": relativedelta(days=1), "weekly": relativedelta(weeks=1), "biweekly": relativedelta(weeks=2),
                 "monthly": relativedelta(months=1), "yearly": relativedelta(years=1)}.get(self.recurrence or "none")
+        until = datetime.combine(self.recurrence_until, datetime.max.time()) if self.recurrence_until else None
+        return step, until
+
+    def _seek_n(self, anchor):
+        # Seek to the requested anchor instead of counting from the first event.
+        # Each date is still anchored to starts_at, preserving month-end clamping.
+        if self.recurrence == "monthly":
+            return max(0, (anchor.year - self.starts_at.year) * 12 + anchor.month - self.starts_at.month)
+        if self.recurrence == "yearly":
+            return max(0, anchor.year - self.starts_at.year)
+        days = {"daily": 1, "weekly": 7, "biweekly": 14}[self.recurrence]
+        return max(0, (anchor - self.starts_at).days // days)
+
+    def occurrences(self, start, end):
+        """Yield occurrence start datetimes within [start, end) for this event, expanding recurrence."""
+        if not self.starts_at:
+            return
+        step, until = self._recurrence_step()
         if not step:
             if start <= self.starts_at < end:
                 yield self.starts_at
             return
-        until = datetime.combine(self.recurrence_until, datetime.max.time()) if self.recurrence_until else None
-        # Seek to the requested window instead of counting from the first event.
-        # Each date is still anchored to starts_at, preserving month-end clamping.
-        if self.recurrence == "monthly":
-            n = max(0, (start.year - self.starts_at.year) * 12 + start.month - self.starts_at.month)
-        elif self.recurrence == "yearly":
-            n = max(0, start.year - self.starts_at.year)
-        else:
-            days = {"daily": 1, "weekly": 7, "biweekly": 14}[self.recurrence]
-            n = max(0, (start - self.starts_at).days // days)
+        n = self._seek_n(start)
         while True:
             try:
                 cur = self.starts_at + step * n
@@ -803,6 +809,25 @@ class CalendarEvent(db.Model):
                 return
             if cur >= start:
                 yield cur
+            n += 1
+
+    def next_occurrence(self, after):
+        """The earliest occurrence at or after `after`, or None once the series is exhausted."""
+        if not self.starts_at:
+            return None
+        step, until = self._recurrence_step()
+        if not step:
+            return self.starts_at if self.starts_at >= after else None
+        n = self._seek_n(after)
+        while True:
+            try:
+                cur = self.starts_at + step * n
+            except (OverflowError, ValueError):
+                return None  # No further occurrence is representable by datetime.
+            if until and cur > until:
+                return None
+            if cur >= after:
+                return cur
             n += 1
 
 

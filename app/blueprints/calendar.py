@@ -106,6 +106,15 @@ def _event_error(e):
     return None
 
 
+def _real_local_time(occ, zone):
+    """RFC 5545 3.3.10: a generated local time a DST spring-forward skips over doesn't exist."""
+    try:
+        back = occ.replace(tzinfo=zone, fold=0).astimezone(ZoneInfo("UTC")).astimezone(zone)
+    except OverflowError:
+        return False
+    return back.replace(tzinfo=None) == occ
+
+
 def _month_arg():
     s = request.args.get("month", "")
     try:
@@ -146,15 +155,8 @@ def index():
         zone = ZoneInfo("UTC")
     for e in evs:
         for occ in e.occurrences(win_start, win_end):
-            if not e.all_day and e.recurrence in RRULE_FREQ:
-                # RFC 5545 3.3.10 excludes generated nonexistent local starts.
-                # Round-trip through UTC; fold=0 retains the first repeated time.
-                try:
-                    back = occ.replace(tzinfo=zone, fold=0).astimezone(ZoneInfo("UTC")).astimezone(zone)
-                except OverflowError:
-                    continue
-                if back.replace(tzinfo=None) != occ:
-                    continue
+            if not e.all_day and e.recurrence in RRULE_FREQ and not _real_local_time(occ, zone):
+                continue
             add(occ.date(), {"kind": "event", "title": e.title + (" \u21bb" if e.recurrence != "none" else ""),
                              "url": f"/calendar/{e.id}", "time": "" if e.all_day else occ.strftime("%-I:%M %p"),
                              "sort": 0 if e.all_day else 1, "at": occ,
@@ -170,8 +172,19 @@ def index():
         items[d].sort(key=lambda i: (i["sort"], i["at"]))
     prev_month = (first - timedelta(days=1)).replace(day=1)
     next_month = (first + timedelta(days=32)).replace(day=1)
-    upcoming = q.filter(CalendarEvent.starts_at >= now() - timedelta(hours=1)).order_by(
-        CalendarEvent.starts_at).limit(10).all()
+    cutoff = now() - timedelta(hours=1)
+    upcoming = [{"starts_at": e.starts_at, "all_day": e.all_day, "title": e.title, "id": e.id, "matter": e.matter}
+                for e in q.filter(CalendarEvent.recurrence == "none", CalendarEvent.starts_at >= cutoff).all()]
+    # A series' own starts_at is its first occurrence, so a series that began before the cutoff
+    # would otherwise be excluded entirely even though it still has occurrences ahead of it.
+    for e in q.filter(CalendarEvent.recurrence != "none").all():
+        occ = e.next_occurrence(cutoff)
+        while occ is not None and not e.all_day and e.recurrence in RRULE_FREQ and not _real_local_time(occ, zone):
+            occ = e.next_occurrence(occ + timedelta(minutes=1))
+        if occ is not None:
+            upcoming.append({"starts_at": occ, "all_day": e.all_day, "title": e.title, "id": e.id, "matter": e.matter})
+    upcoming.sort(key=lambda i: i["starts_at"])
+    upcoming = upcoming[:10]
     feed_url = f"{current_app.config['BASE_URL']}/calendar/feed/{feed_secret()}.ics"
     u = current_user()
     my_feed_url = f"{current_app.config['BASE_URL']}/calendar/feed/u/{u.id}/{feed_secret(u.id)}.ics"
