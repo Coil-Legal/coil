@@ -11,7 +11,8 @@ from tests.test_phase1_independent import app, staff
 
 
 def property_value(body, prefix):
-    return next(line.split(':', 1)[1] for line in body.splitlines() if line.startswith(prefix))
+    event = body.replace('\r\n ', '').split('BEGIN:VEVENT\r\n')[1].split('END:VEVENT')[0]
+    return next(line.split(':', 1)[1] for line in event.splitlines() if line.startswith(prefix))
 
 
 @pytest.mark.parametrize('all_day', [False, True])
@@ -30,8 +31,8 @@ def test_final_day_matches_screen_occurrences(all_day, zone, hour):
         assert until == '20261007', 'DATE DTSTART requires DATE UNTIL'
         parsed_start = datetime.strptime(start_value, '%Y%m%d')
     else:
-        parsed_start = datetime.strptime(start_value, '%Y%m%dT%H%M%SZ').replace(tzinfo=ZoneInfo('UTC'))
-    expanded = list(rrulestr(rule, dtstart=parsed_start))
+        from tests.test_calendar_timed_recurrence import expand
+    expanded = list(rrulestr(rule, dtstart=parsed_start)) if all_day else list(expand(body))
     dates = [dt.date() if all_day else dt.astimezone(ZoneInfo(zone)).date() for dt in expanded]
     screen = [dt.date() for dt in event.occurrences(datetime(2026, 10, 1), datetime(2026, 11, 1))]
     assert dates == screen == [date(2026, 10, d) for d in (5, 6, 7)]

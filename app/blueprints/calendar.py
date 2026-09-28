@@ -276,6 +276,15 @@ def build_ics(events, name="Calendar", tz_name="UTC", tasks=()):
     stamp = now().strftime("%Y%m%dT%H%M%SZ")
     lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Solo Practice//Calendar//EN", "CALSCALE:GREGORIAN",
              "METHOD:PUBLISH", f"X-WR-CALNAME:{_ics_escape(name)}"]
+    events = list(events)
+    try:
+        zone = ZoneInfo(tz_name or "UTC")
+    except (ZoneInfoNotFoundError, ValueError):
+        zone = ZoneInfo("UTC")
+    zoned_series = zone.key != "UTC" and any(not e.all_day and e.recurrence in RRULE_FREQ for e in events)
+    if zoned_series:
+        from ..calendar_timezone import timezone_lines
+        lines.extend(timezone_lines(zone.key))
     # Tasks with a due date. The web calendar shows every one of these, and a limitation date
     # that is on the screen but missing from the feed a lawyer actually subscribes to is the
     # wrong way round. All-day, since a due date is a date, not a time.
@@ -297,16 +306,20 @@ def build_ics(events, name="Calendar", tz_name="UTC", tasks=()):
             lines += [f"DTSTART;VALUE=DATE:{start:%Y%m%d}", f"DTEND;VALUE=DATE:{end:%Y%m%d}"]
         else:
             end = e.ends_at or (e.starts_at + timedelta(hours=1))
-            start_utc, end_utc = _to_utc(e.starts_at, tz_name), _to_utc(end, tz_name)
-            lines += [f"DTSTART:{start_utc:%Y%m%dT%H%M%SZ}", f"DTEND:{end_utc:%Y%m%dT%H%M%SZ}"]
+            if zoned_series and e.recurrence in RRULE_FREQ:
+                lines += [f"DTSTART;TZID={zone.key}:{e.starts_at:%Y%m%dT%H%M%S}",
+                          f"DTEND;TZID={zone.key}:{end:%Y%m%dT%H%M%S}"]
+            else:
+                start_utc, end_utc = _to_utc(e.starts_at, tz_name), _to_utc(end, tz_name)
+                lines += [f"DTSTART:{start_utc:%Y%m%dT%H%M%SZ}", f"DTEND:{end_utc:%Y%m%dT%H%M%SZ}"]
         if e.recurrence in RRULE_FREQ:
             rule = RRULE_FREQ[e.recurrence]
-            # Match the UI's relativedelta clamping for date-only series.
+            # Match the UI's relativedelta clamping in the series' local calendar.
             # A plain RRULE skips invalid month dates instead of clamping them.
-            if e.all_day and e.recurrence == "monthly" and e.starts_at.day > 28:
+            if e.recurrence == "monthly" and e.starts_at.day > 28:
                 days = ",".join(str(day) for day in range(28, e.starts_at.day + 1))
                 rule += f";BYMONTHDAY={days};BYSETPOS=-1"
-            elif (e.all_day and e.recurrence == "yearly"
+            elif (e.recurrence == "yearly"
                   and e.starts_at.month == 2 and e.starts_at.day == 29):
                 rule += ";BYMONTH=2;BYMONTHDAY=28,29;BYSETPOS=-1"
             if e.recurrence_until:
