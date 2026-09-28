@@ -14,6 +14,7 @@ bp = Blueprint("calendar", __name__, url_prefix="/calendar")
 
 RECURRENCES = [("none", "Does not repeat"), ("daily", "Every day"), ("weekly", "Every week"), ("biweekly", "Every two weeks"),
                ("monthly", "Every month"), ("yearly", "Every year")]
+RANGE_ERROR = "The date or time is outside the supported calendar range. Choose another date."
 RRULE_FREQ = {"daily": "FREQ=DAILY", "weekly": "FREQ=WEEKLY", "biweekly": "FREQ=WEEKLY;INTERVAL=2",
               "monthly": "FREQ=MONTHLY", "yearly": "FREQ=YEARLY"}
 
@@ -59,10 +60,11 @@ def _fill(e, form):
     else:
         e.starts_at = _parse_dt(form.get("starts_at"))
         e.ends_at = _parse_dt(form.get("ends_at"))
-        if e.starts_at and e.ends_at and e.ends_at < e.starts_at:
-            e.ends_at = e.starts_at + timedelta(hours=1)
-        if e.starts_at and not e.ends_at:
-            e.ends_at = e.starts_at + timedelta(hours=1)
+        if e.starts_at and (not e.ends_at or e.ends_at < e.starts_at):
+            try:
+                e.ends_at = e.starts_at + timedelta(hours=1)
+            except OverflowError:
+                return RANGE_ERROR
 
 
 def _form_context(e):
@@ -74,6 +76,12 @@ def _event_error(e):
     if not e.title or not e.starts_at:
         return "A title and a start date are required."
     if e.all_day:
+        try:
+            # The feed needs an exclusive day after the final occupied date.
+            end = max(e.starts_at.date(), e.ends_at.date()) if e.ends_at else e.starts_at.date()
+            end + timedelta(days=1)
+        except OverflowError:
+            return RANGE_ERROR
         return None
     # Do not flush an edited event until its wall-clock values are validated.
     with db.session.no_autoflush:
@@ -81,14 +89,20 @@ def _event_error(e):
     try:
         zone = ZoneInfo(tz_name)
     except (ZoneInfoNotFoundError, ValueError):
-        return None  # Keep the feed's existing fallback for invalid configuration.
-    for label, value in (("start", e.starts_at), ("end", e.ends_at)):
-        if value is None:
-            continue
-        back = value.replace(tzinfo=zone).astimezone(ZoneInfo("UTC")).astimezone(zone)
-        if back.replace(tzinfo=None) != value:
-            return (f"The {label} time does not exist in {tz_name} because the clocks move forward. "
-                    "Choose a time before or after the clock change.")
+        zone = ZoneInfo("UTC")  # Same fallback as the feed.
+    try:
+        end = e.ends_at or (e.starts_at + timedelta(hours=1))
+        for label, value in (("start", e.starts_at), ("end", end)):
+            back = value.replace(tzinfo=zone).astimezone(ZoneInfo("UTC")).astimezone(zone)
+            if back.replace(tzinfo=None) != value:
+                return (f"The {label} time does not exist in {tz_name} because the clocks move forward. "
+                        "Choose a time before or after the clock change.")
+        if e.recurrence in RRULE_FREQ and e.recurrence_until:
+            # Timed UNTIL is exported as the inclusive local day's UTC boundary.
+            cutoff = datetime.combine(e.recurrence_until, datetime.max.time())
+            cutoff.replace(tzinfo=zone).astimezone(ZoneInfo("UTC"))
+    except OverflowError:
+        return RANGE_ERROR
     return None
 
 
@@ -159,8 +173,7 @@ def index():
 def new():
     e = CalendarEvent()
     if request.method == "POST":
-        _fill(e, request.form)
-        error = _event_error(e)
+        error = _fill(e, request.form) or _event_error(e)
         if error:
             flash(error, "error")
             return render_template("calendar/form.html", is_new=True, **_form_context(e))
@@ -191,8 +204,7 @@ def detail(id):
 def edit(id):
     e = db.session.get(CalendarEvent, id) or abort(404)
     if request.method == "POST":
-        _fill(e, request.form)
-        error = _event_error(e)
+        error = _fill(e, request.form) or _event_error(e)
         if error:
             flash(error, "error")
             with db.session.no_autoflush:
