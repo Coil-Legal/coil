@@ -11,7 +11,7 @@
 <div class="grid c3">
   <div class="card stat"><div class="label">Billable hours</div><div class="value">{{ grand.billable|hours }}</div></div>
   <div class="card stat"><div class="label">Non-billable hours</div><div class="value">{{ grand.nonbillable|hours }}</div></div>
-  <div class="card stat"><div class="label">Billable value</div><div class="value">{{ grand.amount|money }}</div></div>
+  <div class="card stat"><div class="label">Billable value</div><div class="value">{{ grand.amount|curmix }}</div></div>
 </div>
 <div class="card"><h2>Hours by user by month</h2>
 {% if user_rows %}
@@ -21,7 +21,7 @@
 {% for r in user_rows %}
 <tr><td><strong>{{ r.user.name if r.user else '?' }}</strong><div class="small muted">billable / non-billable</div></td>
   {% for c in r.cells %}<td class="num">{{ c.billable|hours }} / {{ c.nonbillable|hours }}{% if c.billed %}<div class="small muted">{{ c.billed|hours }} billed</div>{% endif %}</td>{% endfor %}
-  <td class="num"><strong>{{ r.total.billable|hours }} / {{ r.total.nonbillable|hours }}</strong><div class="small muted">{{ r.total.amount|money }}</div></td></tr>
+  <td class="num"><strong>{{ r.total.billable|hours }} / {{ r.total.nonbillable|hours }}</strong><div class="small muted">{{ r.total.amount|curmix }}</div></td></tr>
 {% endfor %}
 </table>
 </div>

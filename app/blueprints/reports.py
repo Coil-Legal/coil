@@ -242,17 +242,23 @@ def trust_balances():
 @bp.route("/productivity")
 @login_required
 def productivity():
+    # Billable minutes have no currency, but their dollar value does: one timekeeper can log
+    # billable time against matters in more than one currency in the same month, so "amount" is
+    # kept as a per-currency dict throughout, same as compensation/origination/realization's user
+    # rows (issue #71, same class as #66/#68/#70).
     d_from, d_to = _range()
-    entries = TimeEntry.query.filter(TimeEntry.date >= d_from, TimeEntry.date <= d_to).all()
+    entries = (TimeEntry.query.options(joinedload(TimeEntry.matter))
+               .filter(TimeEntry.date >= d_from, TimeEntry.date <= d_to).all())
     months = sorted({e.date.strftime("%Y-%m") for e in entries})
     users = {u.id: u for u in User.query.all()}
     grid = {}
     for e in entries:
         key = (e.user_id, e.date.strftime("%Y-%m"))
-        cell = grid.setdefault(key, {"billable": 0, "nonbillable": 0, "billed": 0, "amount": 0})
+        cell = grid.setdefault(key, {"billable": 0, "nonbillable": 0, "billed": 0, "amount": {}})
         if e.billable:
             cell["billable"] += e.minutes
-            cell["amount"] += e.amount_cents
+            currency = e.matter.currency_code if e.matter else "USD"
+            cell["amount"][currency] = cell["amount"].get(currency, 0) + e.amount_cents
             if e.invoice_id:
                 cell["billed"] += e.minutes
         else:
@@ -260,26 +266,41 @@ def productivity():
     user_rows = []
     for uid in sorted({k[0] for k in grid}, key=lambda i: users[i].name if i in users else ""):
         u = users.get(uid)
-        cells = [grid.get((uid, m), {"billable": 0, "nonbillable": 0, "billed": 0, "amount": 0}) for m in months]
+        cells = [grid.get((uid, m), {"billable": 0, "nonbillable": 0, "billed": 0, "amount": {}}) for m in months]
+        tot_amount = {}
+        for c in cells:
+            for code, cents in c["amount"].items():
+                tot_amount[code] = tot_amount.get(code, 0) + cents
         tot = {"billable": sum(c["billable"] for c in cells), "nonbillable": sum(c["nonbillable"] for c in cells),
-               "billed": sum(c["billed"] for c in cells), "amount": sum(c["amount"] for c in cells)}
+               "billed": sum(c["billed"] for c in cells), "amount": tot_amount}
         user_rows.append({"user": u, "cells": cells, "total": tot})
+    grand_amount = {}
+    for r in user_rows:
+        for code, cents in r["total"]["amount"].items():
+            grand_amount[code] = grand_amount.get(code, 0) + cents
     grand = {"billable": sum(r["total"]["billable"] for r in user_rows),
              "nonbillable": sum(r["total"]["nonbillable"] for r in user_rows),
-             "amount": sum(r["total"]["amount"] for r in user_rows)}
+             "amount": grand_amount}
     if _wants_csv():
         out = []
         for r in user_rows:
+            name = r["user"].name if r["user"] else "(nobody)"
             for m, c in zip(months, r["cells"]):
-                out.append([r["user"].name if r["user"] else uid, m, f"{c['billable'] / 60:.2f}",
-                            f"{c['nonbillable'] / 60:.2f}", f"{(c['billable'] + c['nonbillable']) / 60:.2f}",
-                            f"{c['billed'] / 60:.2f}", _money_csv(c["amount"])])
-            out.append([r["user"].name if r["user"] else uid, "TOTAL", f"{r['total']['billable'] / 60:.2f}",
-                        f"{r['total']['nonbillable'] / 60:.2f}",
-                        f"{(r['total']['billable'] + r['total']['nonbillable']) / 60:.2f}",
-                        f"{r['total']['billed'] / 60:.2f}", _money_csv(r["total"]["amount"])])
+                if not c["amount"]:
+                    out.append([name, m, f"{c['billable'] / 60:.2f}", f"{c['nonbillable'] / 60:.2f}",
+                                f"{(c['billable'] + c['nonbillable']) / 60:.2f}", f"{c['billed'] / 60:.2f}",
+                                "", "0.00"])
+                for currency, cents in sorted(c["amount"].items()):
+                    out.append([name, m, f"{c['billable'] / 60:.2f}", f"{c['nonbillable'] / 60:.2f}",
+                                f"{(c['billable'] + c['nonbillable']) / 60:.2f}", f"{c['billed'] / 60:.2f}",
+                                currency, _money_csv(cents)])
+            for currency, cents in sorted(r["total"]["amount"].items()) or [("", 0)]:
+                out.append([name, "TOTAL", f"{r['total']['billable'] / 60:.2f}",
+                            f"{r['total']['nonbillable'] / 60:.2f}",
+                            f"{(r['total']['billable'] + r['total']['nonbillable']) / 60:.2f}",
+                            f"{r['total']['billed'] / 60:.2f}", currency, _money_csv(cents)])
         return _csv("productivity.csv", ["User", "Month", "Billable hours", "Non-billable hours", "Total hours",
-                                         "Billed hours", "Billable value"], out)
+                                         "Billed hours", "Currency", "Billable value"], out)
     return render_template("reports/productivity.html", months=months, user_rows=user_rows, grand=grand,
                            d_from=d_from, d_to=d_to)
 
