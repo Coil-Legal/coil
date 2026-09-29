@@ -1,5 +1,5 @@
 {% extends "base.html" %}{% block title %}Payment #{{ pay.id }}{% endblock %}{% block content %}
-<div class="topbar"><h1>Payment of {{ pay.amount_cents|money }}</h1><a class="btn small secondary" href="{{ url_for('payments.index') }}">All payments</a></div>
+<div class="topbar"><h1>Payment of {{ pay.amount_cents|cur(cc) }}</h1><a class="btn small secondary" href="{{ url_for('payments.index') }}">All payments</a></div>
 <div class="card" style="max-width:720px">
 <dl class="kv">
   <dt>Received</dt><dd>{{ pay.received_on|d }}</dd>
@@ -8,7 +8,7 @@
   <dt>Invoice</dt><dd>{% if pay.invoice %}<a href="/invoices/{{ pay.invoice.id }}">{{ pay.invoice.number }}</a> <span class="badge {{ pay.invoice.status }}">{{ pay.invoice.status }}</span>{% else %}<span class="muted">None (trust deposit)</span>{% endif %}</dd>
   <dt>Method</dt><dd>{{ pay.method }}</dd>
   <dt>Account</dt><dd>{{ pay.account }}</dd>
-  <dt>Amount</dt><dd>{{ pay.amount_cents|money }}</dd>
+  <dt>Amount</dt><dd>{{ pay.amount_cents|cur(cc) }}</dd>
   {% if pay.surcharge_cents %}<dt>Surcharge</dt><dd>{{ pay.surcharge_cents|money }}</dd>{% endif %}
   {% if pay.stripe_fee_cents %}<dt>Processor fee</dt><dd>{{ pay.stripe_fee_cents|money }}</dd>{% endif %}
   {% if pay.reference %}<dt>Reference</dt><dd>{{ pay.reference }}</dd>{% endif %}

@@ -64,7 +64,7 @@ def index():
 def detail(payment_id):
     p = db.session.get(Payment, payment_id) or abort(404)
     txn = TrustTransaction.query.filter_by(payment_id=p.id).first()
-    return render_template("payments/detail.html", pay=p, txn=txn)
+    return render_template("payments/detail.html", pay=p, txn=txn, cc=_payment_currency(p))
 
 
 @bp.route("/payments/record", methods=["POST"])
