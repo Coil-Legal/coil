@@ -10,7 +10,7 @@ from sqlalchemy.orm import joinedload
 from ..aggregates import money_for
 from ..extensions import db
 from ..models import (Matter, Invoice, Task, TimeEntry, IntakeLead, Engagement, TrustTransaction, Timer,
-                      DocumentSignature, Message, CreditNote)
+                      DocumentSignature, Message, CreditNote, Firm)
 from ..helpers import login_required, current_user
 from ..permissions import has_permission
 
@@ -138,8 +138,18 @@ def load_card_data(keys, u, today):
             ctx["ar_overdue_count"] = Invoice.query.filter(Invoice.status.in_(OPEN_INVOICE),
                                                            Invoice.due_on < today).count()
         elif k == "wip":
-            ctx["wip"] = int(db.session.query(func.coalesce(func.sum(TimeEntry.minutes * TimeEntry.rate_cents / 60), 0))
-                             .filter(TimeEntry.billable == True, TimeEntry.invoice_id == None).scalar() or 0)  # noqa
+            # A matter's currency column is "" for "use the firm default" (Matter.currency_code), so the
+            # SQL-side grouping key has to replicate that fallback rather than coalescing on NULL/"USD"
+            # (issue #78, same class as the ar card's per-currency split above).
+            firm_currency = Firm.get().currency or "USD"
+            currency_expr = case((Matter.currency == "", firm_currency), else_=Matter.currency)
+            wip_by_currency = {}
+            for code, cents in (db.session.query(currency_expr, func.sum(TimeEntry.minutes * TimeEntry.rate_cents / 60))
+                                .join(Matter, Matter.id == TimeEntry.matter_id)
+                                .filter(TimeEntry.billable == True, TimeEntry.invoice_id == None)
+                                .group_by(currency_expr).all()):
+                wip_by_currency[code.upper()] = wip_by_currency.get(code.upper(), 0) + int(cents or 0)
+            ctx["wip_by_currency"] = wip_by_currency
         elif k == "trust":
             ctx["trust_total"] = int(db.session.query(func.coalesce(func.sum(TrustTransaction.amount_cents), 0))
                                      .scalar() or 0)

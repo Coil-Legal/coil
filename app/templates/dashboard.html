@@ -12,7 +12,7 @@
 {% elif key == 'ar' %}
   <div class="card stat" data-card="ar"><div class="label">Outstanding A/R</div><div class="value">{{ ar_by_currency|curmix }}</div><div class="small muted">{{ ar_overdue_count }} overdue</div></div>
 {% elif key == 'wip' %}
-  <div class="card stat" data-card="wip"><div class="label">Unbilled time</div><div class="value">{{ wip|money }}</div></div>
+  <div class="card stat" data-card="wip"><div class="label">Unbilled time</div><div class="value">{{ wip_by_currency|curmix }}</div></div>
 {% elif key == 'trust' %}
   <div class="card stat" data-card="trust"><div class="label">Trust balance</div><div class="value">{{ trust_total|money }}</div></div>
 {% elif key == 'my_hours_week' %}
