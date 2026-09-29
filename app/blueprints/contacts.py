@@ -108,9 +108,13 @@ def detail(id):
     invoices = Invoice.query.filter(Invoice.client_id == c.id, Invoice.status.in_(OPEN_INVOICE_STATUSES)).order_by(
         Invoice.due_on).all()
     notes = Note.query.filter_by(contact_id=c.id).order_by(Note.created_at.desc()).all()
+    outstanding_by_currency = {}
+    for i in invoices:
+        code = (i.currency or "USD").upper()
+        outstanding_by_currency[code] = outstanding_by_currency.get(code, 0) + int(i.balance_cents or 0)
     return render_template("contacts/detail.html", c=c, matters=matters, invoices=invoices, notes=notes,
                            trust=c.trust_balance_cents(),
-                           outstanding=sum(i.balance_cents for i in invoices))
+                           outstanding=outstanding_by_currency)
 
 
 @bp.route("/<int:id>/edit", methods=["GET", "POST"])

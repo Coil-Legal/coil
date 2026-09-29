@@ -86,7 +86,7 @@
   <p class="small muted" style="margin-top:0">A credit note lowers what the client owes without changing the invoice they already have. Both documents stay on the file and are read together, which is what you want if the fee is ever questioned.</p>
   <form method="post" action="{{ url_for('invoices.credit', id=inv.id) }}">{{ csrf() }}
     <div class="row">
-      <div><label>Amount</label><input type="text" name="amount" placeholder="{{ inv.balance_cents|money }}" required></div>
+      <div><label>Amount</label><input type="text" name="amount" placeholder="{{ inv.balance_cents|cur(cc) }}" required></div>
       <div><label>Reason</label><select name="reason">{% for k, label in credit_reason_list %}<option value="{{ k }}">{{ label }}</option>{% endfor %}</select></div>
     </div>
     <label>Note for the client</label><input type="text" name="note" maxlength="300" placeholder="Duplicate entry on 14 May removed">

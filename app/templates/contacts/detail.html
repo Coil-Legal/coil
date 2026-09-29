@@ -10,7 +10,7 @@
 </div></div>
 <div class="grid c3">
   <div class="card stat"><div class="label">Trust balance</div><div class="value">{{ trust|money }}</div></div>
-  <div class="card stat"><div class="label">Open invoices</div><div class="value">{{ outstanding|money }}</div><div class="small muted">{{ invoices|length }} unpaid</div></div>
+  <div class="card stat"><div class="label">Open invoices</div><div class="value">{{ outstanding|curmix }}</div><div class="small muted">{{ invoices|length }} unpaid</div></div>
   <div class="card stat"><div class="label">Matters</div><div class="value">{{ matters|length }}</div></div>
 </div>
 <div class="grid c2">
@@ -39,7 +39,7 @@
 <div class="grid c2">
   <div class="card"><h2>Open invoices</h2>
     {% if invoices %}<table><tr><th>Invoice</th><th>Due</th><th>Status</th><th class="num">Balance</th></tr>
-    {% for i in invoices %}<tr><td><a href="/invoices/{{ i.id }}">{{ i.number }}</a></td><td class="nowrap">{{ i.due_on|d }}</td><td><span class="badge {{ 'overdue' if i.is_overdue else i.status }}">{{ 'overdue' if i.is_overdue else i.status }}</span></td><td class="num">{{ i.balance_cents|money }}</td></tr>{% endfor %}</table>
+    {% for i in invoices %}<tr><td><a href="/invoices/{{ i.id }}">{{ i.number }}</a></td><td class="nowrap">{{ i.due_on|d }}</td><td><span class="badge {{ 'overdue' if i.is_overdue else i.status }}">{{ 'overdue' if i.is_overdue else i.status }}</span></td><td class="num">{{ i.balance_cents|cur(i.currency) }}</td></tr>{% endfor %}</table>
     {% else %}<div class="empty">Nothing outstanding.</div>{% endif %}
   </div>
   <div class="card"><h2>Notes</h2>
