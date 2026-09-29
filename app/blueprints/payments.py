@@ -26,6 +26,12 @@ def surcharge_for(invoice, method):
     return 0
 
 
+def _payment_currency(p):
+    """Stripe only ever settles USD (see pay_confirm), so a non-USD payment is always a manual
+    method with no surcharge/processor fee; a trust deposit with no invoice is always USD too."""
+    return (p.invoice.currency or "USD").upper() if p.invoice else "USD"
+
+
 # ==== staff ====
 @bp.route("/payments")
 @login_required
@@ -42,10 +48,15 @@ def index():
         except ValueError:
             month = "all"
     payments = q.order_by(Payment.received_on.desc(), Payment.id.desc()).all()
-    totals = {"amount": sum(p.amount_cents or 0 for p in payments),
+    amount_by_currency = {}
+    for p in payments:
+        currency = _payment_currency(p)
+        amount_by_currency[currency] = amount_by_currency.get(currency, 0) + (p.amount_cents or 0)
+    totals = {"amount": amount_by_currency,
               "surcharge": sum(p.surcharge_cents or 0 for p in payments),
               "fee": sum(p.stripe_fee_cents or 0 for p in payments)}
-    return render_template("payments/index.html", payments=payments, totals=totals, month=month, label=label)
+    return render_template("payments/index.html", payments=payments, totals=totals, month=month, label=label,
+                           payment_currency=_payment_currency)
 
 
 @bp.route("/payments/<int:payment_id>")

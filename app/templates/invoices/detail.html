@@ -16,7 +16,7 @@
     {% elif inv.status != 'void' %}
       {# Someone comes looking for Void, finds nothing, and has no idea why. Say it. Voiding an
          invoice money has already been paid against would erase the record of a real payment. #}
-      <span class="small muted" title="Voiding would erase the record of money that has already changed hands">{{ inv.paid_cents|money }} has been paid against this invoice, so it cannot be voided. Refund the payment first, or reduce the remaining balance with a credit note.</span>
+      <span class="small muted" title="Voiding would erase the record of money that has already changed hands">{{ inv.paid_cents|cur(cc) }} has been paid against this invoice, so it cannot be voided. Refund the payment first, or reduce the remaining balance with a credit note.</span>
     {% endif %}
   </div>
 </div>
