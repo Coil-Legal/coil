@@ -32,7 +32,7 @@
   </div>
   <div class="card"><h2>Matters</h2>
     {% if matters %}<table><tr><th>Matter</th><th>Billing</th><th>Status</th><th class="num">Unbilled</th></tr>
-    {% for m in matters %}<tr><td><a href="/matters/{{ m.id }}">{{ m.label }}</a></td><td>{{ m.billing_type }}</td><td><span class="badge {{ m.status }}">{{ m.status }}</span></td><td class="num">{{ (m.unbilled_time_cents() + m.unbilled_expense_cents())|money }}</td></tr>{% endfor %}</table>
+    {% for m in matters %}<tr><td><a href="/matters/{{ m.id }}">{{ m.label }}</a></td><td>{{ m.billing_type }}</td><td><span class="badge {{ m.status }}">{{ m.status }}</span></td><td class="num">{{ (m.unbilled_time_cents() + m.unbilled_expense_cents())|cur(m.currency_code) }}</td></tr>{% endfor %}</table>
     {% else %}<div class="empty">No matters. <a href="/matters/new?contact_id={{ c.id }}">Open one</a>.</div>{% endif %}
   </div>
 </div>
