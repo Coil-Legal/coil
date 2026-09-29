@@ -10,7 +10,7 @@
     <dt>Date</dt><dd>{{ expense.date|d }}</dd>
     <dt>Category</dt><dd>{{ expense.category }}{% if expense.expense_code %} <span class="small muted">{{ expense.expense_code }}</span>{% endif %}</dd>
     <dt>Description</dt><dd>{{ expense.description }}</dd>
-    <dt>Amount</dt><dd>{{ expense.amount_cents|money }}</dd>
+    <dt>Amount</dt><dd>{{ expense.amount_cents|cur(expense.matter.currency_code) }}</dd>
     <dt>Billable</dt><dd>{{ 'Yes' if expense.billable else 'No' }}</dd>
     <dt>Receipt</dt><dd>{% if expense.receipt_path %}<a href="{{ url_for('time.expense_receipt', id=expense.id) }}">Download</a>{% else %}none{% endif %}</dd>
   </dl>

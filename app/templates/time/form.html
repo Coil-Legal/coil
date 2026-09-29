@@ -10,8 +10,8 @@
     <dt>Date</dt><dd>{{ entry.date|d }}</dd>
     <dt>Duration</dt><dd>{{ entry.minutes|hours }} hours ({{ entry.minutes }} minutes)</dd>
     <dt>Description</dt><dd>{{ entry.description }}</dd>
-    <dt>Rate</dt><dd>{{ entry.rate_cents|money }}/hr</dd>
-    <dt>Amount</dt><dd>{{ entry.amount_cents|money }}</dd>
+    <dt>Rate</dt><dd>{{ entry.rate_cents|cur(entry.matter.currency_code) }}/hr</dd>
+    <dt>Amount</dt><dd>{{ entry.amount_cents|cur(entry.matter.currency_code) }}</dd>
     <dt>Billable</dt><dd>{{ 'Yes' if entry.billable else 'No' }}</dd>
     <dt>UTBMS codes</dt><dd>{{ entry.task_code or '' }} {{ entry.activity_code or '' }}</dd>
     <dt>User</dt><dd>{{ entry.user.name }}</dd>
