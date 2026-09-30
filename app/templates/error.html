@@ -1,1 +1,1 @@
-{% extends "public.html" %}{% block content %}<div class="card"><h1>{{ code }}</h1><p>{{ message }}</p><p><a href="/">Home</a></p></div>{% endblock %}
+{% extends "public.html" %}{% block content %}<div class="card"><h1>{{ code }}</h1><p>{{ message }}</p><p>{% if tools_link %}<a href="/settings/tools">Settings, Tools</a> &middot; {% endif %}<a href="/">Home</a></p></div>{% endblock %}

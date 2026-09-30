@@ -2,8 +2,8 @@
 <style>.dash>.card{margin-bottom:0}.dash .span2{grid-column:span 2}.dash .span4{grid-column:span 4}@media(max-width:1000px){.dash .span2,.dash .span4{grid-column:span 1}}.dash h2{margin-top:0}</style>
 <div class="topbar"><h1>Dashboard</h1>
 <div class="actions" style="margin:0">
-  {% if timer %}<span class="timerbar">Timer: <strong data-timer-seconds="{{ timer.elapsed_seconds() }}" data-timer-running="{{ 0 if timer.paused else 1 }}"></strong> {{ timer.matter.label if timer.matter else '' }} <a href="/time/timer">manage</a></span>{% else %}<a class="btn secondary small" href="/time/timer">Start timer</a>{% endif %}
-  <a class="btn small" href="/time/new">Log time</a><a class="btn small secondary" href="/time/expenses/new" title="Snap a receipt with your phone">Receipt</a><a class="btn small secondary" href="/matters/new">New matter</a><a class="btn small secondary" href="{{ url_for('dashboard.customize') }}" title="Pick and order the cards on this page">Customize</a>
+  {% if tool_on('time') %}{% if timer %}<span class="timerbar">Timer: <strong data-timer-seconds="{{ timer.elapsed_seconds() }}" data-timer-running="{{ 0 if timer.paused else 1 }}"></strong> {{ timer.matter.label if timer.matter else '' }} <a href="/time/timer">manage</a></span>{% else %}<a class="btn secondary small" href="/time/timer">Start timer</a>{% endif %}
+  <a class="btn small" href="/time/new">Log time</a><a class="btn small secondary" href="/time/expenses/new" title="Snap a receipt with your phone">Receipt</a>{% endif %}<a class="btn small secondary" href="/matters/new">New matter</a><a class="btn small secondary" href="{{ url_for('dashboard.customize') }}" title="Pick and order the cards on this page">Customize</a>
 </div></div>
 <div class="grid c4 dash">
 {% for key in cards %}{% set kind = card_defs[key][1] %}

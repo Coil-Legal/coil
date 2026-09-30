@@ -22,6 +22,7 @@ def create_app(config=None):
     register_template_globals(app)
     app.before_request(check_csrf)
     from .permissions import enforce; app.before_request(enforce)
+    from .tools import guard as tools_guard; app.before_request(tools_guard)
 
     # Add security headers in production
     @app.after_request

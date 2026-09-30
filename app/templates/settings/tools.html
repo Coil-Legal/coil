@@ -1,0 +1,39 @@
+{% extends "base.html" %}{% block title %}Tools{% endblock %}{% block content %}
+<div class="topbar"><h1>Tools</h1><div class="actions" style="margin:0"><a class="btn small secondary" href="/settings">Settings</a></div></div>
+<div class="card">
+  <p style="margin-top:0">Switch off the tools your firm does not use. They leave the menu, the dashboard and the matter tabs, and their pages close. <strong>Nothing is deleted.</strong> Switch a tool back on and everything recorded in it is still there.</p>
+  <p class="small muted">Links you have already sent to clients, such as signing links, pay links and invoice links, keep working whatever you choose here. So do incoming texts and payments, which are still recorded.</p>
+</div>
+<form method="post">{{ csrf() }}
+{% for section, items in sections.items() %}
+<div class="card">
+  <h2 style="font-size:1rem;margin-top:0">{{ section }}</h2>
+  <table>
+  {% for t in items %}
+    <tr>
+      <td style="width:2rem;vertical-align:top"><input type="checkbox" id="tool_{{ t.key }}" name="tool_{{ t.key }}" value="1" {{ 'checked' if choice[t.key] }}></td>
+      <td>
+        <label for="tool_{{ t.key }}" style="margin:0"><strong>{{ t.label }}</strong>{% if not t.default_on %} <span class="badge new">optional</span>{% endif %}</label>
+        <div class="small muted">{{ t.description }}</div>
+        {% if choice[t.key] and not on[t.key] %}<div class="small" style="color:var(--warn)">Off while {% for r in t.requires %}{{ tools[r].label }}{% if not loop.last %} and {% endif %}{% endfor %} is off.</div>{% endif %}
+        {% if t.requires and on[t.key] %}<div class="small muted">Needs {% for r in t.requires %}{{ tools[r].label }}{% if not loop.last %} and {% endif %}{% endfor %}.</div>{% endif %}
+      </td>
+      <td class="num small muted nowrap" style="vertical-align:top">{% if counts.get(t.key) %}{{ counts[t.key] }} on file{% endif %}</td>
+    </tr>
+  {% endfor %}
+  </table>
+</div>
+{% endfor %}
+<div class="actions"><button class="btn">Save</button></div>
+</form>
+<div class="card">
+  <h2 style="font-size:1rem;margin-top:0">Always on</h2>
+  <p class="small muted" style="margin-top:0">These are what a firm needs to run at all, and the exports are how you take your data with you, so they cannot be switched off.</p>
+  <ul class="small">{% for key, label in core.items() %}<li>{{ label }}</li>{% endfor %}</ul>
+</div>
+<div class="card">
+  <h2 style="font-size:1rem;margin-top:0">Want something to work differently?</h2>
+  <p class="small" style="margin-top:0">Ask for a change to a screen or a feature, or a tool your firm needs. Most requests are built, tested and ready within 7 days. A new tool arrives switched off for every other firm, and switched on for yours.</p>
+  {% if config.FEEDBACK_ENABLED not in ('0', 'false', 'no') %}<a class="btn small secondary" href="{{ url_for('feedback.index') }}?from=/settings/tools">Ask for a change</a>{% endif %}
+</div>
+{% endblock %}

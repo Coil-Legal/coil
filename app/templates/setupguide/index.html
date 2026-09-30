@@ -5,6 +5,11 @@
 <p class="sub" style="max-width:70ch">Coil already works. These five are optional extras, each
 one switching on something you may or may not want. Set up the ones you need, skip the rest,
 and come back whenever that changes. Nothing here is a problem to fix.</p>
+{% if current_user() and current_user().role == 'owner' %}
+<div class="card" style="max-width:70ch"><strong>Make Coil yours.</strong> Switch off the tools your firm will not use, and
+they leave the menu for everyone. Nothing is deleted, and you can switch them back on any time.
+<a href="/settings/tools">Choose your tools</a></div>
+{% endif %}
 {% if remaining %}<p class="small muted">{{ remaining }} not answered yet.</p>
 {% else %}<p class="small muted">You have been through all of them.</p>{% endif %}
 

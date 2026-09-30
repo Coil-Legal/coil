@@ -137,6 +137,10 @@ class Firm(db.Model):
     # Which setup steps have been finished or deliberately skipped, as {"stripe": "skipped"}.
     setup_json = db.Column(db.Text, default="{}")
     sequences_auto_send = db.Column(db.Boolean, default=False)  # follow-up sequences send only when this is on; otherwise drafts
+    # Which tools this firm has switched away from their default, as {"pi": false, ...}.
+    # Only differences are stored, so a firm that never opens Settings > Tools, and every
+    # tool added in a later release, behaves exactly as shipped. See app/tools.py.
+    tool_overrides = db.Column(db.Text, default="{}")
 
     @staticmethod
     def get():

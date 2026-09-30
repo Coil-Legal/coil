@@ -267,11 +267,17 @@ def _day_type_label(key):
     return dict(DAY_TYPES).get(key, key)
 
 
+def _tool_on(key):
+    """Template global: is this firm using the tool? See app/tools.py."""
+    from .tools import tool_enabled
+    return tool_enabled(key)
+
+
 def register_template_globals(app):
     app.jinja_env.globals.update(
         money=cents_to_str, csrf=csrf_field, current_user=current_user, portal_contact=portal_contact,
         firm=lambda: Firm.get(), today=date.today, now=utcnow,
-        mike_url=_mike_url, day_type_label=_day_type_label,
+        mike_url=_mike_url, day_type_label=_day_type_label, tool_on=_tool_on,
     )
     app.jinja_env.filters["money"] = cents_to_str
     app.jinja_env.filters["cur"] = fmt_money

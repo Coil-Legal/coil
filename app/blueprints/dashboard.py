@@ -4,6 +4,7 @@ original fixed dashboard."""
 import json
 from datetime import date, timedelta
 from collections import OrderedDict
+from ..tools import tool_enabled
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from sqlalchemy import case, func
 from sqlalchemy.orm import joinedload
@@ -52,8 +53,20 @@ CARD_PERMISSIONS = {
 }
 
 
+# The tool each card reports on. A card for a tool the firm has switched off is never shown,
+# whatever the user picked, and comes back by itself if the tool is switched on again.
+CARD_TOOLS = {
+    "ar": "invoices", "wip": "time", "trust": "trust", "my_hours_week": "time",
+    "pending_approvals": "invoices", "tasks": "tasks", "leads": "intake", "engagements": "engagements",
+    "overdue": "invoices", "evergreen": "trust", "unsigned_documents": "signatures",
+    "portal_messages": "messages", "case_audit": "case_audit",
+}
+
+
 def permitted_cards(u):
-    return {key for key, permission in CARD_PERMISSIONS.items() if has_permission(u, permission)}
+    from ..tools import tool_enabled
+    return {key for key, permission in CARD_PERMISSIONS.items()
+            if has_permission(u, permission) and tool_enabled(CARD_TOOLS.get(key, ""))}
 
 
 def parse_cards(raw):
@@ -218,8 +231,8 @@ def index():
     timer = Timer.query.filter_by(user_id=u.id).first()
     return render_template("dashboard.html", cards=keys, card_defs=CARDS, timer=timer, today=today,
                            customized=bool(u.dashboard_json),
-                           show_billing=has_permission(u, "billing_view"),
-                           show_trust=has_permission(u, "trust_view"), **ctx)
+                           show_billing=has_permission(u, "billing_view") and tool_enabled("time"),
+                           show_trust=has_permission(u, "trust_view") and tool_enabled("trust"), **ctx)
 
 
 @bp.route("/dashboard/customize", methods=["GET", "POST"])

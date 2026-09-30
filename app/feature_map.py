@@ -221,6 +221,8 @@ FEATURE_MAP = [
         "blurb": "Not modelled on any competitor.",
         "features": [
             ("Priced at cost, no per-seat tiers, no add-ons", "/", "built"),
+            ("Choose your own tools: switch off what your firm does not use, per firm", "/settings/tools", "built"),
+            ("Requested features ship to every firm, switched on only where wanted", "/settings/tools", "built"),
             ("Self-hosted with a free install key", "/settings", "built"),
             ("REST API with tokens and outgoing webhooks", "/settings/api", "built"),
             ("Spanish client-facing pages and emails", "/settings", "built"),

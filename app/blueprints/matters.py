@@ -20,6 +20,8 @@ CURRENCIES = ["USD", "CAD", "GBP", "EUR", "AUD", "MXN"]  # Agent A: matter curre
 TABS = [("overview", "Overview"), ("time", "Time & expenses"), ("invoices", "Invoices"), ("trust", "Trust"),
         ("tasks", "Tasks"), ("documents", "Documents"), ("engagements", "Engagement letters"),
         ("activity", "Activity")]
+TAB_TOOLS = {"time": "time", "invoices": "invoices", "trust": "trust", "tasks": "tasks",
+             "documents": "documents", "engagements": "engagements"}
 
 
 def assign_number(m):
@@ -334,8 +336,12 @@ def edit(id):
 @login_required
 def detail(id):
     m = db.session.get(Matter, id) or abort(404)
+    from ..tools import tool_enabled
+    # A tab for a tool the firm has switched off is not offered, and asking for it by URL
+    # lands on the overview instead of a page that no longer exists.
+    tabs = [(k, label) for k, label in TABS if tool_enabled(TAB_TOOLS.get(k, ""))]
     tab = request.args.get("tab", "overview")
-    if tab not in dict(TABS):
+    if tab not in dict(tabs):
         tab = "overview"
     entries = sorted(
         [("time", t.date, t) for t in m.time_entries] + [("expense", e.date, e) for e in m.expenses],
@@ -351,7 +357,7 @@ def detail(id):
         50).all()
     milestones_total = sum(ms.amount_cents for ms in m.milestones)
     milestones_invoiced = sum(ms.amount_cents for ms in m.milestones if ms.invoiced)
-    return render_template("matters/detail.html", m=m, tab=tab, tabs=TABS, entries=entries, invoices=invoices,
+    return render_template("matters/detail.html", m=m, tab=tab, tabs=tabs, entries=entries, invoices=invoices,
                            trust_rows=trust_rows, tasks=tasks, done_tasks=done_tasks, documents=documents,
                            engagements=engagements, activity=activity, party_roles=PARTY_ROLES,
                            unbilled_time=m.unbilled_time_cents(), unbilled_exp=m.unbilled_expense_cents(),

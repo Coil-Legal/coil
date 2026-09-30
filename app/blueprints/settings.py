@@ -986,3 +986,70 @@ def webhook_retry(id):
     db.session.commit()
     flash("Delivered." if ok else f"Still failing: {d.last_error}", "ok" if ok else "error")
     return redirect(url_for("settings.webhooks"))
+
+
+# ---------------------------------------------------------------- tools this firm uses
+def _tool_record_counts():
+    """How much each tool already holds, shown beside its switch. Switching a tool off hides
+    these records rather than deleting them, and the page says so with the actual number."""
+    from ..models import (IntakeLead, ConflictCheck, Engagement, Message, DocumentSignature, VoiceCall, TimeEntry,
+                          Task, CalendarEvent, Document, DocTemplate, Invoice, Payment, PaymentPlan,
+                          TrustTransaction, CourtRuleSet, PiCase, CriminalCase, DiscoverySet, CaseAuditFinding,
+                          AiRun, TimeSuggestion)
+    models = {"intake": IntakeLead, "conflicts": ConflictCheck, "engagements": Engagement, "messages": Message,
+              "signatures": DocumentSignature, "voice": VoiceCall, "time": TimeEntry, "tasks": Task,
+              "calendar": CalendarEvent, "documents": Document, "doctemplates": DocTemplate, "invoices": Invoice,
+              "payments": Payment, "plans": PaymentPlan, "trust": TrustTransaction, "court_rules": CourtRuleSet,
+              "pi": PiCase, "criminal": CriminalCase, "discovery": DiscoverySet, "case_audit": CaseAuditFinding,
+              "ai": AiRun, "time_suggestions": TimeSuggestion}
+    out = {}
+    for key, model in models.items():
+        try:
+            out[key] = db.session.query(func.count(model.id)).scalar() or 0
+        except Exception:  # a table from a module this build does not have yet
+            db.session.rollback()
+    return out
+
+
+@bp.route("/settings/tools", methods=["GET", "POST"])
+@owner_required
+def tools():
+    """Switch whole tools on and off for this firm.
+
+    Every firm runs the same Coil. This page is where one firm's Coil becomes its own: the
+    tools it never uses leave the menu, the dashboard and the matter tabs, and their pages
+    close. Nothing is deleted, so switching a tool back on brings back everything in it.
+    """
+    from ..tools import TOOLS, CORE, by_section, enabled_map, overrides_for, overrides_from_choices
+    firm = Firm.get()
+    if request.method == "POST":
+        before = enabled_map(firm)
+        chosen = {k for k in TOOLS if request.form.get(f"tool_{k}")}
+        firm.tool_overrides = json.dumps(overrides_from_choices(chosen), sort_keys=True)
+        from flask import g
+        g.pop("_coil_tools", None)  # this request already cached the old switches
+        after = enabled_map(firm)
+        # What the owner unticked, kept apart from what follows because a tool it relies on went off.
+        turned_off = [TOOLS[k].label for k in TOOLS if before[k] and not after[k] and k not in chosen]
+        turned_on = [TOOLS[k].label for k in TOOLS if not before[k] and after[k]]
+        if turned_off or turned_on:
+            detail = "; ".join(x for x in (
+                ("off: " + ", ".join(turned_off)) if turned_off else "",
+                ("on: " + ", ".join(turned_on)) if turned_on else "") if x)
+            audit("tools_changed", "firm", firm.id, detail, current_user().id)
+        db.session.commit()
+        # A tool the firm asked to keep can still be off because something it depends on is off.
+        held = [TOOLS[k].label for k in chosen if not after[k]]
+        parts = []
+        if turned_off:
+            parts.append("Switched off: " + ", ".join(turned_off) + ". Everything in them is kept.")
+        if turned_on:
+            parts.append("Switched on: " + ", ".join(turned_on) + ".")
+        if held:
+            parts.append("Still off because a tool they rely on is off: " + ", ".join(held) + ".")
+        flash(" ".join(parts) or "No change.", "ok")
+        return redirect(url_for("settings.tools"))
+    ov = overrides_for(firm)
+    choice = {k: ov.get(k, t.default_on) for k, t in TOOLS.items()}  # what the firm ticked, before dependencies
+    return render_template("settings/tools.html", sections=by_section(), core=CORE, on=enabled_map(firm),
+                           choice=choice, counts=_tool_record_counts(), tools=TOOLS)
