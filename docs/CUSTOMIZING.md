@@ -32,7 +32,8 @@ Customize. Cards for switched-off tools disappear for everyone.
 ## When a firm asks for something
 
 The promise on coil.legal is that most requests are built, tested and live within 7 days,
-and that a feature built for one firm becomes available to all of them. Here is how to keep
+and that a feature built for one firm becomes available to all of them, for each firm to
+switch on if it wants it. Here is how to keep
 both halves of that true.
 
 1. **Decide the shape.** A change to how an existing screen behaves for everyone is an
@@ -43,8 +44,11 @@ both halves of that true.
    Settings > Tools, where it is marked *optional*.
 3. **For a behaviour inside an existing tool:** prefer a firm setting with the current
    behaviour as its default, so no firm sees a change it did not ask for.
-4. **If everyone wants it,** flip `default_on` to `True`. Firms that already chose keep
-   their choice, because only differences from the default are stored.
+4. **Leave it off by default, even if it proves popular.** The promise is that every firm
+   can have a requested feature, not that every firm gets it. A firm opts in; nobody wakes
+   up to a tool they did not choose. `default_on=True` is only for changes to how an
+   existing tool works that every firm has effectively asked for, and even then prefer a
+   setting whose default keeps today's behaviour.
 5. **Tests.** Add a case to `tests/test_firm_tools.py` for any new tool: off by default if
    optional, its pages close when off, its link leaves the menu.
 

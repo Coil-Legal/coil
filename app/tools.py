@@ -9,7 +9,8 @@ on again.
 This is also how a feature built for one firm reaches every firm without being forced on
 any of them. A new tool is registered here with ``default_on=False``. It ships to every
 firm in the next update, sits switched off, and the firm that asked for it turns it on.
-If it turns out everyone wants it, flip the default. See docs/CUSTOMIZING.md.
+Every firm can have it; no firm gets it without choosing it. Keep requested tools off by
+default even when they prove popular. See docs/CUSTOMIZING.md.
 
 Three things are deliberately never switchable:
 
