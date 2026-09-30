@@ -223,7 +223,10 @@ def test_time_totals_equal_displayed_entry_amounts(app):
         contexts.append(context)
     with template_rendered.connected_to(capture, app):
         assert c.get('/time?matter_id=1').status_code == 200
-    assert contexts[-1]['total_amount'] == expected, f'Table total {contexts[-1]["total_amount"]}, row sum {expected}'
+    # total_amount is now a {currency: cents} dict (issue #83); this filter's rows are
+    # all one matter, so one currency, but sum its values to stay agnostic to that shape.
+    total = sum(contexts[-1]['total_amount'].values())
+    assert total == expected, f'Table total {total}, row sum {expected}'
 
 
 def test_public_intake_allows_its_advertised_iframe(app):

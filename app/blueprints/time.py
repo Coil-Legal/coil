@@ -8,7 +8,7 @@ from flask import (Blueprint, render_template, request, redirect, url_for, flash
 from werkzeug.utils import secure_filename
 from sqlalchemy import func
 from ..extensions import db
-from ..models import Matter, TimeEntry, Timer, Expense, User, audit, now
+from ..models import Matter, TimeEntry, Timer, Expense, User, Firm, audit, now
 from ..helpers import login_required, current_user, parse_money, parse_date, UNUSUAL_MINUTES, parse_minutes
 from .ledes import choices as utbms_choices, valid_code
 
@@ -76,14 +76,19 @@ def index():
     total_count = q.count()
     total_minutes = int(q.with_entities(func.coalesce(func.sum(TimeEntry.minutes), 0)).scalar() or 0)
     # Match TimeEntry.amount_cents: round each entry before summing, including ties.
-    amounts = q.filter(TimeEntry.billable == True).with_entities(  # noqa: E712
-        TimeEntry.minutes, TimeEntry.rate_cents, TimeEntry.invoice_id).all()
-    total_amount = unbilled_amount = 0
-    for minutes, rate, invoice_id in amounts:
+    # Kept per currency (see issue #83): a raw sum across an unfiltered list's matters
+    # folds euro time into a dollar total, the same defect class as #60/#61.
+    amounts = q.filter(TimeEntry.billable == True).join(Matter, TimeEntry.matter_id == Matter.id) \
+        .with_entities(TimeEntry.minutes, TimeEntry.rate_cents, TimeEntry.invoice_id, Matter.currency).all()  # noqa: E712
+    firm_currency = Firm.get().currency or "USD"
+    total_amount = {}
+    unbilled_amount = {}
+    for minutes, rate, invoice_id, currency in amounts:
+        code = (currency or firm_currency).upper()
         cents = int(round(minutes * rate / 60.0))
-        total_amount += cents
+        total_amount[code] = total_amount.get(code, 0) + cents
         if invoice_id is None:
-            unbilled_amount += cents
+            unbilled_amount[code] = unbilled_amount.get(code, 0) + cents
     page = max(1, request.args.get("page", 1, type=int))
     pages = max(1, (total_count + PAGE_SIZE - 1) // PAGE_SIZE)
     page = min(page, pages)
@@ -93,11 +98,9 @@ def index():
     prev_url = url_for("time.index", page=page - 1, **args) if page > 1 else None
     next_url = url_for("time.index", page=page + 1, **args) if page < pages else None
     timer = Timer.query.filter_by(user_id=current_user().id).first()
-    list_currency = db.session.get(Matter, matter_id).currency_code if matter_id else None
     return render_template("time/index.html", entries=entries, matters=Matter.query.order_by(Matter.number).all(),
                            users=User.query.order_by(User.name).all(), total_minutes=total_minutes,
                            total_amount=total_amount, unbilled_amount=unbilled_amount, timer=timer,
-                           list_currency=list_currency,
                            total_count=total_count, page=page, pages=pages, prev_url=prev_url, next_url=next_url,
                            f={"matter_id": matter_id, "user_id": user_id,
                               "from": request.args.get("from", ""), "to": request.args.get("to", "")})
