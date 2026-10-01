@@ -15,3 +15,12 @@ More than one agent edits this checkout, and one of them commits and deploys on 
 5. **Do not apply or deploy another agent's working copy** until that agent has posted a completed handoff.
 
 Work is finished when it is in the shared checkout, or when the handoff says exactly where it still lives.
+
+## Grok handoffs on issue #12
+
+Whoever holds the Grok seat writes handoffs by [docs/QA-HANDOFF.md](docs/QA-HANDOFF.md):
+10 to 15 cases per handoff, at least half of them cases that act (create, edit, switch,
+send to the QA inbox) and then check the result, with every test record named `QA` plus
+the date, and the next handoff posted in the same comment that records the last result.
+Reads of pages that are empty because nothing was created do not count as cases.
+Invoicing, payments and multi-currency stay parked.
