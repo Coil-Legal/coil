@@ -250,33 +250,34 @@ def _fill_user(u, form, is_new, self_only=False):
     u.name = form.get("name", "").strip()
     u.email = form.get("email", "").strip().lower()
     u.initials = form.get("initials", "").strip().upper()[:6] or "".join(p[0] for p in u.name.split()[:2]).upper()
-    if not self_only:
-        role = (form.get("role") or "attorney").strip().lower()
-        # "staff" is the legacy spelling of attorney and is still accepted as posted.
-        u.role = role if role in ROLES or role == "staff" else "attorney"
-        u.hourly_rate_cents = parse_money(form.get("hourly_rate"))
-        if "cost_rate" in form:
-            u.cost_rate_cents = parse_money(form.get("cost_rate"))
-        if "office_id" in form:
-            oid = _int(form.get("office_id"))
-            u.office_id = oid if oid and db.session.get(Office, oid) else None
-        if not is_new:
-            u.is_active = form.get("is_active") == "1"
-    pw = form.get("password", "")
-    if not u.name or not u.email:
-        return "Name and email are required."
-    # Voice line: caller id and the 4 to 6 digit PIN for the attorney memo line (own account may set it too).
-    from .voice import apply_user_voice_fields
-    verr = apply_user_voice_fields(u, form)
-    if verr:
-        return verr
-    if is_new and len(pw) < 8:
-        return "A password of at least 8 characters is required for a new user."
-    if pw and len(pw) < 8:
-        return "New password must be at least 8 characters."
     # u is already in the session on an edit, so its pending email change must not autoflush
-    # ahead of this check: that would hit the unique constraint before the duplicate is reported.
+    # ahead of any query below (office lookup, duplicate-email check): either would hit the
+    # unique constraint before the duplicate is ever reported.
     with db.session.no_autoflush:
+        if not self_only:
+            role = (form.get("role") or "attorney").strip().lower()
+            # "staff" is the legacy spelling of attorney and is still accepted as posted.
+            u.role = role if role in ROLES or role == "staff" else "attorney"
+            u.hourly_rate_cents = parse_money(form.get("hourly_rate"))
+            if "cost_rate" in form:
+                u.cost_rate_cents = parse_money(form.get("cost_rate"))
+            if "office_id" in form:
+                oid = _int(form.get("office_id"))
+                u.office_id = oid if oid and db.session.get(Office, oid) else None
+            if not is_new:
+                u.is_active = form.get("is_active") == "1"
+        pw = form.get("password", "")
+        if not u.name or not u.email:
+            return "Name and email are required."
+        # Voice line: caller id and the 4 to 6 digit PIN for the attorney memo line (own account may set it too).
+        from .voice import apply_user_voice_fields
+        verr = apply_user_voice_fields(u, form)
+        if verr:
+            return verr
+        if is_new and len(pw) < 8:
+            return "A password of at least 8 characters is required for a new user."
+        if pw and len(pw) < 8:
+            return "New password must be at least 8 characters."
         other = User.query.filter(db.func.lower(User.email) == u.email, User.id != (u.id or 0)).first()
     if other:
         return "Another user already has that email."

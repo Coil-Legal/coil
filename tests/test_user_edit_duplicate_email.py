@@ -4,6 +4,11 @@
 duplicate. The duplicate-check query used to autoflush that pending change first, so the
 unique constraint on `users.email` raised an uncaught IntegrityError instead of returning
 the "Another user already has that email." flash.
+
+The first fix only guarded the duplicate-email query itself. The live user-edit form always
+posts `office_id`, and `_fill_user` resolves it with `db.session.get(Office, oid)` *before*
+the duplicate check, which also autoflushes the pending email and hit the same unique
+constraint (case 566 on commit 9fdff91). The test below posts `office_id` to reproduce that.
 """
 import os
 import subprocess
@@ -42,6 +47,16 @@ def _make_user(app, name, email):
         return u.id
 
 
+def _make_office(app, name):
+    from app.extensions import db
+    from app.models import Office
+    with app.app_context():
+        o = Office(name=name)
+        db.session.add(o)
+        db.session.commit()
+        return o.id
+
+
 def test_editing_a_user_to_a_duplicate_email_flashes_instead_of_500(app):
     owner_email = "owner@example.com"
     uid = _make_user(app, "QA Duplicate Email Target", "qa-dup-target@example.com")
@@ -61,3 +76,27 @@ def test_editing_a_user_to_a_duplicate_email_flashes_instead_of_500(app):
         u = db.session.get(User, uid)
         assert u.email == "qa-dup-target@example.com"
         assert u.name == "QA Duplicate Email Target"
+
+
+def test_editing_a_user_to_a_duplicate_email_with_office_id_flashes_instead_of_500(app):
+    """Case 566: the real form posts office_id, which resolved via db.session.get(Office, oid)
+    ahead of the duplicate-email check and autoflushed the pending email the same way."""
+    owner_email = "owner@example.com"
+    uid = _make_user(app, "QA Duplicate Email Target 2", "qa-dup-target-2@example.com")
+    oid = _make_office(app, "QA Office")
+
+    c = app.test_client()
+    tok = login(c)
+    r = c.post(f"/settings/users/{uid}/edit", data={
+        "name": "QA Duplicate Email Target 2", "email": owner_email, "role": "paralegal",
+        "is_active": "1", "hourly_rate": "0", "office_id": str(oid), "_csrf": tok,
+    })
+    assert r.status_code == 200, r.data[:300]
+    assert b"Another user already has that email" in r.data
+
+    from app.extensions import db
+    from app.models import User
+    with app.app_context():
+        u = db.session.get(User, uid)
+        assert u.email == "qa-dup-target-2@example.com"
+        assert u.name == "QA Duplicate Email Target 2"
