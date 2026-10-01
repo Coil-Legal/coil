@@ -274,7 +274,10 @@ def _fill_user(u, form, is_new, self_only=False):
         return "A password of at least 8 characters is required for a new user."
     if pw and len(pw) < 8:
         return "New password must be at least 8 characters."
-    other = User.query.filter(db.func.lower(User.email) == u.email, User.id != (u.id or 0)).first()
+    # u is already in the session on an edit, so its pending email change must not autoflush
+    # ahead of this check: that would hit the unique constraint before the duplicate is reported.
+    with db.session.no_autoflush:
+        other = User.query.filter(db.func.lower(User.email) == u.email, User.id != (u.id or 0)).first()
     if other:
         return "Another user already has that email."
     if pw:
