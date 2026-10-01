@@ -21,6 +21,10 @@ def _sqlite_pragmas(dbapi_connection, connection_record):
     cursor.execute("PRAGMA journal_mode=WAL")
     cursor.execute("PRAGMA busy_timeout=30000")
     cursor.close()
+    # SQLite's built-in lower(), which every .ilike() compiles to on this dialect, only case-folds
+    # ASCII A-Z. A search for "Καλημέρα" lowercased in Python still misses a stored "Καλημέρα" because
+    # SQL's lower(column) leaves it untouched. Python's str.lower() handles the rest of Unicode.
+    dbapi_connection.create_function("lower", 1, lambda s: s.lower() if isinstance(s, str) else s)
     # pysqlite's own implicit BEGIN/COMMIT bookkeeping does not understand SAVEPOINT (used by
     # db.session.begin_nested(), which every importer row goes through), so it can silently drop out of the
     # transaction it thinks it is in and re-open one mid-batch, right where a second process's write can win

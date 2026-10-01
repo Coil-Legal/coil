@@ -175,6 +175,18 @@ def test_search_by_text_snippet_and_by_tag(app, staff):
     assert b'action="/documents/search"' in r.data
 
 
+def test_search_text_is_unicode_case_insensitive(app, staff):
+    # SQLite's built-in lower(), which .ilike() compiles to, only case-folds ASCII; a non-Latin
+    # script needs Python's str.lower() (wired up in app/extensions.py) or the match is silently missed.
+    c, tok = staff
+    mid = _matter_id(app, "M-1001")
+    _upload(c, tok, mid, "greeting.txt", "Good morning, Καλημέρα to everyone on the call.".encode("utf-8"))
+    r = c.get("/documents/search?q=" + "καλημέρα")
+    assert r.status_code == 200
+    html = r.data.decode()
+    assert "greeting.txt" in html and "Καλημέρα" in html
+
+
 # ---------------------------------------------------------------------------
 # email filing
 # ---------------------------------------------------------------------------
