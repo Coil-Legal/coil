@@ -164,6 +164,17 @@ def test_switching_off_a_tool_also_switches_off_what_depends_on_it(app, owner):
     assert owner.get("/payments").status_code == 200
 
 
+def test_an_old_held_tool_is_not_repeated_on_an_unrelated_later_save(owner):
+    """Invoices off holds Payments and Plans off, reported once. A later save that only touches an
+    unrelated tool (Time suggestions) must not repeat that held notice: nothing about Payments or
+    Plans changed in this save, so it is not news."""
+    switch(owner, off=["invoices"])
+    r = switch(owner, off=["invoices", "time_suggestions"])
+    body = r.data.decode()
+    assert "Switched off: Time suggestions." in body
+    assert "Still off because" not in body
+
+
 def test_the_money_heading_goes_when_every_money_tool_is_off(owner):
     switch(owner, off=["invoices", "statements", "trust", "accounting", "reports", "payments", "plans"])
     assert '<div class="sec">Money</div>' not in menu(owner)

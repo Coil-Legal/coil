@@ -1042,8 +1042,11 @@ def tools():
                 ("on: " + ", ".join(turned_on)) if turned_on else "") if x)
             audit("tools_changed", "firm", firm.id, detail, current_user().id)
         db.session.commit()
-        # A tool the firm asked to keep can still be off because something it depends on is off.
-        held = [TOOLS[k].label for k in chosen if not after[k]]
+        # A tool the firm asked to keep can still be off because something it depends on just went
+        # off in this same save. A tool already held off before this save is not news; saying so on
+        # every unrelated change after that (e.g. toggling Time suggestions while Invoices is still
+        # off from an earlier save) reads as a new problem when nothing changed.
+        held = [TOOLS[k].label for k in chosen if before[k] and not after[k]]
         parts = []
         if turned_off:
             parts.append("Switched off: " + ", ".join(turned_off) + ". Everything in them is kept.")
