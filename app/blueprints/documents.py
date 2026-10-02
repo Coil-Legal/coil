@@ -22,6 +22,20 @@ BLOCKED_EXT = {"exe", "bat", "cmd", "com", "msi", "scr", "pif", "cpl", "dll", "s
                "vbs", "vbe", "js", "jse", "wsf", "wsh", "hta", "jar", "app", "dmg", "pkg", "deb", "rpm", "apk",
                "py", "pyc", "rb", "pl", "php", "reg", "lnk"}
 
+# uuid4().hex plus the separating underscore is 33 bytes; keep the on-disk
+# name (that prefix + the secured filename) within the 255-byte filesystem limit.
+MAX_SAFE_NAME_BYTES = 255 - 33
+
+
+def _fit_filesystem_limit(safe):
+    """Shorten a secured filename to fit MAX_SAFE_NAME_BYTES, keeping its extension."""
+    if len(safe) <= MAX_SAFE_NAME_BYTES:
+        return safe
+    base, dot, ext = safe.rpartition(".")
+    if dot and len(ext) < MAX_SAFE_NAME_BYTES:
+        return base[:MAX_SAFE_NAME_BYTES - len(ext) - 1] + "." + ext
+    return safe[:MAX_SAFE_NAME_BYTES]
+
 
 def _int(v):
     try:
@@ -242,7 +256,7 @@ def store_bytes(matter_id, name, data, mime="", user_id=None, shared=False, by_c
     lying = _extension_lies(ext, data)
     if lying:
         return None, lying
-    safe = secure_filename(name) or "file"
+    safe = _fit_filesystem_limit(secure_filename(name) or "file")
     rel_dir = str(matter_id)
     folder_abs = os.path.join(current_app.config["UPLOAD_DIR"], rel_dir)
     os.makedirs(folder_abs, exist_ok=True)
