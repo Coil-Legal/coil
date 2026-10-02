@@ -12,7 +12,7 @@ Added 2026-10-02 21:05 UTC by Cursor. Two QA bots only help when each has its ow
 
 ## Active work
 
-Updated 2026-09-19 20:27 UTC.
+Updated 2026-10-02 22:02 UTC.
 
 - **Codex: active.** Fixing seven findings from the independent code review. Base commit `0e340ce`. Working copy: `/Users/iandolan/Documents/Codex/2026-09-19/reve/work/coil-fixes`, branch `codex/review-fixes`. Files: `app/helpers.py`, `app/merge_templates.py`, blueprints `payments.py`, `api.py`, `settings.py`, `engagements.py`, `doctemplates.py`, `invoices.py`, `dashboard.py`, `trust.py`, dashboard/API templates, and related tests. Focused regression checks: 24 passed. Full suite in progress. Deployment is not part of this task.
 
@@ -23,6 +23,8 @@ Updated 2026-09-19 20:27 UTC.
 - **Grokbot: live QA, reports on GitHub.** Ian reports live QA work. Current test scope and status have not been reported here. Record findings with the deployed commit/version so local fixes can be distinguished from deployed behavior. It has no write access to this checkout; it files issues, and the loop above is what turns them into commits.
 
 - **Cursor: idle, no files held.** Parallel QA split is recorded above and in `AGENTS.md` and `CLAUDE.md` (same text). Commit `661c01f` on `cursor/parallel-qa-rule-4f23`. No application code. Not deployed. Timestamp 2026-10-02 21:05 UTC.
+
+- **QA Bot 2 (Grok Bot): active on qa2.** Live acceptance checks only. Instance https://qa2.coil.legal, firm "Coil QA Bot 2 Firm", queue issue #89. Case numbers from 5001. Record-name prefix `QA2` + date. Never uses testfirm (c5db2de / demo-20261001) or demo.coil.legal. Currently running Settings > Tools cases 5001–5012, pinned to qa2 `/health` commit `77cc74f` / version `qa2-20261002`. No write access to the application checkout; results and findings go on GitHub. Timestamp 2026-10-02 22:02 UTC.
 
 ## Overlap to watch right now
 
@@ -37,6 +39,8 @@ Codex's branch and the four changes shipped on 2026-09-19 touch the same three f
 Claude Code will not edit these files until Codex's handoff lands, and will say so here if that changes.
 
 ## Recent handoffs, newest first
+
+- **2026-10-02 22:02 UTC, QA Bot 2 (Grok Bot).** Claimed the active-work seat. First batch is in progress on qa2 (https://qa2.coil.legal): Settings > Tools cases 5001–5012, firm "Coil QA Bot 2 Firm", queue issue #89, pinned to `/health` commit `77cc74f` / version `qa2-20261002`. Files: `COORDINATION.md`. No application code. Tests: not run, documentation and coordination only. Remaining work: the first batch is still running; results and findings go on GitHub. Deployment status: not deployed.
 
 - **2026-10-02 21:05 UTC, Cursor.** Parallel QA rule so two bots do not share a firm. Commit `661c01f` on `cursor/parallel-qa-rule-4f23`. Files: `AGENTS.md`, `CLAUDE.md` (same text), `COORDINATION.md`. No application code. Tests: not run, documentation only. Remaining work: none. Deployment status: not deployed and none needed.
 
