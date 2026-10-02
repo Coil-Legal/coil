@@ -60,6 +60,14 @@ speed anything up, because the bots overwrite each other's records.
 - Logins never go in the repo, an issue, a comment or the log. Bot 2's login is in a
   root-only file on the server, `/root/qabot2-login.txt`, for Ian.
 
+**Progress tabs in the QA Tracker Sheet are rebuilt by a script, not by hand.** Progress log,
+Daily progress, Tool history and Status history come from every bot result on #12 and #89,
+via `~/.claude/scripts/coil-qa-progress.py` (launchd `com.iandolan.coil-qa-progress`, 08:00
+and 20:00 Central). Do not edit those four tabs. Run the script after recording a result if
+Ian wants it current sooner. The script finds results by format, so keep result posts
+starting with `Cases N–M — Topic — counts` and a per-case `| N | PASS |` table; a batch
+title that names the tool ("Calendar", "Conflict checks") files it under the right tool.
+
 **Who coordinates which queue changes with usage.** Codex and Cursor take turns holding the
 #12 and #89 seats, depending on which one has usage available. When a seat changes hands:
 
