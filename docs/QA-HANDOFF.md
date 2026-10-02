@@ -35,6 +35,29 @@ Batching took the loop from 2 cases an hour to 13.5. Two things now limit it:
 7. **Leave testfirm as you found it** when a batch changes firm-wide settings. The last
    case of such a batch puts the setting back and confirms it.
 
+## Two bots
+
+Bot 1 (`grokshaz`) runs on testfirm from issue #12. Bot 2 runs on qa2.coil.legal from issue
+#89, its own seeded firm. The full split is in `AGENTS.md` under "Two QA bots". In short:
+
+- Write each bot's handoff on its own issue, pinned to its own firm's `/health`.
+- Bot 2 numbers cases from 5001 and names records `QA2` plus the date.
+- Split the remaining tools between them; never both on one tool at once.
+- Give Bot 2 anything that changes firm-wide settings. The Settings > Tools batch below is
+  its first batch.
+- On qa2, email is never sent. Magic links and notices are read in the owner-only
+  `/dev/outbox`.
+
+**Resetting qa2** when its data gets in the way:
+
+1. Back up `data/`, `.env` and `docker-compose.yml` under `/home/deploy/backups/coil/qa2.coil.legal/`.
+2. `docker compose down`, then move `data/practice.db*` into that backup folder.
+3. Rebuild on the current commit with `--build-arg COIL_COMMIT`, then `docker compose up -d`.
+4. Run `python seed.py` inside the container. It only seeds an empty database.
+5. Recreate the Bot 2 owner login and rotate the demo owner's public `password123`,
+   generating both passwords on the server and writing the Bot 2 one only to
+   `/root/qabot2-login.txt` (mode 600). Never print or post either.
+
 ## Where acting cases are most likely to find something
 
 Ordered by how recently the code changed and how little it has been exercised.
@@ -53,9 +76,10 @@ Ordered by how recently the code changed and how little it has been exercised.
 7. **Engagement letters and signatures:** create from a template, send to the QA inbox,
    sign from the captured link, try the link twice.
 
-## Ready batch: Settings > Tools on `999570a`
+## Ready batch: Settings > Tools, for Bot 2 on qa2
 
-Owner session on testfirm. Read the current state first and put it back at the end.
+Owner session on qa2.coil.legal, pinned to its `/health` commit. Case numbers from 5001, records
+named `QA2` plus the date. Read the current state first and put it back at the end.
 
 1. Open Settings > Tools. Report how many tools are listed and whether any box is unticked.
 2. Untick Personal injury and Criminal defense, Save. Expect a flash naming both and saying
@@ -66,14 +90,15 @@ Owner session on testfirm. Read the current state first and put it back at the e
 5. Untick Invoices only, Save. Expect the flash to name Invoices as switched off and to say
    Payments and Plans and splits are still off because a tool they rely on is off.
 6. Open the dashboard. Expect no Outstanding A/R card and no Overdue invoices card.
-7. Open matter 3087. Expect no Invoices tab. Then open `/matters/3087?tab=invoices`
-   directly. Expect the matter overview, not an error.
-8. Open the public invoice link of any sent invoice already on testfirm (do not pay, do not
-   paste the link). Expect it still opens.
+7. Open the first demo matter. Expect no Invoices tab. Then open that matter with
+   `?tab=invoices` added to its URL. Expect the matter overview, not an error.
+8. Before case 5, create and send a `QA2` invoice for $1.00 on a demo matter so a public
+   link exists (the email lands in `/dev/outbox`). Now open that invoice's public link
+   (do not pay, do not paste the link). Expect it still opens.
 9. Untick Time suggestions only and tick Time and expenses. Save. Expect `/time` to open and
    `/time/suggestions` to answer 404.
-10. Sign in as a non-owner QA user if one exists, or create one named `QA Tools Staff
-    20261001` with role paralegal. Open `/settings/tools`. Expect 403. Open `/pi`. Expect a
+10. Sign in as a non-owner QA user if one exists, or create one named `QA2 Tools Staff
+    20261003` with role paralegal. Open `/settings/tools`. Expect 403. Open `/pi`. Expect a
     message telling them to ask the firm owner, with no Settings link.
 11. As owner, open the audit log. Expect `tools_changed` entries for each save in this batch.
 12. Tick every box, Save. Expect the sidebar, the dashboard cards and the matter tabs back
