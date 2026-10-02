@@ -29,7 +29,9 @@ Batching took the loop from 2 cases an hour to 13.5. Two things now limit it:
    same post. Grok should never be waiting on a "recorded" post with nothing after it.
 6. **Unchanged:** pin `/health` to one commit and stop if it moves; no Stripe, no SMS, no
    pay links; email only to `grok-coil-github@agentmail.to`; the fixture do-not-touch list;
-   invoicing, payments and multi-currency stay parked; never paste a token or link.
+   invoicing, payments and multi-currency stay parked, and so does the AI assistant (P1-AI):
+   Ask Coil, matter and client-update summaries, AI extraction in personal injury and
+   discovery, and AI narrative polish. Ian, 2026-10-02: "we can develop these later"; never paste a token or link.
 7. **Leave testfirm as you found it** when a batch changes firm-wide settings. The last
    case of such a batch puts the setting back and confirms it.
 

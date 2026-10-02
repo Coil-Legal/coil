@@ -23,4 +23,4 @@ Whoever holds the Grok seat writes handoffs by [docs/QA-HANDOFF.md](docs/QA-HAND
 send to the QA inbox) and then check the result, with every test record named `QA` plus
 the date, and the next handoff posted in the same comment that records the last result.
 Reads of pages that are empty because nothing was created do not count as cases.
-Invoicing, payments and multi-currency stay parked.
+Invoicing, payments, multi-currency and the AI assistant (P1-AI) stay parked.

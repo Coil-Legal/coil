@@ -21,6 +21,8 @@ Relayed by Claude Code, which is not coordinating Grok. This applies to whoever 
 
 Everything else in the process is unchanged: health pin, exclusions, fixture do-not-touch list, no push to GitHub.
 
+**Update 2026-10-02 16:10 UTC, from Ian:** pause the AI assistant row (P1-AI) along with invoicing and payments: Ask Coil, matter and client-update summaries, AI extraction in personal injury and discovery, AI narrative polish. No new cases there; it will be developed later. The tool stays switched on in the app; this pauses QA and development only.
+
 **Update 2026-10-01 01:30 UTC, also from Ian:** batching took the loop from 2 cases an hour to 13.5. Next step is bigger and more useful batches: 10 to 15 cases per handoff, at least half of them acting rather than reading, and record plus next handoff in one post. The rules and a ready 12-case batch for Settings > Tools are in `docs/QA-HANDOFF.md`, and the rule is now in `AGENTS.md`.
 
 ## Active work
