@@ -253,3 +253,5 @@ Claude Code will not edit these files until Codex's handoff lands, and will say 
 - **Observed Git history:** `0e340ce`, paying the firm from trust; `3e21e95`, credit notes; `e007fa9`, transfers between matters. These commits are included in Codex's starting point. Git records their full authorship and diffs.
 
 For each handoff, record the timestamp, agent, commit or patch location, affected files, checks run, outstanding work and deployment status. Keep only recent entries here; use Git history for older committed changes.
+
+- **Autonomous QA loop: idle, no files held.** 2026-10-01 (this run) UTC. No open `qa:reported` issues (the only `qa:reported`-labelled issue is #12, the next-phase queue itself, not a finding). `next-phase` queue (#1, #12) is not empty, so no new phase filed. Touched nothing.
