@@ -55,3 +55,15 @@ speed anything up, because the bots overwrite each other's records.
   re-seed from `seed.py`, never from QA leftovers.
 - Logins never go in the repo, an issue, a comment or the log. Bot 2's login is in a
   root-only file on the server, `/root/qabot2-login.txt`, for Ian.
+
+**Who coordinates which queue changes with usage.** Codex and Cursor take turns holding the
+#12 and #89 seats, depending on which one has usage available. When a seat changes hands:
+
+1. The incoming agent records "holding #12" or "holding #89" in its entry in COORDINATION.md
+   before posting anything, and the outgoing agent marks itself off that seat when it can.
+2. Read the queue issue from its last handoff. If a batch is still in flight, wait for the
+   bot's result and record it before posting the next one. Never two coordinators on one queue.
+3. Carry on the case numbers, the record prefix, the fixture do-not-touch list and the
+   exclusions exactly as the last handoff left them. Re-pin to that firm's `/health`.
+4. Sign each post with your own tag, `[Codex]` or `[Cursor]`, so the bot and Ian can see who
+   is speaking.
