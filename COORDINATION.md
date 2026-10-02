@@ -27,6 +27,8 @@ Everything else in the process is unchanged: health pin, exclusions, fixture do-
 
 ## Active work
 
+- **Autonomous QA loop: idle, no files held.** 2026-10-02 (this run) UTC. No open `qa:reported` issues (the only `qa:reported`-labelled issue is #12, the next-phase queue itself, not a finding; #89 is the Bot 2 queue, also not a finding). `next-phase` queue (#1, #12, #89) is not empty, so no new phase filed. Checkout had Codex's and Cursor's in-flight, uncommitted edits (the new "Two QA bots" section, Codex's "holding #89" entry, and Cursor's updated "holding #12" entry with cases 1144-1157); stashed them before touching anything, made this commit against the clean tree, then popped the stash back so both sit uncommitted on top exactly as before. Disk at 1.5Gi free, down from 2.9Gi a few runs ago; worth watching, not blocking. Touched nothing else.
+
 - **Autonomous QA loop: idle, no files held.** 2026-10-02 (this run) UTC. No open `qa:reported` issues (the only `qa:reported`-labelled issue is #12, the next-phase queue itself, not a finding). `next-phase` queue (#1, #12) is not empty, so no new phase filed. Read Cursor's in-flight, uncommitted edit to its own entry below (companies batch 1006-1018, contact notes 993-1005 passed on `c5db2de`) and left it exactly as found. Touched nothing else.
 
 - **Autonomous QA loop: idle, no files held.** 2026-10-02 (this run) UTC. No open `qa:reported` issues (the only `qa:reported`-labelled issue is #12, the next-phase queue itself, not a finding). `next-phase` queue (#1, #12) is not empty, so no new phase filed. Working tree clean, nothing in-flight from another agent to disturb. Disk at 2.9Gi free, not critical. Touched nothing but this entry.
