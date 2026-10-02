@@ -6,9 +6,13 @@ Read this file and the current Git status before editing. Update your own active
 
 Use an isolated checkout for overlapping work. Before integrating, compare against the latest source and preserve other agents' commits and uncommitted changes. A task is complete only when its changes are in the shared checkout or the handoff identifies exactly where they remain.
 
+## Parallel QA
+
+Added 2026-10-02 21:05 UTC by Cursor. Two QA bots only help when each has its own login and its own firm. Live QA stays on testfirm (firm c5db2de, demo-20261001) for the existing QA bot. The second bot must not use that firm. Seed it from the demo seed (`seed.py`) and the named protected fixtures. Do not copy the live firm's document library, and do not seed from QA-prefixed leftovers. Each bot owns a case range and a record-name prefix, and only deletes records it created. The same text is in `AGENTS.md` and `CLAUDE.md`.
+
 ## Active work
 
-Updated 2026-09-19 20:27 UTC.
+Updated 2026-10-02 22:02 UTC.
 
 - **Codex: active.** Fixing seven findings from the independent code review. Base commit `0e340ce`. Working copy: `/Users/iandolan/Documents/Codex/2026-09-19/reve/work/coil-fixes`, branch `codex/review-fixes`. Files: `app/helpers.py`, `app/merge_templates.py`, blueprints `payments.py`, `api.py`, `settings.py`, `engagements.py`, `doctemplates.py`, `invoices.py`, `dashboard.py`, `trust.py`, dashboard/API templates, and related tests. Focused regression checks: 24 passed. Full suite in progress. Deployment is not part of this task.
 
@@ -17,6 +21,10 @@ Updated 2026-09-19 20:27 UTC.
 - **Autonomous QA loop: running unattended.** This is a fourth participant the draft did not list, and it is the one most likely to surprise the others. launchd job `com.iandolan.coil-grok-check` fires every 10 minutes, runs `~/.claude/scripts/coil-grok-check.sh`, and acts on GitHub issues in `Coil-Legal/coil`. When it finds a reported defect it edits **this shared checkout**, commits to `main`, and deploys to testfirm and demo without asking anyone. It fixed two findings during the afternoon of 2026-09-19 (`bd1589e`, `e239275`). It does not report here on its own. Its instructions are at `~/.claude/scheduled-tasks/coil-grok-handoff-check/SKILL.md`, which now carries the same read-first requirement, but nobody should rely on that alone: **check `git log` immediately before integrating any branch, because `main` can move while you are reading this file.** To stop it for a long integration: `launchctl bootout gui/$(id -u)/com.iandolan.coil-grok-check`, and afterwards `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.iandolan.coil-grok-check.plist`.
 
 - **Grokbot: live QA, reports on GitHub.** Ian reports live QA work. Current test scope and status have not been reported here. Record findings with the deployed commit/version so local fixes can be distinguished from deployed behavior. It has no write access to this checkout; it files issues, and the loop above is what turns them into commits.
+
+- **Cursor: idle, no files held.** Parallel QA split is recorded above and in `AGENTS.md` and `CLAUDE.md` (same text). Commit `661c01f` on `cursor/parallel-qa-rule-4f23`. No application code. Not deployed. Timestamp 2026-10-02 21:05 UTC.
+
+- **QA Bot 2 (Grok Bot): active on qa2.** Live acceptance checks only. Instance https://qa2.coil.legal, firm "Coil QA Bot 2 Firm", queue issue #89. Case numbers from 5001. Record-name prefix `QA2` + date. Never uses testfirm (c5db2de / demo-20261001) or demo.coil.legal. Currently running Settings > Tools cases 5001–5012, pinned to qa2 `/health` commit `77cc74f` / version `qa2-20261002`. No write access to the application checkout; results and findings go on GitHub. Timestamp 2026-10-02 22:02 UTC.
 
 ## Overlap to watch right now
 
@@ -31,6 +39,10 @@ Codex's branch and the four changes shipped on 2026-09-19 touch the same three f
 Claude Code will not edit these files until Codex's handoff lands, and will say so here if that changes.
 
 ## Recent handoffs, newest first
+
+- **2026-10-02 22:02 UTC, QA Bot 2 (Grok Bot).** Claimed the active-work seat. First batch is in progress on qa2 (https://qa2.coil.legal): Settings > Tools cases 5001–5012, firm "Coil QA Bot 2 Firm", queue issue #89, pinned to `/health` commit `77cc74f` / version `qa2-20261002`. Commit `462bb89` on `cursor/parallel-qa-rule-4f23`. Files: `COORDINATION.md`. No application code. Tests: not run, documentation and coordination only. Remaining work: the first batch is still running; results and findings go on GitHub. Deployment status: not deployed.
+
+- **2026-10-02 21:05 UTC, Cursor.** Parallel QA rule so two bots do not share a firm. Commit `661c01f` on `cursor/parallel-qa-rule-4f23`. Files: `AGENTS.md`, `CLAUDE.md` (same text), `COORDINATION.md`. No application code. Tests: not run, documentation only. Remaining work: none. Deployment status: not deployed and none needed.
 
 - **2026-09-19 20:27 UTC, Claude Code.** Coordination log set up. Commit `23aba35` on `main`: this file, `CLAUDE.md`, `AGENTS.md`. Also added the same read-first requirement to the autonomous loop's instructions at `~/.claude/scheduled-tasks/coil-grok-handoff-check/SKILL.md`, which is outside the repo and therefore not in that commit. Tests: full suite `545 passed`, unchanged, since no application code was touched. Remaining work: none. Deployment status: not deployed and none needed, documentation only.
 

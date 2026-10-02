@@ -15,3 +15,13 @@ More than one agent edits this checkout, and one of them commits and deploys on 
 5. **Do not apply or deploy another agent's working copy** until that agent has posted a completed handoff.
 
 Work is finished when it is in the shared checkout, or when the handoff says exactly where it still lives.
+
+## Parallel QA
+
+Two QA bots speed things up only when each has its own login and its own firm (a separate instance, or at least a separate firm). The same firm does not help, because they overwrite each other's records.
+
+Do not copy the entire document library from the working test account onto the second account. Seed the second firm with the same fixture set the cases assert against (the demo seed in `seed.py`, and the named protected fixtures), not QA-prefixed leftovers from the live firm.
+
+Each bot owns a case range and a record-name prefix, and only deletes records it created.
+
+Live QA today is on testfirm (firm c5db2de, demo-20261001). Leave that firm to the existing QA bot. The second bot must not use it.
