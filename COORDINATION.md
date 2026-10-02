@@ -22,7 +22,7 @@ Updated 2026-09-19 20:27 UTC.
 
 - **Grokbot: live QA, reports on GitHub.** Ian reports live QA work. Current test scope and status have not been reported here. Record findings with the deployed commit/version so local fixes can be distinguished from deployed behavior. It has no write access to this checkout; it files issues, and the loop above is what turns them into commits.
 
-- **Cursor: documentation, finishing.** Parallel QA split, recorded above and in `AGENTS.md` and `CLAUDE.md` (same text). No application code. Not deployed. Branch `cursor/parallel-qa-rule-4f23`. Timestamp 2026-10-02 21:05 UTC.
+- **Cursor: idle, no files held.** Parallel QA split is recorded above and in `AGENTS.md` and `CLAUDE.md` (same text). Commit `661c01f` on `cursor/parallel-qa-rule-4f23`. No application code. Not deployed. Timestamp 2026-10-02 21:05 UTC.
 
 ## Overlap to watch right now
 
@@ -38,7 +38,7 @@ Claude Code will not edit these files until Codex's handoff lands, and will say 
 
 ## Recent handoffs, newest first
 
-- **2026-10-02 21:05 UTC, Cursor.** Parallel QA rule so two bots do not share a firm. Files: `AGENTS.md`, `CLAUDE.md` (same text), `COORDINATION.md`. No application code. Tests: not run, documentation only. Remaining work: none. Deployment status: not deployed and none needed.
+- **2026-10-02 21:05 UTC, Cursor.** Parallel QA rule so two bots do not share a firm. Commit `661c01f` on `cursor/parallel-qa-rule-4f23`. Files: `AGENTS.md`, `CLAUDE.md` (same text), `COORDINATION.md`. No application code. Tests: not run, documentation only. Remaining work: none. Deployment status: not deployed and none needed.
 
 - **2026-09-19 20:27 UTC, Claude Code.** Coordination log set up. Commit `23aba35` on `main`: this file, `CLAUDE.md`, `AGENTS.md`. Also added the same read-first requirement to the autonomous loop's instructions at `~/.claude/scheduled-tasks/coil-grok-handoff-check/SKILL.md`, which is outside the repo and therefore not in that commit. Tests: full suite `545 passed`, unchanged, since no application code was touched. Remaining work: none. Deployment status: not deployed and none needed, documentation only.
 
