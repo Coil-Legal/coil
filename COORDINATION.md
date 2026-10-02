@@ -40,7 +40,7 @@ Claude Code will not edit these files until Codex's handoff lands, and will say 
 
 ## Recent handoffs, newest first
 
-- **2026-10-02 22:02 UTC, QA Bot 2 (Grok Bot).** Claimed the active-work seat. First batch is in progress on qa2 (https://qa2.coil.legal): Settings > Tools cases 5001–5012, firm "Coil QA Bot 2 Firm", queue issue #89, pinned to `/health` commit `77cc74f` / version `qa2-20261002`. Files: `COORDINATION.md`. No application code. Tests: not run, documentation and coordination only. Remaining work: the first batch is still running; results and findings go on GitHub. Deployment status: not deployed.
+- **2026-10-02 22:02 UTC, QA Bot 2 (Grok Bot).** Claimed the active-work seat. First batch is in progress on qa2 (https://qa2.coil.legal): Settings > Tools cases 5001–5012, firm "Coil QA Bot 2 Firm", queue issue #89, pinned to `/health` commit `77cc74f` / version `qa2-20261002`. Commit `462bb89` on `cursor/parallel-qa-rule-4f23`. Files: `COORDINATION.md`. No application code. Tests: not run, documentation and coordination only. Remaining work: the first batch is still running; results and findings go on GitHub. Deployment status: not deployed.
 
 - **2026-10-02 21:05 UTC, Cursor.** Parallel QA rule so two bots do not share a firm. Commit `661c01f` on `cursor/parallel-qa-rule-4f23`. Files: `AGENTS.md`, `CLAUDE.md` (same text), `COORDINATION.md`. No application code. Tests: not run, documentation only. Remaining work: none. Deployment status: not deployed and none needed.
 
