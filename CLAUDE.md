@@ -32,12 +32,16 @@ speed anything up, because the bots overwrite each other's records.
 
 | | Bot 1 | Bot 2 |
 |---|---|---|
-| Account | `grokshaz` | QA Bot 2 |
+| Account | `grokshaz` | QA Bot 2, posting through Ian's `iandolan` account |
 | Firm | testfirm.coil.legal | qa2.coil.legal, "Coil QA Bot 2 Firm" |
 | Queue | issue #12 | issue #89 |
 | Case numbers | continue from #12 | start at 5001 |
 | Record prefix | `QA` plus the date | `QA2` plus the date |
 
+- Bot 2 posts through the same GitHub account the coordinators use, so its posts are only
+  told apart by their signature. Every Bot 2 ACK, result and finding starts with
+  `[QA Bot 2]`, and every coordinator handoff on #89 reminds it to. Bot 2's findings are
+  titled `QA2:`.
 - A bot never signs in to the other bot's firm, never acts on the other's queue, and deletes
   only records carrying its own prefix.
 - Never queue the same tool on both bots at once. COORDINATION.md says which tools each bot
