@@ -850,6 +850,9 @@ def convert(id):
 @login_required
 def decline(id):
     lead = db.session.get(IntakeLead, id) or abort(404)
+    if lead.status == "converted":
+        flash("Converted leads keep their status.", "error")
+        return redirect(url_for("intake.detail", id=lead.id))
     reason = request.form.get("reason", "").strip()[:200]
     lead.status = "declined"
     lead.stage = "lost"
