@@ -303,7 +303,7 @@ The demo documents contain deliberate traps. These matter more than the happy pa
 - [x] Choosing "Anthropic directly" shows the warning that Coil cannot enforce retention
       for you.
 - [x] API tokens: the scope grid, the confidentiality choice, revoke.
-- [x] Audit log records every destructive action with who and when.
+- [ ] Audit log records every destructive action with who and when. (#95)
 
 ## Feedback
 
