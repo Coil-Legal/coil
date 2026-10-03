@@ -307,13 +307,20 @@ def new():
 def edit(id):
     m = db.session.get(Matter, id) or abort(404)
     if request.method == "POST":
-        _fill(m, request.form)
-        if not m.client_id or not db.session.get(Contact, m.client_id):
-            flash("Pick a client.", "error")
-            return render_template("matters/form.html", is_new=False, **_form_context(m))
-        if not m.name:
-            flash("A matter name is required.", "error")
-            return render_template("matters/form.html", is_new=False, **_form_context(m))
+        with db.session.no_autoflush:
+            _fill(m, request.form)
+            problem = None
+            if not m.client_id or not db.session.get(Contact, m.client_id):
+                problem = "Pick a client."
+            elif not m.name:
+                problem = "A matter name is required."
+            if problem:
+                # Re-show the user's input without saving it (#96). _fill() has already changed the
+                # stored matter, so a query while rendering would autoflush a NULL client and 500.
+                flash(problem, "error")
+                page = render_template("matters/form.html", is_new=False, **_form_context(m))
+                db.session.rollback()
+                return page
         if m.status == "closed":
             blocked = _blocked_from_closing(m)
             if blocked:
