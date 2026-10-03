@@ -1,5 +1,22 @@
 # Coil Phase 1 completion pass
 
+## CSV doubled-quote fix and Bot2 signoff queue, 2026-10-03
+
+Codex independently reproduced valid comma/semicolon/tab CSV fields with multiline quoted text gaining extra quote characters after import. csv.Sniffer selected doublequote=False. app/blueprints/importer.py now explicitly handles doubled quotes while retaining delimiter detection; tests/test_import_csv_quotes.py covers12parser cases plus contact upload/commit/export.
+
+Baseline6FAIL/7PASS; focused33PASS; synthetic seed smokePASS; full UTC1254PASS/1SKIP in274.01s; Linux candidate32PASS in20.75s. Initial full run encountered disk I/O errors and local/UTC date mismatch failures; own disposable test data reclaimed, affected38checksPASS underUTC, then the full run abovePASS. No changes to unrelated trust/payment tests. Isolated testedfa50169, integratedb1ccb23a6911bc24866e93600ad52b0755e1a089 with identical app/tests, all other agents' commits and coordination preserved. Main unpushed. Deployment backed up and activation in progress, final status below will supersede this checkpoint.
+
+Bot2 result5965764193 on7acb3a4:5064-5076 have11PASS/0FAIL/2BLOCKED. Cases5069/5071 were not sent, not product findings. Retain matter3/M-1003 closed with Greek name/description,officeNone;office1 deleted. New bounded Users/Roles signoff5077-5091 assigned5965821427; duplicate office-reference refusals retested in5089 on new fixtures. Deployment pause5965856391. Next Intake signoff, broader exploration deferred per Ian's21-tool Phase1 direction. Importer QA reopened pending bounded independent quote regression retest. Neither batch success nor local test success is whole-tool signoff.
+
+Disposable last-owner operator probe1PASS in0.93s: sole owner cannot demote/deactivate self, active-owner count/access unchanged and no successful audit entry. No live owner mutated. Independent roles/office evidence still required. Evidence outputs/qa2-import-quotes-handoff.md and qa2-import-quotes-*.log; latest tracker updates preserved other rows/formulas and were read back.
+
+
+Final deployment: all3firms testfirm/demo/qa2 publicly and internally healthy b1ccb23/demo-20261002/stable. Host/runtime importer.py SHA256 f2e7345216e709542fbcf8cb239d6f216952f64b98a78508d6375d3a362868bc matches reviewed source. Environment/Compose hashes unchanged; qa2 effective SMTP_HOST and Stripe/Twilio/AI keys empty. No schema/provider change, no live importer fixture mutation, no mail-delivery claim.
+
+Backups: /home/deploy/backups/coil/{domain}/import-quotes-b1ccb23-r1, source/config snapshots and rollback images {project}:before-b1ccb23. Data archives under each app data/backups: testfirm coil-backup-20261003-051525-2bfccrms.tar.gz; demo coil-backup-20261003-051557-6kwx6_1s.tar.gz; qa2 coil-backup-20261003-051603-nxfrv83g.tar.gz. Evidence outputs/qa2-import-quotes-deploy.log and qa2-import-quotes-public-health.json.
+
+Bot2 resume/re-pin: https://github.com/Coil-Legal/coil/issues/89#issuecomment-5965882917. Users/Roles5077-5091 assigned, noACK at final release check. Intake signoff next, then bounded importer failed-case retest. No duplicate in-flight batch. Broader drafts remain deferred. Phase1 incomplete and importer QA pending independent evidence. Codex holds#89; Cursor must re-pin#12 to new release. Source claim released, no unfinished application edits.
+
 ## Intake stale-decline fix, 2026-10-03 04:01 UTC
 
 Codex reproduced a stale POST to /intake/<id>/decline changing an already converted lead from Converted/Won to Declined/Lost while retaining its matter/contact links. The guard now refuses that transition, preserving the conversion replay guard. Baseline:3 failing role cases (owner, attorney, paralegal),2 passing normal-decline controls. Fixed:focused30 passed; full suite1241 passed,1 skipped in279.02s; Linux candidate9 passed in13.39s; synthetic seed smoke passed. All data used in reproduction was disposable local synthetic data, lead/matter/contact IDs1, no live Intake fixtures.
