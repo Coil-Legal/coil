@@ -224,11 +224,17 @@ def stage(id):
 def fields(id):
     lead = db.session.get(IntakeLead, id) or abort(404)
     f = request.form
+    before = (lead.value_cents, lead.assigned_user_id, lead.next_follow_up_on, lead.lost_reason)
     lead.value_cents = parse_money(f.get("value"))
     lead.assigned_user_id = f.get("assigned_user_id", type=int) or None
     lead.next_follow_up_on = parse_date(f.get("next_follow_up_on"))
     lead.lost_reason = f.get("lost_reason", "").strip()[:200]
     _score(lead)
+    after = (lead.value_cents, lead.assigned_user_id, lead.next_follow_up_on, lead.lost_reason)
+    changed = [name for name, b, a in zip(
+        ("value", "assigned_user_id", "next_follow_up_on", "lost_reason"), before, after) if b != a]
+    if changed:
+        audit("update", "intake_lead", lead.id, ", ".join(changed), current_user().id)
     db.session.commit()
     flash("Lead updated.", "ok")
     return redirect(url_for("intake.detail", id=lead.id))
@@ -877,6 +883,7 @@ def status(id):
     if lead.status == "converted":
         flash("Converted leads keep their status.", "error")
         return redirect(url_for("intake.detail", id=lead.id))
+    old = lead.status
     lead.status = s
     if s == "declined":
         lead.stage = "lost"
@@ -884,6 +891,7 @@ def status(id):
         lead.stage = "new"
     elif lead.stage in ("new", "lost"):
         lead.stage = "contacted"
+    audit("status", "intake_lead", lead.id, f"{old} -> {s}", current_user().id)
     db.session.commit()
     flash(f"Marked {lead.name} as {s}.", "ok")
     return redirect(url_for("intake.detail", id=lead.id))

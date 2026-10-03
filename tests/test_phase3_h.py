@@ -376,10 +376,26 @@ def test_pipeline_stage_fields_convert_decline(app, client):
     with app.app_context():
         l = db.session.get(M.IntakeLead, aid)
         assert l.value_cents == 450000 and l.assigned_user_id == 1 and l.next_follow_up_on == date(2026, 9, 10)
+        assert M.AuditLog.query.filter_by(entity="intake_lead", entity_id=aid, action="update").count() == 1
     r = client.get(f"/intake/{aid}")
     assert r.status_code == 200 and b"4500.0" in r.data and b"Follow-up sequences" in r.data
     r = client.get("/intake/pipeline")
     assert b"$4,500.00" in r.data
+    # a fields save that changes nothing writes no new audit entry
+    r = client.post(f"/intake/{aid}/fields", data={"_csrf": S["tok"], "value": "4,500.00", "assigned_user_id": "1",
+                                                  "next_follow_up_on": "2026-09-10", "lost_reason": ""})
+    assert r.status_code == 302
+    with app.app_context():
+        assert M.AuditLog.query.filter_by(entity="intake_lead", entity_id=aid, action="update").count() == 1
+    # status control (lead is already "contacted" from the stage move above; re-affirming it
+    # still writes an entry, and a status of "contacted" does not touch the pipeline stage)
+    r = client.post(f"/intake/{aid}/status", data={"_csrf": S["tok"], "status": "contacted"})
+    assert r.status_code == 302
+    with app.app_context():
+        l = db.session.get(M.IntakeLead, aid)
+        assert l.status == "contacted" and l.stage == "consult_scheduled"
+        entries = M.AuditLog.query.filter_by(entity="intake_lead", entity_id=aid, action="status").all()
+        assert len(entries) == 1 and entries[0].detail == "contacted -> contacted"
     # decline -> lost with reason
     r = client.post(f"/intake/{bid}/decline", data={"_csrf": S["tok"], "reason": "Went with another firm"})
     assert r.status_code == 302
@@ -399,6 +415,13 @@ def test_pipeline_stage_fields_convert_decline(app, client):
     r = client.post(f"/intake/{priya}/stage", data={"stage": "new"},
                     headers={"X-CSRF-Token": S["tok"], "X-Requested-With": "fetch"})
     assert r.status_code == 400
+    # a converted lead's status is refused too, and the refusal writes no audit entry
+    r = client.post(f"/intake/{priya}/status", data={"_csrf": S["tok"], "status": "new"})
+    assert r.status_code == 302
+    with app.app_context():
+        l = db.session.get(M.IntakeLead, priya)
+        assert l.status == "converted"
+        assert M.AuditLog.query.filter_by(entity="intake_lead", entity_id=priya, action="status").count() == 0
     r = client.get("/intake?status=all")
     assert r.status_code == 200 and b"Consult scheduled" in r.data
 
