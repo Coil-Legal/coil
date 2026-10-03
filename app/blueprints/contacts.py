@@ -83,7 +83,8 @@ def search_json():
 @bp.route("/new", methods=["GET", "POST"])
 @login_required
 def new():
-    c = Contact()
+    c = Contact(first_name="", last_name="", company_name="", email="", phone="", address="",
+                notes="", tags="", aliases="", language="", ledes_client_id="")
     if request.method == "POST":
         _fill(c, request.form)
         if not _valid(c):
