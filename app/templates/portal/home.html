@@ -66,8 +66,8 @@
   {% if all_matters %}
   <form method="post" action="{{ url_for('portal.upload') }}" enctype="multipart/form-data">{{ csrf() }}
     <div class="row">
-      <div><label>{{ t('portal.home.matter', lang) }}</label><select name="matter_id" required>{% for m in all_matters %}<option value="{{ m.id }}">{{ m.number }} {{ m.name }}</option>{% endfor %}</select></div>
-      <div><label>{{ t('portal.home.file', lang) }}</label><input type="file" name="file" required></div>
+      <div><label for="upload_matter_id">{{ t('portal.home.matter', lang) }}</label><select name="matter_id" id="upload_matter_id" required>{% for m in all_matters %}<option value="{{ m.id }}">{{ m.number }} {{ m.name }}</option>{% endfor %}</select></div>
+      <div><label for="upload_file">{{ t('portal.home.file', lang) }}</label><input type="file" name="file" id="upload_file" required></div>
     </div>
     <div class="actions"><button class="btn">{{ t('portal.home.upload', lang) }}</button></div>
   </form>

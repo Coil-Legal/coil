@@ -32,8 +32,8 @@
 
   <h3 style="margin-top:18px">Custom fields</h3>
   <table id="cf_table"><tr><th style="width:35%">Field</th><th>Value</th><th style="width:70px"></th></tr>
-  {% for k, v in c.custom_fields.items() %}<tr><td><input type="text" name="cf_key" value="{{ k }}"></td><td><input type="text" name="cf_value" value="{{ v }}"></td><td><button type="button" class="btn small secondary" data-remove-row>Remove</button></td></tr>{% endfor %}
-  <tr><td><input type="text" name="cf_key" placeholder="Date of birth, referral source"></td><td><input type="text" name="cf_value"></td><td><button type="button" class="btn small secondary" data-remove-row>Remove</button></td></tr>
+  {% for k, v in c.custom_fields.items() %}<tr><td><input type="text" name="cf_key" value="{{ k }}" aria-label="Custom field name"></td><td><input type="text" name="cf_value" value="{{ v }}" aria-label="Custom field value"></td><td><button type="button" class="btn small secondary" data-remove-row>Remove</button></td></tr>{% endfor %}
+  <tr><td><input type="text" name="cf_key" placeholder="Date of birth, referral source" aria-label="Custom field name"></td><td><input type="text" name="cf_value" aria-label="Custom field value"></td><td><button type="button" class="btn small secondary" data-remove-row>Remove</button></td></tr>
   </table>
   <div class="actions" style="margin-top:6px"><button type="button" class="btn small secondary" data-add-row="cf_table">Add field</button><span class="small muted">Blank field names are ignored.</span></div>
 

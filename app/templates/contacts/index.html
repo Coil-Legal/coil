@@ -3,8 +3,8 @@
 <div class="actions" style="margin:0"><a class="btn small" href="/contacts/new">New contact</a><a class="btn small secondary" href="/contacts/import">Import CSV</a><a class="btn small secondary" href="/contacts/new?kind=company">New company</a></div></div>
 <div class="card">
   <form method="get" class="searchbar">
-    <input type="text" name="q" value="{{ q }}" placeholder="Search name, email, phone, company">
-    <select name="only" style="width:auto"><option value="">Everyone</option><option value="clients" {{ 'selected' if only == 'clients' }}>Clients only</option></select>
+    <input type="text" name="q" value="{{ q }}" placeholder="Search name, email, phone, company" aria-label="Search contacts">
+    <select name="only" style="width:auto" aria-label="Filter by client status"><option value="">Everyone</option><option value="clients" {{ 'selected' if only == 'clients' }}>Clients only</option></select>
     <button class="btn secondary">Search</button>
     {% if q or only %}<a class="small" href="/contacts">Clear</a>{% endif %}
   </form>

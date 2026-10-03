@@ -14,7 +14,7 @@
 </style>
 <div class="topbar"><h1>Calendar</h1>
 <div class="actions" style="margin:0"><a class="btn small secondary" href="/calendar?month={{ prev_month.strftime('%Y-%m') }}">&larr; {{ prev_month.strftime('%b') }}</a><strong style="min-width:150px;text-align:center">{{ month_label }}</strong><a class="btn small secondary" href="/calendar?month={{ next_month.strftime('%Y-%m') }}">{{ next_month.strftime('%b') }} &rarr;</a><a class="btn small secondary" href="/calendar">Today</a>
-<select onchange="location.href='/calendar?month={{ first.strftime('%Y-%m') }}&user='+this.value" style="width:auto">
+<select onchange="location.href='/calendar?month={{ first.strftime('%Y-%m') }}&user='+this.value" style="width:auto" aria-label="Calendar view">
   <option value="all" {{ 'selected' if view == 'all' }}>All calendars</option>
   <option value="mine" {{ 'selected' if view == 'mine' }}>Mine + firm-wide</option>
   {% for u in users %}<option value="{{ u.id }}" {{ 'selected' if view == u.id|string }}>{{ u.name }}</option>{% endfor %}

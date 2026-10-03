@@ -7,19 +7,19 @@
     <input type="hidden" name="source" value="{{ source }}">
     <div class="hp" aria-hidden="true"><label>Website</label><input type="text" name="website" tabindex="-1" autocomplete="off"></div>
     <div class="row">
-      <div><label>Your name</label><input type="text" name="name" value="{{ values.get('name','') }}" required></div>
-      <div><label>Email</label><input type="email" name="email" value="{{ values.get('email','') }}"></div>
-      <div><label>Phone</label><input type="tel" name="phone" value="{{ values.get('phone','') }}"></div>
+      <div><label for="in_name">Your name</label><input type="text" name="name" id="in_name" value="{{ values.get('name','') }}" required></div>
+      <div><label for="in_email">Email</label><input type="email" name="email" id="in_email" value="{{ values.get('email','') }}"></div>
+      <div><label for="in_phone">Phone</label><input type="tel" name="phone" id="in_phone" value="{{ values.get('phone','') }}"></div>
     </div>
     <div class="row">
-      <div><label>What kind of matter is this?</label>
+      <div><label for="mt">What kind of matter is this?</label>
         <select name="matter_type" id="mt">{% for t in types %}<option value="{{ t }}" {{ 'selected' if values.get('matter_type') == t }}>{{ t }}</option>{% endfor %}</select></div>
-      <div id="mt_other" style="display:none"><label>Please describe the type</label><input type="text" name="matter_type_other" value="{{ values.get('matter_type_other','') }}"></div>
+      <div id="mt_other" style="display:none"><label for="in_matter_type_other">Please describe the type</label><input type="text" name="matter_type_other" id="in_matter_type_other" value="{{ values.get('matter_type_other','') }}"></div>
     </div>
-    <label>Briefly, what do you need help with?</label>
-    <textarea name="description">{{ values.get('description','') }}</textarea>
-    <label>Is there another person or company involved (for example the other side of a dispute or contract)?</label>
-    <input type="text" name="adverse_party" value="{{ values.get('adverse_party','') }}" placeholder="Name of the other party, if any">
+    <label for="in_description">Briefly, what do you need help with?</label>
+    <textarea name="description" id="in_description">{{ values.get('description','') }}</textarea>
+    <label for="in_adverse_party">Is there another person or company involved (for example the other side of a dispute or contract)?</label>
+    <input type="text" name="adverse_party" id="in_adverse_party" value="{{ values.get('adverse_party','') }}" placeholder="Name of the other party, if any">
     <div class="actions"><button class="btn">Send</button></div>
   </form>
 </div>

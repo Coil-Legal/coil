@@ -15,3 +15,15 @@ document.addEventListener('click', function (e) {
   t.textContent = fmt(s);
   if (running) setInterval(function () { s++; t.textContent = fmt(s); }, 1000);
 })();
+// Stopgap for templates that still write <label> as an untied sibling of its field
+// instead of a for/id pair: link it to the next form control so screen readers get a name.
+(function () {
+  var seq = 0;
+  document.querySelectorAll('label:not([for])').forEach(function (label) {
+    if (label.querySelector('input,select,textarea')) return;
+    var el = label.nextElementSibling;
+    if (!el || !/^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName) || el.type === 'hidden') return;
+    if (!el.id) { el.id = 'af-auto-label-' + (++seq); }
+    label.setAttribute('for', el.id);
+  });
+})();
