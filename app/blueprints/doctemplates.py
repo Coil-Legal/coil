@@ -451,11 +451,18 @@ def render_html_pdf(t, ctx, title):
     Plain fields are substituted after Jinja has rendered, not before, so a value that happens to contain
     {{ or {% cannot turn into template code, and CSS braces never reach the substitution at all.
     """
-    from ..services.pdf import DocPDF, html_to_pdf_body
+    from ..services.pdf import DocPDF, html_to_pdf_body, enable_unicode, reset_unicode
     html = MergeEnvironment(autoescape=True).from_string(t.body_html or "").render(**ctx)
     plain = {n: ctx[n] for n in plain_field_names(ctx.keys())}
     html = fill_plain_fields(html, plain)
-    pdf = DocPDF(Firm.get(), title=title)
+    firm = Firm.get()
+    pdf = DocPDF(firm, title=title)
+    # A template body or a typed merge value is free-text and routinely outside cp1252 (a
+    # firm address in Greek, a client name in Cyrillic). Decide the font before add_page(),
+    # which calls header() and writes text, or pdf.py's _clean() falls back to latin-1 and
+    # prints question marks for it, same failure as the signature certificate had.
+    reset_unicode()
+    enable_unicode(pdf, firm.name, firm.address, title, html)
     pdf.add_page()
     html_to_pdf_body(pdf, html)
     out = pdf.output()

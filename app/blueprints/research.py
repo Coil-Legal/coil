@@ -14,7 +14,7 @@ from markupsafe import Markup, escape
 from ..extensions import db
 from ..models import Matter, Document, Note, SavedAuthority, Firm, audit
 from ..helpers import login_required, current_user, parse_date
-from ..services.pdf import DocPDF, html_to_pdf_body
+from ..services.pdf import DocPDF, html_to_pdf_body, enable_unicode, reset_unicode
 from .. import llm
 from ..llm import LLMUnavailable
 from . import _courtlistener as cl
@@ -255,9 +255,8 @@ def saved_delete(id):
 def build_memo_pdf(matter, rows):
     """Research memo: one block per authority (case name, citation, court, date, notes). Returns PDF bytes."""
     firm = Firm.get()
-    pdf = DocPDF(firm, title=f"Research memo {matter.number}")
-    pdf.alias_nb_pages()
-    pdf.add_page()
+    title = f"Research memo {matter.number}"
+    pdf = DocPDF(firm, title=title)
     parts = [f"<h1>Research memo: {escape(matter.label)}</h1>",
              f"<p>Client: {escape(matter.client.display_name if matter.client else '')}. Prepared {date.today().strftime('%b %-d, %Y')}. "
              f"{len(rows)} authorit{'y' if len(rows) == 1 else 'ies'}.</p>"]
@@ -275,7 +274,15 @@ def build_memo_pdf(matter, rows):
             parts.append(f"<p>Excerpt: {escape(a.snippet[:600])}</p>")
     parts.append("<p>Source: CourtListener, a free public database run by Free Law Project. Verify every authority "
                  "against the official reporter before citing it.</p>")
-    html_to_pdf_body(pdf, "".join(parts))
+    html = "".join(parts)
+    # Case names, citations and notes are free text and routinely outside cp1252. Decide the
+    # font before add_page() like every other PDF builder, or set_font() asks for a family
+    # this pdf object never registered.
+    reset_unicode()
+    enable_unicode(pdf, firm.name, firm.address, title, html)
+    pdf.alias_nb_pages()
+    pdf.add_page()
+    html_to_pdf_body(pdf, html)
     return bytes(pdf.output())
 
 

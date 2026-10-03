@@ -465,6 +465,39 @@ def test_html_template_generates_pdf_document(app, owner):
     assert r.status_code == 200 and b"Which matter" in r.data
 
 
+def test_html_template_pdf_renders_non_latin_text(app, owner):
+    """A Greek template body and a Greek typed merge value must survive into the PDF, not turn into '?'.
+
+    DejaVu is bundled for exactly this (see services/pdf.py), but render_html_pdf never
+    switched the document to it, so every glyph outside cp1252 was replaced with '?' on
+    the way through fpdf's core Helvetica font.
+    """
+    c, tok = owner
+    mid, client_name = _matter(app, "M-1001")
+    r = c.post("/doctemplates/new", data={"_csrf": tok, "name": "Greek letter", "kind": "html",
+                                          "practice_area": "Business", "is_active": "1",
+                                          "body_html": "<p>{{ client_name }}</p><p>Σημείωση: Καλημέρα {DEADLINE}</p>"})
+    assert r.status_code == 302, r.data[:300]
+    tid = int(re.search(r"/doctemplates/(\d+)/edit", r.headers["Location"]).group(1))
+    from app.models import DocTemplate, Document
+    with app.app_context():
+        assert DocTemplate.query.get(tid).fields == ["client_name", "DEADLINE"]
+    r = c.post(f"/doctemplates/{tid}/generate", data={"_csrf": tok, "matter_id": str(mid),
+                                                      "f_DEADLINE": "Οκτωβρίου 2026"}, follow_redirects=True)
+    assert r.status_code == 200 and b"Generated" in r.data
+    with app.app_context():
+        doc = Document.query.filter_by(matter_id=mid, template_id=tid).first()
+        full = os.path.join(UPLOAD_DIR, doc.path)
+        extracted = doc.extracted_text or ""
+    data = open(full, "rb").read()
+    assert data[:5] == b"%PDF-"
+    from pypdf import PdfReader
+    text = PdfReader(io.BytesIO(data)).pages[0].extract_text()
+    assert "Σημείωση" in text and "Καλημέρα" in text and "Οκτωβρίου" in text
+    assert "?" not in text  # no stray question marks standing in for glyphs
+    assert "Σημείωση" in extracted and "Οκτωβρίου" in extracted
+
+
 def test_build_context_fields(app):
     from app.blueprints.doctemplates import build_context, snake
     from app.models import Matter

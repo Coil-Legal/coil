@@ -13,6 +13,7 @@ from ..models import Firm, Contact, Matter, Invoice, Payment, CreditNote, audit
 from ..helpers import login_required, current_user, parse_date, fmt_money
 from ..services.mail import send_email
 from .invoices import TemplatePDF, invoice_settings, _pdf_txt, _para, OPEN_STATUSES
+from ..services.pdf import enable_unicode, reset_unicode
 
 bp = Blueprint("statements", __name__, url_prefix="/statements")
 
@@ -164,7 +165,16 @@ def render_statement_pdf(st):
     def money(c):
         return _pdf_txt(fmt_money(c, cur))
 
-    pdf = TemplatePDF(firm, f"Statement for {client.display_name}", tpl)
+    title = f"Statement for {client.display_name}"
+    pdf = TemplatePDF(firm, title, tpl)
+    # A client name, address or invoice/matter description is free text and routinely
+    # outside cp1252. Decide the font before add_page() like every other PDF builder, or
+    # set_font() below asks for a family this pdf object never registered.
+    reset_unicode()
+    enable_unicode(pdf, firm.name, firm.address, title, client.display_name, client.address, client.email,
+                   tpl.statement_footer, firm.invoice_footer,
+                   *[e["description"] for e in st["entries"]],
+                   *[g["matter"].label if g["matter"] else "" for g in st["groups"]])
     pdf.alias_nb_pages()
     pdf.add_page()
     pdf.heading("STATEMENT OF ACCOUNT")

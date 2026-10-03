@@ -248,7 +248,13 @@ def _signature_block(pdf, e):
 
 def build_signed_pdf(e):
     f = Firm.get()
-    pdf = pdfsvc.DocPDF(f, title=e.subject or "Engagement letter")
+    title = e.subject or "Engagement letter"
+    pdf = pdfsvc.DocPDF(f, title=title)
+    # The letter body is template text and the signer name is free-text from a public form;
+    # either can be outside cp1252. Decide the font before add_page() like every other PDF
+    # builder, or set_font() below asks for a family this pdf object never registered.
+    pdfsvc.reset_unicode()
+    pdfsvc.enable_unicode(pdf, f.name, f.address, title, e.body_html, e.signer_name, e.signer_email)
     pdf.add_page()
     pdfsvc.html_to_pdf_body(pdf, e.body_html)
     _signature_block(pdf, e)
@@ -258,7 +264,10 @@ def build_signed_pdf(e):
 
 def build_draft_pdf_bytes(e):
     f = Firm.get()
-    pdf = pdfsvc.DocPDF(f, title=f"DRAFT {e.subject or 'Engagement letter'}")
+    title = f"DRAFT {e.subject or 'Engagement letter'}"
+    pdf = pdfsvc.DocPDF(f, title=title)
+    pdfsvc.reset_unicode()
+    pdfsvc.enable_unicode(pdf, f.name, f.address, title, e.body_html)
     pdf.add_page()
     pdf.set_font("Helvetica", "B", 12)
     pdf.set_text_color(179, 38, 30)
