@@ -76,3 +76,12 @@ def test_links_in_running_text_get_a_non_color_cue():
 def test_card_scrolls_its_own_overflow_instead_of_widening_the_page():
     css = _css()
     assert re.search(r"\.card\{[^}]*overflow-x:auto", css)
+
+
+def test_links_in_empty_states_and_definition_lists_are_underlined():
+    """Bot 1's final rescan (cases 1457, 1460): the "add splits" link in a matter's empty
+    fee-split state and the conflict-check link on a lead's details list were still told
+    apart by colour only."""
+    css = _css()
+    assert re.search(r"\.empty a[^{]*\{[^}]*text-decoration:underline", css)
+    assert re.search(r"dd a[^{]*\{[^}]*text-decoration:underline", css)

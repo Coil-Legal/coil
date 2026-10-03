@@ -34,7 +34,7 @@ textarea{min-height:90px}input:focus,select:focus,textarea:focus{outline:2px sol
 .badge.overdue,.badge.void,.badge.conflict,.badge.declined,.badge.closed{background:#f8e0de;color:var(--bad)}
 .badge.draft,.badge.waived,.badge.unresolved{background:#f4e9d2;color:var(--warn)}
 .muted{color:var(--muted)}.small{font-size:.85rem}.right{text-align:right}.nowrap{white-space:nowrap}
-.muted a,td a:not(.btn){text-decoration:underline}
+.muted a,td a:not(.btn),.empty a,dd a{text-decoration:underline}
 .flash{padding:10px 14px;border-radius:6px;margin-bottom:14px;background:#e4eefb;color:#1f4f8b}.flash.error{background:#f8e0de;color:var(--bad)}.flash.ok{background:#dff3e8;color:var(--ok)}
 .empty{color:var(--muted);padding:18px;text-align:center}
 .tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:14px;flex-wrap:wrap}.tabs a{padding:8px 12px;border-bottom:2px solid transparent;color:var(--muted)}.tabs a.active{border-color:var(--accent);color:var(--ink);font-weight:600}

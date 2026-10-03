@@ -119,3 +119,14 @@ def test_milestone_due_date_inputs_have_accessible_names(app):
         matter_id = Matter.query.first().id
     html = c.get(f"/matters/{matter_id}/edit").get_data(as_text=True)
     assert html.count('name="ms_due" aria-label="Milestone due date"') >= 1
+
+
+def test_matter_custom_field_inputs_have_accessible_names(app):
+    """Bot 1's final rescan (case 1458): the new-matter custom field value box sits in a
+    table cell with no label the sibling script can reach."""
+    from tests.helpers import login
+    c = app.test_client()
+    login(c)
+    html = c.get("/matters/new").get_data(as_text=True)
+    assert 'name="cf_key" aria-label="Custom field name"' in html
+    assert 'name="cf_value" aria-label="Custom field value"' in html

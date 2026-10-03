@@ -58,8 +58,8 @@
 
   <h3 style="margin-top:18px">Custom fields</h3>
   <table id="cf_table"><tr><th style="width:35%">Field</th><th>Default value (blank is fine)</th><th style="width:70px"></th></tr>
-  {% for k, v in t.custom_fields.items() %}<tr><td><input type="text" name="cf_key" value="{{ k }}"></td><td><input type="text" name="cf_value" value="{{ v }}"></td><td><button type="button" class="btn small secondary" data-remove-row>Remove</button></td></tr>{% endfor %}
-  <tr><td><input type="text" name="cf_key" placeholder="Claim number"></td><td><input type="text" name="cf_value"></td><td><button type="button" class="btn small secondary" data-remove-row>Remove</button></td></tr>
+  {% for k, v in t.custom_fields.items() %}<tr><td><input type="text" name="cf_key" aria-label="Custom field name" value="{{ k }}"></td><td><input type="text" name="cf_value" aria-label="Custom field value" value="{{ v }}"></td><td><button type="button" class="btn small secondary" data-remove-row>Remove</button></td></tr>{% endfor %}
+  <tr><td><input type="text" name="cf_key" aria-label="Custom field name" placeholder="Claim number"></td><td><input type="text" name="cf_value" aria-label="Custom field value"></td><td><button type="button" class="btn small secondary" data-remove-row>Remove</button></td></tr>
   </table>
   <div class="actions" style="margin-top:6px"><button type="button" class="btn small secondary" data-add-row="cf_table">Add field</button><span class="small muted">Defaults never overwrite a value already on the matter.</span></div>
 
