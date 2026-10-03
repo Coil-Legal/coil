@@ -24,6 +24,9 @@ send to the QA inbox) and then check the result, with every test record named `Q
 the date, and the next handoff posted in the same comment that records the last result.
 Reads of pages that are empty because nothing was created do not count as cases.
 Invoicing, payments, multi-currency and the AI assistant (P1-AI) stay parked.
+They moved to Phase 2 on 2026-10-03, so Phase 1 is 21 tools. Open Phase 1 tools now get
+one sign-off batch each, then a decision: see "Sign-off batches" in docs/QA-HANDOFF.md.
+A name that must match nothing is built when the case runs, never written in a handoff.
 
 ## Two QA bots
 

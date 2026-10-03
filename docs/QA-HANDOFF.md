@@ -35,6 +35,12 @@ Batching took the loop from 2 cases an hour to 13.5. Two things now limit it:
 7. **Leave testfirm as you found it** when a batch changes firm-wide settings. The last
    case of such a batch puts the setting back and confirms it.
 
+8. **A name that must match nothing is built when the case runs, never written in the
+   handoff.** testfirm files every #12 notification email as a message, so a "made-up"
+   name typed into a handoff is already in the firm and gets an exact hit (case 1162).
+   Tell the bot to build it, for example `QA Nohit` plus the clock time it runs the case,
+   or give no-match cases to Bot 2, whose firm takes in no mail.
+
 ## Two bots
 
 Bot 1 (`grokshaz`) runs on testfirm from issue #12. Bot 2 runs on qa2.coil.legal from issue
@@ -106,3 +112,92 @@ named `QA2` plus the date. Read the current state first and put it back at the e
 
 Expected outcome if all pass: the switches hide and restore cleanly, nothing is lost, client
 links survive, dependents follow their parent, and only the owner can change it.
+
+## Sign-off batches (Ian, 2026-10-03)
+
+Phase 1 is now 21 tools: invoicing, payments and the AI assistant moved to Phase 2. Most
+Phase 1 tools already pass case after case, so more breadth no longer moves the count.
+Each open tool now gets **one sign-off batch** on the current release, then a decision.
+
+**What a sign-off batch is:** 12 to 15 cases that run the tool's core jobs end to end on
+the current `/health` commit, acting rather than reading, with the edges from rule 4 and
+at least one non-owner role. It re-proves on today's code what earlier batches proved on
+older builds. It does not hunt new corners.
+
+**After the result:**
+- All PASS: the coordinator marks the tool `QA complete` on the Tools tab, with the
+  release, the result link, and the accepted limitations below copied into "Remaining
+  before signoff" as limitations, not open work.
+- A FAIL: it is filed, fixed, and only the failing cases are rerun. Then mark it.
+- A limitation not listed here goes to Ian before the tool is marked.
+
+The outlines below say what to cover. The coordinator turns each into an exact handoff:
+fixture IDs, expected flashes and the do-not-touch list.
+
+### Calendar, deadlines and court rules (Bot 1, #12)
+Accepted limitations: subscribing from an outside calendar app (Google, Apple, Outlook)
+is not bot-tested; choosing the second of two repeated clock times and editing one
+occurrence of a series are not built; court-specific rule completeness is the Phase 2 row.
+1. Baseline: month view, count of this month's events.
+2. Create a timed firm-wide event `QA Signoff Cal` plus the date. Expect the flash and the grid.
+3. Edit its time. Expect the grid, the event page and the owner feed to show the new time once, same UID.
+4. All-day event on a month's last day. Expect that day only, in grid and feed.
+5. Monthly repeat from Jan 31 2027 to Jun 30 2027. Expect Feb 28, Mar 31, Apr 30.
+6. Weekly 09:00 Chicago event across the March 2027 clock change. Expect 09:00 local on both sides.
+7. Empty title, and an end before the start. Expect both refused, nothing saved.
+8. Non-Latin title. Expect it saved and shown exactly.
+9. New matter `QA Signoff Matter` plus the date; apply a rule set with a Jan 31 trigger. Expect previewed dates equal saved task dates.
+10. A deadline landing on a weekend. Expect it rolled as the rule says.
+11. Mark one generated task done, then undone. Expect it to leave and return to the feed.
+12. Second role: the staff user opens the event and the matter's deadlines. Expect what the role matrix allows.
+13. Delete the repeating series. Expect it gone from grid and feed.
+14. Clean up the batch's events; close the matter.
+15. What remains: fixtures intact, nothing from this batch left but the closed matter.
+
+### Conflict check (Bot 1, #12)
+Accepted limitations: Greek and Cyrillic names are matched exactly and through saved
+other names, not transliterated automatically; no large-firm scale test.
+1. Baseline: check history count.
+2. Create a QA person contact. Run a check on the exact name. Expect an exact hit, unresolved.
+3. Same name in different case and spacing. Expect the same hit.
+4. Add an other name. Check on it. Expect a hit on that contact.
+5. QA company contact. Check on the company name. Expect a hit.
+6. Add the person as adverse party on a QA matter. Check. Expect the party role shown.
+7. A QA intake lead. Check its name. Expect a lead hit.
+8. Non-Latin exact name. Expect an exact hit.
+9. No-match name built when the case runs (rule 8). Expect clear, zero hits.
+10. Waive with no reason. Expect refused.
+11. Waive with a reason, then mark unresolved. Expect both flashes and history.
+12. Staff user runs a check. Expect allowed, recorded under that user.
+13. Clean up the batch's contacts, lead and matter.
+14. What remains: checks 89 and 99 to 110 untouched.
+
+### Client portal (Bot 1, #12)
+Accepted limitations: paying from the portal is Phase 2 with payments; screen-reader
+coverage is the Phase 2 accessibility row.
+1. Create a QA client contact with a QA matter.
+2. Upload a small document to the matter and share it to the portal.
+3. Request a sign-in link; read it in `/qa-mail/` as owner.
+4. Open it. Expect the shared document listed.
+5. Download it. Expect the same size and bytes as uploaded.
+6. Unshare it while the client is signed in. Expect it gone and its direct URL refused.
+7. Second QA client contact signs in. Expect no access to the first client's document by URL.
+8. First client uploads a small file with a non-Latin name. Expect it on the matter, marked as from the client.
+9. Client sends a portal message. Expect it in the firm's messages; no SMS.
+10. Portal at 390px wide. Expect no sideways scrolling and every control reachable.
+11. Sign out. Expect the login page; the old link refused.
+12. Clean up the batch's contacts, matter and documents.
+
+### Users, roles, offices and audit (Bot 2, #89)
+After Matters and Offices 5064 to 5076. One sweep: each role (attorney, paralegal,
+billing, readonly) tries one allowed and one refused action in settings, trust, matters
+and reports; deactivating a user ends their session; the last owner cannot be demoted;
+Settings > Tools stays owner-only; every change lands in the audit log.
+
+### Intake and leads (Bot 2, #89)
+Reopened by the 7acb3a4 decline fix. The intake regression batch already planned in
+`docs/PHASE1-READINESS.md` is its sign-off batch.
+
+### Not batches
+- **Messages:** waits on Ian's text from a phone. Outbound can be signed off now.
+- **Backup, restore and self-update:** an operator test on a disposable copy, not a bot batch.
