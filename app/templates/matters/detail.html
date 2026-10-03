@@ -44,7 +44,7 @@
     {% if m.description %}<h3 style="margin-top:12px">Description</h3><p style="white-space:pre-line">{{ m.description }}</p>{% endif %}
     {# ---- Agent B: apply a template to an existing matter ---- #}
     {% if templates %}<form method="post" action="/matters/{{ m.id }}/apply-template" class="searchbar" style="margin-top:12px">{{ csrf() }}
-      <select name="template_id" style="width:auto"><option value="">Apply a template</option>{% for t in templates %}<option value="{{ t.id }}">{{ t.name }}</option>{% endfor %}</select>
+      <select name="template_id" aria-label="Apply a template" style="width:auto"><option value="">Apply a template</option>{% for t in templates %}<option value="{{ t.id }}">{{ t.name }}</option>{% endfor %}</select>
       <button class="btn small secondary" data-confirm="Add this template's milestones, tasks and fields to the matter? Nothing already on the matter is overwritten.">Apply</button>
     </form>{% endif %}
     {# ---- end Agent B block ---- #}
@@ -142,7 +142,7 @@
 <td class="right"><form method="post" action="/documents/{{ d.id }}/delete" class="inline">{{ csrf() }}<input type="hidden" name="next" value="/matters/{{ m.id }}?tab=documents"><button class="btn small secondary" data-confirm="Delete {{ d.name }}?">Delete</button></form></td></tr>{% endfor %}</table>
 {% else %}<div class="empty">No documents yet.</div>{% endif %}
 <form method="post" action="/documents/upload" enctype="multipart/form-data" style="margin-top:12px">{{ csrf() }}<input type="hidden" name="matter_id" value="{{ m.id }}"><input type="hidden" name="next" value="/matters/{{ m.id }}?tab=documents">
-  <label>Upload a file (25 MB max)</label><div class="actions" style="margin-top:0"><input type="file" name="file" required><label style="margin:0;display:inline-flex;gap:6px;align-items:center;color:var(--ink)"><input type="checkbox" name="shared_to_portal" value="1"> Share to client portal</label><button class="btn small">Upload</button></div></form></div>
+  <label>Upload a file (25 MB max)</label><div class="actions" style="margin-top:0"><input type="file" name="file" aria-label="Upload a file (25 MB max)" required><label style="margin:0;display:inline-flex;gap:6px;align-items:center;color:var(--ink)"><input type="checkbox" name="shared_to_portal" value="1"> Share to client portal</label><button class="btn small">Upload</button></div></form></div>
 
 {% elif tab == 'engagements' %}
 <div class="card"><div class="topbar" style="margin-bottom:10px"><h2>Engagement letters</h2><div class="actions" style="margin:0"><a class="btn small" href="/engagements/new?matter_id={{ m.id }}">New engagement letter</a></div></div>

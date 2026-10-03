@@ -91,3 +91,31 @@ def test_calendar_view_picker_has_an_accessible_name(app):
     login(c)
     html = c.get("/calendar").get_data(as_text=True)
     assert 'aria-label="Calendar view"' in html
+
+
+def test_matter_apply_template_select_and_upload_file_input_have_accessible_names(app):
+    from tests.helpers import login
+    from app.extensions import db
+    from app.models import Matter, MatterTemplate
+    c = app.test_client()
+    login(c)
+    with app.app_context():
+        matter_id = Matter.query.first().id
+        if not MatterTemplate.query.filter_by(is_active=True).first():
+            db.session.add(MatterTemplate(name="Standard engagement", is_active=True))
+            db.session.commit()
+    overview_html = c.get(f"/matters/{matter_id}?tab=overview").get_data(as_text=True)
+    assert 'name="template_id" aria-label="Apply a template"' in overview_html
+    documents_html = c.get(f"/matters/{matter_id}?tab=documents").get_data(as_text=True)
+    assert 'name="file" aria-label="Upload a file (25 MB max)"' in documents_html
+
+
+def test_milestone_due_date_inputs_have_accessible_names(app):
+    from tests.helpers import login
+    from app.models import Matter
+    c = app.test_client()
+    login(c)
+    with app.app_context():
+        matter_id = Matter.query.first().id
+    html = c.get(f"/matters/{matter_id}/edit").get_data(as_text=True)
+    assert html.count('name="ms_due" aria-label="Milestone due date"') >= 1

@@ -48,13 +48,13 @@
     {% for ms in m.milestones %}<tr>
       <td><input type="hidden" name="ms_id" value="{{ ms.id }}">{% if ms.invoiced %}<input type="text" name="ms_description" value="{{ ms.description }}" readonly> <span class="badge paid">invoiced</span>{% else %}<input type="text" name="ms_description" value="{{ ms.description }}">{% endif %}</td>
       <td><input type="text" name="ms_amount" value="{{ (ms.amount_cents / 100)|round(2) }}" {{ 'readonly' if ms.invoiced }}></td>
-      <td><input type="date" name="ms_due" value="{{ ms.due_on|iso }}" {{ 'readonly' if ms.invoiced }}></td>
+      <td><input type="date" name="ms_due" aria-label="Milestone due date" value="{{ ms.due_on|iso }}" {{ 'readonly' if ms.invoiced }}></td>
       <td>{% if not ms.invoiced %}<button type="button" class="btn small secondary" data-remove-row>Remove</button>{% endif %}</td>
     </tr>{% endfor %}
     {% for _ in range(2 if is_new else 1) %}<tr>
       <td><input type="hidden" name="ms_id" value=""><input type="text" name="ms_description" placeholder="Retainer on signing"></td>
       <td><input type="text" name="ms_amount" placeholder="0.00"></td>
-      <td><input type="date" name="ms_due"></td>
+      <td><input type="date" name="ms_due" aria-label="Milestone due date"></td>
       <td><button type="button" class="btn small secondary" data-remove-row>Remove</button></td>
     </tr>{% endfor %}
     </table>
