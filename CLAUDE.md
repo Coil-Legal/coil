@@ -75,8 +75,9 @@ title that names the tool ("Calendar", "Conflict checks") files it under the rig
 runs every 10 minutes (`~/.claude/scripts/coil-qa-coordinator.sh`, instructions in
 `~/.claude/scheduled-tasks/coil-qa-coordinator/SKILL.md`, log
 `~/.claude/logs/coil-qa-coordinator.log`). It records each bot result on #12 and #89 and posts
-the next batch from `docs/QA-QUEUE.md`, signed `[Claude]`. To give a bot work, add a batch to
-that file; nothing queued means the bots stand by. Codex and Cursor do not post on #12 or #89
+the next batch from `docs/QA-QUEUE.md`, signed `[Claude]`. To steer a bot, add a batch to
+that file. When nothing is queued, the coordinator writes the next batch itself from the
+backlog in that file (Ian: a bot that finishes always gets a new batch). Codex and Cursor do not post on #12 or #89
 while it runs; if Ian hands a seat back to one of them, pause the job first
 (`launchctl bootout gui/$(id -u)/com.iandolan.coil-qa-coordinator`).
 
