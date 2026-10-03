@@ -25,7 +25,7 @@ clean firm. Invoicing, payments, multi-currency, trust and the AI assistant stay
 ## Bot 1 (#12, grokshaz, testfirm.coil.legal)
 
 ### R1. Re-certify tasks, documents and e-signature
-status: queued
+status: posted https://github.com/Coil-Legal/coil/issues/12#issuecomment-5972084249 2026-10-03T18:17:22Z
 
 Re-certification on today's build of three tools signed off days ago. Create only records named `QA Recert 20261003`. Use matter 3112 (M-1088, closed) only to read; for anything you create, use a new matter `QA Recert Matter 20261003` for client contact 1852 (`QA Day Client 20261003`), office none, no template.
 
@@ -44,7 +44,7 @@ Re-certification on today's build of three tools signed off days ago. Create onl
 13. Delete the task (`Task deleted.`), delete the Greek-named file, and close the matter. The signed document and its certificate stay.
 
 ### R2. Re-certify personal injury, criminal defense and discovery
-status: queued
+status: posted https://github.com/Coil-Legal/coil/issues/12#issuecomment-5972379583 2026-10-03T18:52:40Z
 
 Re-certification on today's build. Create only records named `QA Recert 20261003`. Do not click any AI button (Tailor with AI, Draft responses with AI, Re-run AI, Summarise). Do not touch a settlement worksheet or anything that posts to trust.
 
@@ -63,7 +63,7 @@ Re-certification on today's build. Create only records named `QA Recert 20261003
 13. Close both new matters. Report everything created.
 
 ### R3. Re-certify research, reports and exports
-status: queued
+status: posted https://github.com/Coil-Legal/coil/issues/12#issuecomment-5972722291 2026-10-03T19:28:00Z
 
 Re-certification on today's build. Read-mostly. Do not click Summarise or any AI button. Create only records named `QA Recert 20261003`.
 
@@ -79,7 +79,7 @@ Re-certification on today's build. Read-mostly. Do not click Summarise or any AI
 10. Close the PI matter again if you reopened it. Report everything created.
 
 ### R4. Re-certify API tokens and webhooks
-status: queued
+status: posted https://github.com/Coil-Legal/coil/issues/12#issuecomment-5973184840 2026-10-03T20:26:00Z
 
 Re-certification on today's build. Never paste a token. Token `QA-MCP-20260930` stays; do not revoke or edit it. Webhooks 9 and 10 stay paused; do not edit webhooks 1 to 10.
 
@@ -98,7 +98,7 @@ Re-certification on today's build. Never paste a token. Token `QA-MCP-20260930` 
 ## Bot 2 (#89, QA Bot 2, qa2.coil.legal)
 
 ### S1. Security sweep: clients cannot reach each other, roles cannot climb
-status: queued
+status: posted https://github.com/Coil-Legal/coil/issues/89#issuecomment-5972084478 2026-10-03T18:17:22Z
 
 A deliberate attempt to break the walls between clients and between roles, on your own clean firm. Create only records named `QA2 Sec ... 20261003`, emails ending `@example.test`. Portal sign-in links are in the owner-only `/dev/outbox`; open them there in a separate browser session and never paste them. Every refused request must actually be sent: a request that never left the browser is BLOCKED, not PASS.
 
@@ -117,7 +117,7 @@ A deliberate attempt to break the walls between clients and between roles, on yo
 13. Clean up: unshare both documents, close both matters, deactivate both new users. Report everything created and its final state.
 
 ### S2. Security sweep: public endpoints and tokens
-status: queued
+status: posted https://github.com/Coil-Legal/coil/issues/89#issuecomment-5972515133 2026-10-03T19:02:56Z
 
 Public doors and bearer tokens. Same naming and the same rule that an unsent request is BLOCKED.
 
@@ -131,3 +131,33 @@ Public doors and bearer tokens. Same naming and the same rule that an unsent req
 8. Revoke the owner token. `GET /api/me` with it: 401.
 9. Send `GET /matters/<MX id>?tab=../../settings` and `GET /contacts?q=%27%20OR%201%3D1--` as owner. Both return normal pages or a clean 404, never an error page or another firm's data.
 10. Deactivate the readonly user again. Report everything created and its final state.
+
+### S3. Security sweep: hostile text and hostile files
+status: queued
+
+Stored script injection and dangerous uploads, on your own firm. Create only records named `QA2 Sec ... 20261003`. A refused request must actually be sent. Never open a file you uploaded in a way that could run it on your own machine; read headers and page source instead.
+
+1. Create contact `QA2 Sec <b>bold</b> 20261003` with notes `<script>alert(1)</script> QA2 Sec 20261003` and a tag `"><img src=x onerror=alert(2)>`. Open the contact page, the contacts list and the conflict check on that name. The text shows literally; view source shows it escaped (`&lt;script&gt;`), and no script runs.
+2. Give that contact client status and a matter `QA2 Sec XSS Matter <svg onload=alert(3)> 20261003`. The matter page, the matters list, the dashboard and the audit log show the name as text, escaped in source.
+3. Portal: share a document on that matter and sign in as that client (link from `/dev/outbox`, not pasted). The portal shows the matter name and the contact name escaped. Send a portal message `<script>alert(4)</script>`; the staff thread shows it as text.
+4. Public intake form: submit name `QA2 Sec <script>alert(5)</script> 20261003` and description `<iframe src=//example.test>`. The owner's lead page, the pipeline and the `/dev/outbox` notice show both as text.
+5. Upload `qa2-sec-20261003.html` containing `<script>alert(6)</script>` to the matter. Download it from the staff page and from the portal. Report the `Content-Type`, `Content-Disposition` and `X-Content-Type-Options` headers on each. Expect `attachment` and `nosniff`; the browser must not render it as a page on the Coil origin.
+6. Upload `qa2-sec-20261003.svg` containing `<svg xmlns="http://www.w3.org/2000/svg" onload="alert(7)"/>`. Same header check. If any page shows a preview of it inline, report the page and whether the script runs.
+7. Upload a file named `../../qa2-sec-20261003.txt` and one named `qa2-sec-20261003.txt.exe`. Report the stored names; neither may escape the matter's folder, and Coil may keep or refuse the `.exe` but must never serve it inline.
+8. Upload a file of exactly 25 MB plus one byte. Expect a refusal naming the 25 MB limit and nothing stored.
+9. Response headers on the dashboard: report `Content-Security-Policy`, `X-Frame-Options` (or `frame-ancestors`), `Referrer-Policy` and `Strict-Transport-Security`.
+10. Clean up: unshare the documents, close the matter, delete the uploaded files. Leave the contact. Report everything created and its final state.
+
+### S4. Security sweep: every role against every area, and the session itself
+status: queued
+
+A systematic map rather than spot checks. Use the inactive users 10 (paralegal) and 11 (readonly) from S1, reactivated for this batch, and create `QA2 Sec Attorney 20261003` (attorney) and `QA2 Sec Billing 20261003` (billing). Deactivate all four at the end.
+
+1. For each of the four roles, GET each of these and record the HTTP status: `/`, `/contacts`, `/matters`, `/intake`, `/conflicts`, `/tasks`, `/calendar`, `/documents`, `/messages`, `/time`, `/reports`, `/exports`, `/trust`, `/invoices`, `/payments`, `/settings`, `/settings/users`, `/settings/tools`, `/settings/api`, `/audit`, `/dev/outbox`, `/import`. Present it as one table, role by route. Compare it with the role descriptions on `/settings/users`; any route a role can open that its description says it cannot is a finding.
+2. For readonly, send a POST with a valid CSRF token to `/contacts/new`, `/matters/new`, `/tasks/new` and `/calendar/new`. Each must be refused with nothing saved.
+3. For billing, send a POST with a valid CSRF token to `/contacts/new` and to a closed matter's edit URL. Each must be refused (billing reads matters and contacts but does not change them).
+4. Owner signs in, copies the session cookie value into a second client, then logs out in the first. The second client's next request must go to the login page.
+5. The session cookie has `Secure`, `HttpOnly` and `SameSite=Lax` (or stricter). Report the flags.
+6. Five wrong passwords for user 10 in a row, then the right one. Report what happens at each step (lockout, delay or nothing). Then sign in normally after any lockout clears, or record that it did not.
+7. Password reset (if offered on the login page) for `qa2-sec-x-20261003@example.test`, a client contact, not a user: expect the same neutral message as for a real user and no email in `/dev/outbox`.
+8. Deactivate the four users. Report the final state.
