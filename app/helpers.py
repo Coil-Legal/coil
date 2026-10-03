@@ -214,9 +214,10 @@ def check_csrf():
 
 
 def emit_event(name, payload):
-    """Queue one outgoing-webhook delivery per active Webhook subscribed to `name` and try to send each
-    right away. Returns the WebhookDelivery ids created. Call it after your own commit: it writes through
-    its own short-lived session so it is safe from SQLAlchemy after_commit hooks too. Implemented in
+    """Queue one outgoing-webhook delivery per active Webhook subscribed to `name`; the HTTP attempts
+    run on a background thread so a slow or dead endpoint never blocks the caller. Returns the
+    WebhookDelivery ids created. Call it after your own commit: it writes through its own short-lived
+    session so it is safe from SQLAlchemy after_commit hooks too. Implemented in
     app/blueprints/webhooks_out.py; this is the import-friendly entry point."""
     from .blueprints.webhooks_out import deliver_event
     return deliver_event(name, payload)

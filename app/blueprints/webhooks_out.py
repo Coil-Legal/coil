@@ -4,6 +4,8 @@ Events are collected by SQLAlchemy mapper listeners during a flush (matter.creat
 parked on the session, and delivered right after the commit succeeds so a rolled-back change never fires a
 webhook. Delivery rows are written through a short-lived Session bound to the engine, which keeps them out of
 the caller's transaction and makes `deliver_event` safe to call from anywhere, including after_commit hooks.
+The HTTP attempts themselves run on a background thread (inline only under TESTING), so the request that
+triggered the event is never held open waiting on someone else's slow or dead endpoint.
 
 Each POST carries the JSON body, `X-Coil-Event`, `X-Coil-Delivery` and `X-Coil-Signature: sha256=<hmac>` where
 the HMAC is computed over the raw body with the webhook's secret. `python -m app.cli webhooks` retries failed
@@ -15,6 +17,7 @@ import ipaddress
 import json
 import logging
 import socket
+import threading
 from datetime import date, datetime, timedelta
 from urllib.parse import urlsplit
 
@@ -161,31 +164,52 @@ def attempt_delivery(delivery, hook):
     return False
 
 
+def _attempt_pending(engine, pairs):
+    """Load each (delivery id, webhook id) pair in a fresh Session and attempt it once. Runs
+    either inline or on a background thread; never touches the caller's transaction."""
+    with Session(engine) as s:
+        for did, hid in pairs:
+            d, h = s.get(WebhookDelivery, did), s.get(Webhook, hid)
+            if not d or not h:
+                continue
+            try:
+                attempt_delivery(d, h)
+            except Exception:
+                log.exception("webhook delivery %s failed", did)
+        s.commit()
+
+
 def deliver_event(name, payload):
-    """Create one WebhookDelivery per active webhook subscribed to `name` and try each once.
-    Returns the delivery ids. Uses its own Session so it never touches the caller's transaction."""
+    """Create one WebhookDelivery per active webhook subscribed to `name`. The HTTP attempts run
+    on a background thread, with their own Session, so a slow or dead endpoint never makes the
+    caller's request wait on it (#93) - except under TESTING, where they run inline so a test can
+    see the result right after the triggering commit. Returns the delivery ids."""
     engine = db.engine
     if not _tables_ready(engine):
         return []
     envelope = {"event": name, "created_at": now().isoformat(), "data": {k: _j(v) for k, v in (payload or {}).items()}}
     body = json.dumps(envelope, sort_keys=True)
-    ids = []
     with Session(engine) as s:
         hooks = [h for h in s.query(Webhook).filter(Webhook.is_active == True).all()  # noqa: E712
                  if name in hook_events(h)]
         if not hooks:
             return []
-        deliveries = []
+        pairs = []
         for h in hooks:
             d = WebhookDelivery(webhook_id=h.id, event=name, payload_json=body, status="pending", attempts=0)
             s.add(d)
-            deliveries.append((d, h))
+            pairs.append((d, h))
         s.commit()
-        for d, h in deliveries:
-            attempt_delivery(d, h)
-            ids.append(d.id)
-        s.commit()
-    return ids
+        pairs = [(d.id, h.id) for d, h in pairs]
+    try:
+        inline = bool(current_app.testing)
+    except RuntimeError:  # no app context; default to the safe, blocking behavior
+        inline = True
+    if inline:
+        _attempt_pending(engine, pairs)
+    else:
+        threading.Thread(target=_attempt_pending, args=(engine, pairs), daemon=True).start()
+    return [did for did, _ in pairs]
 
 
 def due_for_retry(d, at=None):
