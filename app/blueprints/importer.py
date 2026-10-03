@@ -82,7 +82,9 @@ def _parse_csv(raw):
         dialect = csv.Sniffer().sniff(text[:4096], delimiters=",;\t")
     except csv.Error:
         dialect = csv.excel
-    reader = csv.DictReader(io.StringIO(text), dialect=dialect)
+    # Sniffer can miss doubled quotes in multiline fields. CSV writers escape
+    # embedded quote characters by doubling them, even when the sample misses it.
+    reader = csv.DictReader(io.StringIO(text), dialect=dialect, doublequote=True)
     headers = [h.strip() for h in (reader.fieldnames or []) if h is not None]
     rows = []
     for i, r in enumerate(reader, start=2):
