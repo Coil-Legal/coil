@@ -16,7 +16,10 @@ How a batch moves:
 - Each batch says what to create, what to expect, and what to leave alone. The coordinator
   adds the standard header (pin, bot identity, drift rule, signing, exclusions) itself.
 
-A bot with nothing queued stands by. That is correct; do not invent work.
+Ian, 2026-10-03: a bot that finishes always gets a new batch. If nothing is queued for it,
+the coordinator writes the next batch itself from the top open area in that bot's backlog
+below, appends it here, and posts it. If a bot's backlog is used up, it writes a regression
+batch over whatever changed in the code since that bot's last batch.
 
 Direction (Ian, 2026-10-03): Claude Code manages both bots. Bot 1 re-certifies the Phase 1
 tools last signed off before tonight's fixes; Bot 2 runs a deliberate security sweep on its
@@ -133,7 +136,7 @@ Public doors and bearer tokens. Same naming and the same rule that an unsent req
 10. Deactivate the readonly user again. Report everything created and its final state.
 
 ### S3. Security sweep: hostile text and hostile files
-status: queued
+status: posted https://github.com/Coil-Legal/coil/issues/89#issuecomment-5973249473 2026-10-03T20:36:00Z
 
 Stored script injection and dangerous uploads, on your own firm. Create only records named `QA2 Sec ... 20261003`. A refused request must actually be sent. Never open a file you uploaded in a way that could run it on your own machine; read headers and page source instead.
 
@@ -161,3 +164,49 @@ A systematic map rather than spot checks. Use the inactive users 10 (paralegal) 
 6. Five wrong passwords for user 10 in a row, then the right one. Report what happens at each step (lockout, delay or nothing). Then sign in normally after any lockout clears, or record that it did not.
 7. Password reset (if offered on the login page) for `qa2-sec-x-20261003@example.test`, a client contact, not a user: expect the same neutral message as for a real user and no email in `/dev/outbox`.
 8. Deactivate the four users. Report the final state.
+
+## Backlog
+
+Areas for the coordinator to turn into batches when a bot's queue is empty, in priority
+order. Take the first area marked `open`, write one batch for it, and change its marker to
+`done <batch id>`. One area may need two batches; then leave it `open` after the first and
+say what is left in a sentence under it. Never write a batch for a parked area: invoicing,
+payments and plans, multi-currency, trust, the AI assistant, or anything that sends real
+email, SMS or money.
+
+### Bot 1 backlog (testfirm)
+
+- `open` B1-1. Calendar feed box keyboard check (fix in `b45327d`): the feed URL boxes on
+  /calendar take keyboard focus; axe `scrollable-region-focusable` is gone. Fold into the
+  next batch as its first case rather than a batch of its own.
+- `open` B1-2. Document templates and letter generation (/doctemplates): create a template
+  with merge fields, generate a letter for a QA matter, check every field filled, non-Latin
+  text, a missing field, the PDF, editing the template does not change letters already made.
+- `open` B1-3. Matter templates (/settings/templates): create one with tasks, custom fields
+  and milestones without amounts, apply it to a new QA matter, apply twice, deactivate.
+- `open` B1-4. Time and expenses beyond the basics: the timer start, stop and discard, an
+  expense with a receipt upload, editing and deleting entries, time suggestions if switched
+  on, rounding, a staff user's own time only. No invoicing.
+- `open` B1-5. Engagement letter templates (/engagements/templates) and a letter sent to the
+  capture inbox for a QA contact, signed from the captured link, signed twice, voided.
+- `open` B1-6. Dashboard and lists under load: create 60 QA contacts by CSV import, then
+  check search, sort, paging and the conflict check speed; delete them after.
+- `open` B1-7. Setup guide, feature map, feedback form and the firm's own settings page
+  (read and one harmless save each, put back as found).
+
+### Bot 2 backlog (qa2)
+
+- `open` B2-1. Settings > Tools deeper: switch off each of five tools one at a time and check
+  the sidebar, the dashboard card, the matter tab, the direct URL (404 with the owner
+  message) and the API for that tool; switch each back on.
+- `open` B2-2. Spanish: set a client contact's language to Spanish and walk the portal,
+  the sign-in email in /dev/outbox, the public intake form in Spanish if offered, and any
+  page that still shows English.
+- `open` B2-3. Firm settings: firm name, address, logo upload (PNG, a large image, an SVG),
+  time zone, date formats; check they appear where expected; put everything back.
+- `open` B2-4. Importer at scale on a clean firm: 2,000 contact rows with mixed scripts,
+  duplicates and bad rows; preview counts, commit, a second run, the export round trip.
+- `open` B2-5. Users at scale: 20 users across roles and offices, deactivate and reactivate,
+  rates, office reassignment, the audit trail of it all.
+- `open` B2-6. Documents deep: folders, tags, versions, search with Greek and accents,
+  sharing and unsharing many at once, a closed matter's documents.
