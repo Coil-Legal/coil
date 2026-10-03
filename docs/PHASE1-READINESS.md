@@ -1,5 +1,20 @@
 # Coil Phase 1 completion pass
 
+## Intake stale-decline fix, 2026-10-03 04:01 UTC
+
+Codex reproduced a stale POST to /intake/<id>/decline changing an already converted lead from Converted/Won to Declined/Lost while retaining its matter/contact links. The guard now refuses that transition, preserving the conversion replay guard. Baseline:3 failing role cases (owner, attorney, paralegal),2 passing normal-decline controls. Fixed:focused30 passed; full suite1241 passed,1 skipped in279.02s; Linux candidate9 passed in13.39s; synthetic seed smoke passed. All data used in reproduction was disposable local synthetic data, lead/matter/contact IDs1, no live Intake fixtures.
+
+Files:app/blueprints/intake.py and tests/test_intake_decline_converted.py. Isolated branch codex/intake-decline-20261003 at /private/tmp/coil-intake-decline-20261003, tested commitc1655e472d9140e8cdebc6b435e8e9ca1c060101. Integrated commit7acb3a489937d25b46a644340245786f53c8bd71 has identical app/tests, preserves the intervening autonomous documentation commit and all uncommitted coordination edits. No schema, route or provider configuration changes. GitHub main remains unpushed.
+
+Deployed to testfirm.coil.legal, demo.coil.legal and qa2.coil.legal. Internal and public health all healthy7acb3a4/demo-20261002/stable. Installed host/runtime intake.py SHA256488e3aaf042f4cc85bf3a6cbdd87489d7870a2a2996c9eb58fcc10c0a3a8fdb7 matches reviewed source. Environment and Compose hashes unchanged. qa2 effective SMTP_HOST and Stripe/Twilio/AI keys checked empty. No delivery or outbox capture claim.
+
+Backups:/home/deploy/backups/coil/{domain}/intake-decline-7acb3a4-r1, source/config snapshots plus rollback images {project}:before-7acb3a4. Data archives under each app data/backups: testfirm coil-backup-20261003-035701-o4xln5x8.tar.gz; demo coil-backup-20261003-035740-ives9yia.tar.gz; qa2 coil-backup-20261003-035743-6zwh7zks.tar.gz. Deployment evidence:outputs/qa2-intake-decline-deploy.log and qa2-intake-decline-public-health.json. Initial public Python HTTP client got edge403; curl public checks succeeded on all three.
+
+Bot2 mutation pause5965298242, then re-pin https://github.com/Coil-Legal/coil/issues/89#issuecomment-5965318292. Existing Matters/Offices5064-5076 remains assigned, no ACK/result at the release check. Followup5965005888 already requests a concrete blocker, do not repeat unchanged. Preserve its fixture IDs and do-not-touch list from5964892374; no known new live fixture IDs. Next priority is a10-15 case Intake regression batch after that result, with normal decline controls, stale converted decline, linked IDs/audit invariants and conversion replay. Documents draft5077-5088 remains unsent and deferred; allocate numbers from the live queue. Individual tests do not close Intake or Phase1; independent retest pending. Tool split and parked financial/AI scope retained.
+
+Codex still holds #89 on qa2. Cursor holds #12 on testfirm; re-pin belongs to Cursor. Ten-minute automation stays active. Tracker update uses read/compare/write/readback, generated progress tabs untouched; evidence outputs/qa2-intake-release-sheet-verified.json, or pending JSON if access fails.
+
+
 ## Generated recurrence gap fix, 2026-09-28 02:33 UTC
 
 Base fa2b9fe/application e7c6b79. Isolated checkout /private/tmp/coil-calendar-generated-gap, branch codex/calendar-generated-gap. Files app/blueprints/calendar.py, app/templates/calendar/form.html and tests/test_calendar_generated_gap.py. No schema/model/provider change.
