@@ -85,3 +85,17 @@ def test_links_in_empty_states_and_definition_lists_are_underlined():
     css = _css()
     assert re.search(r"\.empty a[^{]*\{[^}]*text-decoration:underline", css)
     assert re.search(r"dd a[^{]*\{[^}]*text-decoration:underline", css)
+
+
+def test_scrollable_code_blocks_are_keyboard_focusable():
+    """Case 1467's report-only follow-up to #99: pre.code has overflow:auto in app.css, so
+    a long calendar feed URL or iframe snippet makes it scroll, but with no tabindex a
+    keyboard user can never reach that scroll (axe scrollable-region-focusable, serious).
+    Fixed by giving every pre.code element tabindex="0"."""
+    assert re.search(r"pre\.code\{[^}]*overflow:auto", _css())
+    for path in ("app/templates/calendar/index.html", "app/templates/intake/embed.html"):
+        with open(os.path.join(ROOT, path)) as f:
+            html = f.read()
+        blocks = re.findall(r'<pre class="code"[^>]*>', html)
+        assert blocks, f"no pre.code block found in {path}"
+        assert all('tabindex="0"' in b for b in blocks), f"missing tabindex in {path}"
