@@ -18,15 +18,18 @@ import json
 import logging
 import socket
 import threading
+import time
 from datetime import date, datetime, timedelta
 from urllib.parse import urlsplit
 
 import requests
 from flask import Blueprint, current_app
 from sqlalchemy import event, inspect as sa_inspect
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session, object_session
 
 from ..extensions import db
+from ..helpers import LOCK_RETRIES, is_lock_error
 from ..models import (Webhook, WebhookDelivery, Matter, Invoice, Payment, Engagement, DocumentSignature,
                       IntakeLead, Task, now)
 
@@ -164,19 +167,50 @@ def attempt_delivery(delivery, hook):
     return False
 
 
+_ATTEMPT_FIELDS = ("attempts", "last_at", "status", "response_code", "last_error")
+
+
 def _attempt_pending(engine, pairs):
-    """Load each (delivery id, webhook id) pair in a fresh Session and attempt it once. Runs
-    either inline or on a background thread; never touches the caller's transaction."""
-    with Session(engine) as s:
-        for did, hid in pairs:
+    """Attempt each (delivery id, webhook id) pair once. Runs either inline or on a background
+    thread; never touches the caller's transaction.
+
+    No transaction is open while an HTTP call is in flight (#94). One Session held across every
+    attempt autoflushed the first result on the next get(), which opened a SQLite write
+    transaction and kept it through each remaining call, up to TIMEOUT_SECONDS per endpoint, so
+    every other save in the firm failed with "database is locked". Each delivery is now read in
+    its own short session, attempted detached, and its result written in another."""
+    for did, hid in pairs:
+        with Session(engine) as s:
             d, h = s.get(WebhookDelivery, did), s.get(Webhook, hid)
             if not d or not h:
                 continue
-            try:
-                attempt_delivery(d, h)
-            except Exception:
-                log.exception("webhook delivery %s failed", did)
-        s.commit()
+            s.expunge(d)
+            s.expunge(h)
+        try:
+            attempt_delivery(d, h)
+        except Exception:
+            log.exception("webhook delivery %s failed", did)
+            continue
+        _save_attempt(engine, d)
+
+
+def _save_attempt(engine, d):
+    """Write one attempt's outcome back in a short transaction of its own, retrying a lock."""
+    for attempt in range(LOCK_RETRIES):
+        try:
+            with Session(engine) as s:
+                row = s.get(WebhookDelivery, d.id)
+                if row is None:
+                    return
+                for f in _ATTEMPT_FIELDS:
+                    setattr(row, f, getattr(d, f))
+                s.commit()
+            return
+        except OperationalError as e:
+            if not is_lock_error(e) or attempt == LOCK_RETRIES - 1:
+                log.exception("could not record webhook delivery %s", d.id)
+                return
+            time.sleep(0.05 * (attempt + 1))
 
 
 def deliver_event(name, payload):
