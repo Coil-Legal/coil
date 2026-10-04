@@ -41,7 +41,13 @@ def _score(query, text, content=False):
     if content:
         return None
     s = fuzz.token_set_ratio(nq, nt)
-    return int(s) if s >= FUZZY_MIN else None
+    if s < FUZZY_MIN:
+        return None
+    # token_set_ratio returns 100 whenever one side's tokens are a full subset of the
+    # other's (a dropped middle initial or Jr/Sr is always such a subset). Only the
+    # literal substring check above may report 100; cap the fuzzy path below it so a
+    # near-match never wears the "exact" badge.
+    return min(99, int(s))
 
 
 def _index(exclude_contact_id=None, exclude_lead_id=None):
