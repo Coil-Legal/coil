@@ -48,6 +48,13 @@ def send_email(to, subject, html, text=None, attachments=None, reply_to=None, he
     return True
 
 
+def smtp_configured():
+    """True if this firm has a mail server set. Matches send_email()'s own check, so a
+    caller can tell "nothing is configured" apart from "SMTP rejected the message" after
+    send_email() returns False for either reason."""
+    return bool(_SmtpView(current_app.config).get("SMTP_HOST"))
+
+
 _dev_outbox = []  # last emails when SMTP is unset; surfaced at /dev/outbox for testing
 
 

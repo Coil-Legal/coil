@@ -17,7 +17,7 @@ from ..extensions import db
 from ..models import (Firm, Contact, Matter, MatterParty, Document, DocumentSignature, DocumentSignatureEvent,
                       new_token, audit, now)
 from ..helpers import login_required, current_user, client_ip, LOCK_RETRIES, is_lock_error
-from ..services.mail import send_email
+from ..services.mail import send_email, smtp_configured
 from ..services import pdf as pdfsvc
 from ..i18n import t, lang_for
 from .documents import abs_path
@@ -112,6 +112,9 @@ def send_signature(s, user=None):
                                                 lang=lang, pixel=pixel_url(s)),
                    text=t("email.sig_request.text", lang, title=title, url=sign_url(s)), reply_to=f.email or None)
         if not delivered:
+            if not smtp_configured():
+                return ("Email is not set up for this firm, so the signature request was not sent. "
+                        "It is saved as a draft. Set up email in Settings > Integrations.")
             return "Email delivery failed. The signature request remains a draft; check mail settings and try again."
     s.document_hash = hashlib.sha256(data).hexdigest()
     s.status = "sent"
@@ -134,6 +137,9 @@ def send_signature_reminder(s, user=None, detail="reminder"):
                                          t("email.sig_request.button", lang), sign_url(s), lang=lang, pixel=pixel_url(s)),
                    text=t("email.sig_request.text", lang, title=title, url=sign_url(s)), reply_to=f.email or None)
         if not delivered:
+            if not smtp_configured():
+                return ("Email is not set up for this firm, so the reminder was not sent. "
+                        "Set up email in Settings > Integrations.")
             return "Email delivery failed. The reminder can be retried."
     else:
         return "No signer email address is on file."

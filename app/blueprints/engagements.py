@@ -13,7 +13,7 @@ from markupsafe import Markup, escape
 from ..extensions import db
 from ..models import (Firm, Matter, LetterTemplate, Engagement, EngagementEvent, new_token, audit, now)
 from ..helpers import login_required, current_user, client_ip, cents_to_str
-from ..services.mail import send_email
+from ..services.mail import send_email, smtp_configured
 from ..services import pdf as pdfsvc
 from ..i18n import t, lang_for
 
@@ -290,6 +290,14 @@ def build_draft_pdf_bytes(e):
     return bytes(pdf.output())
 
 
+def _delivery_failed_flash(e):
+    if not smtp_configured():
+        return (f"Saved. Email is not set up for this firm, so nothing was sent to {e.sent_to}. "
+                f"The sign link is still active; set up email in Settings > Integrations, then resend.")
+    return (f"Saved, but the email to {e.sent_to} could not be delivered. "
+            f"The sign link is still active; check the firm's email settings and resend.")
+
+
 def _events_summary(e):
     views = [ev for ev in e.events if ev.event == "viewed"]
     return dict(views=len(views), first_view=views[0].created_at if views else None)
@@ -347,8 +355,7 @@ def new():
             e = send_engagement(e, u)
             db.session.commit()
             if e.delivery_failed:
-                flash(f"Saved, but the email to {e.sent_to} could not be delivered. "
-                      f"The sign link is still active; check the firm's email settings and resend.", "error")
+                flash(_delivery_failed_flash(e), "error")
             else:
                 flash(f"Engagement letter sent to {e.sent_to or 'nobody (no email on file)'}.", "ok")
         else:
@@ -382,8 +389,7 @@ def send(id):
         e = send_engagement(e, current_user())
         db.session.commit()
         if e.delivery_failed:
-            flash(f"Saved, but the email to {e.sent_to} could not be delivered. "
-                  f"The sign link is still active; check the firm's email settings and resend.", "error")
+            flash(_delivery_failed_flash(e), "error")
         else:
             flash(f"Sent to {e.sent_to or 'nobody (no email on file)'}.", "ok")
     else:
