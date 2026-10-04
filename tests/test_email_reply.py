@@ -145,6 +145,33 @@ def test_a_contact_with_no_email_cannot_be_emailed(app, client):
     assert "has no email address on file" in r.data.decode()
 
 
+def test_a_matter_tagged_reply_appears_on_the_matters_activity_tab(app, client):
+    """A matter-tagged send must show on that matter's Activity tab, the same way a
+    document upload does (documents.py double-audits against entity="matter").
+
+    Found by the QA loop (issue #102): the thread showed the reply, but the matter's
+    own Activity tab, built from AuditLog entity="matter" rows, never got one.
+    """
+    from app.extensions import db
+    from app.models import Contact, Matter
+
+    with app.app_context():
+        c = Contact(first_name="QA", last_name="ActivityTab", email="qa-activity-tab@example.test")
+        db.session.add(c)
+        db.session.flush()
+        m = Matter(client_id=c.id, number="M-QA-ACT", name="QA Activity Tab Matter", status="open")
+        db.session.add(m)
+        db.session.commit()
+        cid, mid = c.id, m.id
+
+    post(client, "/messages/email-send",
+         {"contact_id": cid, "matter_id": mid, "subject": "Activity tab check",
+          "body": "This reply should show up on the matter's Activity tab."})
+
+    page = client.get(f"/matters/{mid}?tab=activity").data.decode()
+    assert "send message" in page.lower(), "the email send must be on the matter's Activity tab"
+
+
 def test_a_relay_failure_keeps_the_words_and_says_so(app, client, contact_with_inbound, monkeypatch):
     """SMTP dying must not silently swallow what the attorney wrote."""
     cid, mid, _ = contact_with_inbound

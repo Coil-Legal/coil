@@ -122,6 +122,8 @@ def send():
     db.session.add(m)
     db.session.flush()
     audit("send", "message", m.id, f"sms to {c.phone} ({status})", current_user().id)
+    if matter_id:
+        audit("send_message", "matter", matter_id, f"sms to {c.phone} ({status})", current_user().id)
     db.session.commit()
     if status == "unconfigured":
         flash("Twilio is not configured, so the message was stored but not delivered. See Settings > Integrations.", "")
@@ -181,6 +183,8 @@ def email_send():
     db.session.add(m)
     db.session.flush()
     audit("send", "message", m.id, f"email to {c.email} ({m.status})", current_user().id)
+    if matter_id:
+        audit("send_message", "matter", matter_id, f"email to {c.email} ({m.status})", current_user().id)
     db.session.commit()
     if sent:
         flash(f"Emailed {c.display_name}. The reply is on the thread.", "ok")
@@ -210,6 +214,8 @@ def portal_send():
     db.session.add(m)
     db.session.flush()
     audit("send", "message", m.id, f"portal message to {c.display_name}", u.id)
+    if matter:
+        audit("send_message", "matter", matter.id, f"portal message to {c.display_name}", u.id)
     db.session.commit()
     if c.email:
         _email_new_message_notice(c, matter, firm)
