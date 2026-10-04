@@ -43,6 +43,17 @@ def _score(query, text, content=False):
     s = fuzz.token_set_ratio(nq, nt)
     if s < FUZZY_MIN:
         return None
+    # token_set_ratio scores the tokens both sides share plus whatever is left over on
+    # each; when most of the tokens are shared (a repeated case-naming prefix, a shared
+    # date) that shared chunk dominates the ratio even if the leftover tokens, the part
+    # that actually identifies the person or matter, have nothing in common. Only check
+    # the leftovers against each other when both sides have some: a dropped middle
+    # initial or Jr/Sr leaves one side with nothing left over, and that subset match is
+    # meant to pass on the shared tokens alone.
+    tq, tt = set(nq.split()), set(nt.split())
+    dq, dt = tq - tt, tt - tq
+    if dq and dt and fuzz.token_sort_ratio(" ".join(sorted(dq)), " ".join(sorted(dt))) < FUZZY_MIN:
+        return None
     # token_set_ratio returns 100 whenever one side's tokens are a full subset of the
     # other's (a dropped middle initial or Jr/Sr is always such a subset). Only the
     # literal substring check above may report 100; cap the fuzzy path below it so a
