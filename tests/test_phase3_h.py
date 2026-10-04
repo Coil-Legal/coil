@@ -572,3 +572,29 @@ def test_sequences_drafts_then_send_idempotent_and_day3(app, client, monkeypatch
     # message threads page ignores lead drafts (no contact) and does not crash
     r = client.get("/messages")
     assert r.status_code == 200
+
+
+def test_sequence_start_on_converted_or_lost_lead_flashes_plainly(app, client):
+    # issue #108: starting a sequence on a lead that is already converted/won/lost used to
+    # flash a promise ("drafted the next time python -m app.cli sequences runs") that could
+    # never come true, because process_lead_sequence stops such a sequence on sight and
+    # never drafts anything. The flash must say the lead's state stopped it instead.
+    db, M = _models()
+    with app.app_context():
+        seq = M.FollowUpSequence.query.first()
+        sid = seq.id
+        converted = M.IntakeLead(name="Converted Lead", email="converted@example.test", matter_type="Other",
+                                  source="test", status="converted", stage="won")
+        lost = M.IntakeLead(name="Lost Lead", email="lost@example.test", matter_type="Other",
+                            source="test", status="declined", stage="lost")
+        db.session.add_all([converted, lost])
+        db.session.commit()
+        cid, lid = converted.id, lost.id
+    r = client.post(f"/intake/{cid}/sequence/start", data={"_csrf": S["tok"], "sequence_id": sid},
+                    follow_redirects=True)
+    assert r.status_code == 200 and b"already converted, so the sequence was not started" in r.data
+    r = client.post(f"/intake/{lid}/sequence/start", data={"_csrf": S["tok"], "sequence_id": sid},
+                    follow_redirects=True)
+    assert r.status_code == 200 and b"already declined, so the sequence was not started" in r.data
+    with app.app_context():
+        assert M.LeadSequence.query.filter(M.LeadSequence.lead_id.in_([cid, lid])).count() == 0

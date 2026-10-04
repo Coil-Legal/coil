@@ -411,6 +411,18 @@ def sequence_start(id):
     if LeadSequence.query.filter_by(lead_id=lead.id, sequence_id=seq.id, status="active").first():
         flash(f"{lead.name} is already on {seq.name}.", "error")
         return redirect(url_for("intake.detail", id=lead.id))
+    if lead.stage in ("won", "lost") or lead.status in ("converted", "declined"):
+        # process_lead_sequence stops a sequence on sight for a lead in this state and never
+        # drafts or sends anything, so starting one here would only queue a promise the lead's
+        # own state already makes impossible to keep.
+        if lead.status == "converted":
+            state = "already converted"
+        elif lead.status == "declined" or lead.stage == "lost":
+            state = "already declined"
+        else:
+            state = "already marked Won"
+        flash(f"{lead.name} is {state}, so the sequence was not started.", "error")
+        return redirect(url_for("intake.detail", id=lead.id))
     ls = LeadSequence(lead_id=lead.id, sequence_id=seq.id, started_on=parse_date(request.form.get("started_on"),
                                                                                date.today()), next_step=0)
     db.session.add(ls)
