@@ -14,6 +14,14 @@ def create_app(config=None):
         app.config["SQLALCHEMY_DATABASE_URI"] = os.environ["DATABASE_URL"]
     if config:
         app.config.update(config)
+    if app.config.get("TESTING"):
+        # The dev outbox is a bare module-level list, shared by every Flask app created in
+        # this process. Each test module builds its own app/DB/upload dir for isolation, but
+        # without this the outbox carries mail over from whichever test ran earlier in the
+        # same pytest process, and a cap of 50 means a "before/after length" assertion can
+        # silently stop moving once the whole run's cumulative total passes it.
+        from .services.mail import _dev_outbox
+        _dev_outbox.clear()
     os.makedirs(DATA_DIR, exist_ok=True)
     os.makedirs(app.config["UPLOAD_DIR"], exist_ok=True)
     os.makedirs(app.config["PDF_DIR"], exist_ok=True)

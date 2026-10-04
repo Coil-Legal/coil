@@ -448,3 +448,54 @@ def test_language_on_public_pages(app, staff):
         db.session.commit()
     r = pub.get("/portal/login")
     assert b"Client portal" in r.data
+
+
+# ---------------------------------------------------------------------------
+# Issue #107: engagement letter client emails and sign() validation errors
+# must localize to the contact's language, matching the already-localized
+# public sign page. engagements.py built its own email strings by hand
+# instead of going through t()/lang_for() like signatures.py does.
+# ---------------------------------------------------------------------------
+def test_engagement_emails_and_sign_errors_localized(app, staff):
+    from app.extensions import db
+    from app.models import Contact, Matter
+    from app.blueprints.engagements import build_engagement, send_engagement, send_engagement_reminder
+    from app.services.mail import dev_outbox
+    client, tok = staff
+    mid = maria_id(app)
+    with app.app_context():
+        db.session.get(Contact, mid).language = "es"
+        m = Matter.query.filter_by(number="M-1001").first()
+        e = build_engagement(m, scope="Estate plan")
+        send_engagement(e)
+        db.session.commit()
+        eng_token = e.token
+    sent = dev_outbox()[0]
+    assert "Estimado(a)" in sent["html"] and "ha preparado una carta de contratación" in sent["html"] \
+        and "Revisar y firmar" in sent["html"]
+    assert "Hello" not in sent["html"] and "has prepared an engagement letter" not in sent["html"]
+
+    with app.app_context():
+        from app.models import Engagement
+        eng = Engagement.query.filter_by(token=eng_token).first()
+        send_engagement_reminder(eng)
+        db.session.commit()
+    reminded = dev_outbox()[0]
+    assert "está pendiente de su firma" in reminded["html"] and "waiting for your signature" not in reminded["html"]
+
+    pub = app.test_client()
+    r = pub.post(f"/sign/{eng_token}", data={"signer_name": "", "agree": "1"})
+    assert r.status_code == 400
+    html = r.data.decode()
+    assert "Escriba su nombre completo" in html and "Type your full name" not in html
+
+    r = pub.post(f"/sign/{eng_token}", data={"signer_name": "Maria Alvarez", "agree": ""})
+    assert r.status_code == 400
+    html = r.data.decode()
+    assert "Marque la casilla para confirmar que ha leído la carta" in html and "Please tick the box" not in html
+
+    r = pub.post(f"/sign/{eng_token}", data={"signer_name": "Maria Alvarez", "agree": "1"})
+    assert r.status_code == 200
+    signed = next(m for m in dev_outbox() if m["to"] == "maria@example.com" and m["subject"].startswith("Firmado"))
+    assert "Gracias" in signed["html"] and "carta de contratación firmada" in signed["html"]
+    assert "Thank you" not in signed["html"]

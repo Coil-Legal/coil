@@ -143,12 +143,12 @@ def _pixel_url(e):
     return f"{current_app.config['BASE_URL']}/track/engagement/{e.token}.gif"
 
 
-def _email_html(title, paragraphs, button_text, button_url, pixel=None):
+def _email_html(title, paragraphs, button_text, button_url, lang="en", pixel=None):
     f = Firm.get()
     ps = "".join(f"<p style='margin:0 0 12px'>{escape(p)}</p>" for p in paragraphs)
     btn = (f"<p style='margin:20px 0'><a href='{button_url}' style='background:#1f5f8b;color:#fff;padding:10px 18px;"
            f"border-radius:6px;text-decoration:none;display:inline-block'>{escape(button_text)}</a></p>"
-           f"<p style='font-size:12px;color:#666'>If the button does not work, open this link: {button_url}</p>")
+           f"<p style='font-size:12px;color:#666'>{escape(t('email.fallback_link', lang, url=button_url))}</p>")
     px = f"<img src='{pixel}' width='1' height='1' alt=''>" if pixel else ""
     return (f"<div style='font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.5;color:#1c2430'>"
             f"<h2 style='font-size:18px'>{escape(title)}</h2>{ps}{btn}"
@@ -163,15 +163,15 @@ def send_engagement(engagement, user=None):
     e.sent_at = now()
     e.sent_to = (e.contact.email or "").strip()
     f = Firm.get()
+    lang = lang_for(e.contact)
     delivered = True
     if e.sent_to:
         html = _email_html(e.subject or "Engagement letter",
-                           [f"Hello {e.contact.first_name or e.contact.display_name},",
-                            f"{f.name} has prepared an engagement letter for {e.matter.name}. "
-                            f"Please review it and sign electronically using the button below."],
-                           "Review and sign", _sign_url(e), pixel=_pixel_url(e))
+                           [t("email.hello", lang, name=e.contact.first_name or e.contact.display_name),
+                            t("email.engagement_request.body", lang, firm=f.name, matter=e.matter.name)],
+                           t("email.sig_request.button", lang), _sign_url(e), lang=lang, pixel=_pixel_url(e))
         delivered = send_email(e.sent_to, e.subject or "Engagement letter", html,
-                   text=f"Please review and sign your engagement letter: {_sign_url(e)}", reply_to=f.email or None)
+                   text=t("email.engagement_request.text", lang, url=_sign_url(e)), reply_to=f.email or None)
     if not e.sent_to:
         detail = "no email on file, link not emailed"
     elif delivered:
@@ -188,15 +188,15 @@ def send_engagement_reminder(engagement, user=None, detail="reminder"):
     """Re-email the sign link. Used by the remind button and the CLI. Does not commit."""
     e = engagement
     f = Firm.get()
+    lang = lang_for(e.contact)
     to = e.sent_to or (e.contact.email or "")
     if to:
         html = _email_html(f"Reminder: {e.subject or 'Engagement letter'}",
-                           [f"Hello {e.contact.first_name or e.contact.display_name},",
-                            f"This is a reminder that the engagement letter from {f.name} for {e.matter.name} "
-                            f"is waiting for your signature."],
-                           "Review and sign", _sign_url(e), pixel=_pixel_url(e))
+                           [t("email.hello", lang, name=e.contact.first_name or e.contact.display_name),
+                            t("email.engagement_reminder.body", lang, firm=f.name, matter=e.matter.name)],
+                           t("email.sig_request.button", lang), _sign_url(e), lang=lang, pixel=_pixel_url(e))
         send_email(to, f"Reminder: {e.subject or 'Engagement letter'}", html,
-                   text=f"Reminder: please review and sign your engagement letter: {_sign_url(e)}",
+                   text=t("email.engagement_reminder.text", lang, url=_sign_url(e)),
                    reply_to=f.email or None)
     db.session.add(EngagementEvent(engagement_id=e.id, event="reminder", detail=f"{detail} to {to}" if to else "no email"))
     audit("remind", "engagement", e.id, detail, user.id if user else None)
@@ -551,8 +551,8 @@ def sign(token):
         error = t("sign.err_name_long", lang_for(e.contact))
         return render_template("engagements/sign.html", e=e, name=name, email=email, error=error), 400
     if not name or not agree:
-        error = "Type your full name and tick the box to confirm you agree." if not name else \
-            "Please tick the box to confirm you have read the letter and agree to its terms."
+        lang = lang_for(e.contact)
+        error = t("sign.err_name", lang) if not name else t("sign.err_agree_letter", lang)
         return render_template("engagements/sign.html", e=e, name=name, email=email, error=error), 400
     ts = now()
     ip = client_ip()
@@ -583,6 +583,7 @@ def sign(token):
 
 def _email_signed_copies(e):
     f = Firm.get()
+    lang = lang_for(e.contact)
     try:
         with open(e.pdf_path, "rb") as fh:
             data = fh.read()
@@ -592,10 +593,11 @@ def _email_signed_copies(e):
     subj = f"Signed: {e.subject or 'Engagement letter'}"
     client_to = e.signer_email or e.contact.email
     if client_to:
-        send_email(client_to, subj, _email_html(subj, [
-            f"Thank you, {e.signer_name}. Your signed engagement letter with {f.name} is attached for your records."],
-            "View the signed letter", f"{current_app.config['BASE_URL']}/sign/{e.token}/pdf"),
-            text=f"Your signed engagement letter is attached.", attachments=att, reply_to=f.email or None)
+        client_subj = t("email.signed.subject", lang, title=e.subject or "Engagement letter")
+        send_email(client_to, client_subj, _email_html(client_subj, [
+            t("email.engagement_signed.body", lang, name=e.signer_name, firm=f.name)],
+            t("email.engagement_signed.button", lang), f"{current_app.config['BASE_URL']}/sign/{e.token}/pdf", lang=lang),
+            text=t("email.engagement_signed.text", lang), attachments=att, reply_to=f.email or None)
     firm_to = f.email or current_app.config["MAIL_FROM"]
     send_email(firm_to, subj, _email_html(subj, [
         f"{e.signer_name} signed the engagement letter for {e.matter.name} ({e.matter.number}) "

@@ -186,6 +186,15 @@ T = {
         "email.signed.body": "Thank you, {name}. Your signature certificate and a copy of {title} are attached for your records.",
         "email.signed.button": "Download the certificate",
         "email.signed.text": "Your signature certificate and a copy of {title} are attached.",
+        "email.engagement_request.body": "{firm} has prepared an engagement letter for {matter}. Please review it and sign "
+                                         "electronically using the button below.",
+        "email.engagement_request.text": "Please review and sign your engagement letter: {url}",
+        "email.engagement_reminder.body": "This is a reminder that the engagement letter from {firm} for {matter} is waiting "
+                                          "for your signature.",
+        "email.engagement_reminder.text": "Reminder: please review and sign your engagement letter: {url}",
+        "email.engagement_signed.body": "Thank you, {name}. Your signed engagement letter with {firm} is attached for your records.",
+        "email.engagement_signed.button": "View the signed letter",
+        "email.engagement_signed.text": "Your signed engagement letter is attached.",
     },
     "es": {
         # ---- portal: login, expired, nav ----
@@ -369,6 +378,15 @@ T = {
         "email.signed.body": "Gracias, {name}. Se adjuntan el certificado de firma y una copia de {title} para su archivo.",
         "email.signed.button": "Descargar el certificado",
         "email.signed.text": "Se adjuntan el certificado de firma y una copia de {title}.",
+        "email.engagement_request.body": "{firm} ha preparado una carta de contratación para {matter}. Revísela y fírmela "
+                                         "electrónicamente usando el botón a continuación.",
+        "email.engagement_request.text": "Revise y firme su carta de contratación: {url}",
+        "email.engagement_reminder.body": "Le recordamos que la carta de contratación de {firm} para {matter} está pendiente "
+                                          "de su firma.",
+        "email.engagement_reminder.text": "Recordatorio: revise y firme su carta de contratación: {url}",
+        "email.engagement_signed.body": "Gracias, {name}. Su carta de contratación firmada con {firm} se adjunta para su archivo.",
+        "email.engagement_signed.button": "Ver la carta firmada",
+        "email.engagement_signed.text": "Su carta de contratación firmada está adjunta.",
     },
 }
 
