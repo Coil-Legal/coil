@@ -1796,7 +1796,7 @@ Areas for the coordinator to turn into batches when a bot's queue is empty, in p
 order. Take the first area marked `open`, write one batch for it, and change its marker to
 `done <batch id>`. One area may need two batches; then leave it `open` after the first and
 say what is left in a sentence under it. Never write a batch for a parked area: the AI
-assistant, or anything that sends real email, SMS or money. Since Ian's 2026-10-04 "let's do
+assistant (saved for the very end, Ian 2026-10-04), or anything that sends real email, SMS or money. Since Ian's 2026-10-04 "let's do
 Phase 2", invoicing, manual payments, payment plans, multi-currency and trust are in scope on
 QA records. Card payments are not: testfirm holds LIVE Stripe keys, so on testfirm never
 click Pay now, Request card on file, Charge card, or start a Stripe checkout. qa2 has no
