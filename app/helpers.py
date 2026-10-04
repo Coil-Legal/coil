@@ -124,8 +124,9 @@ def current_user():
     if "user" not in g:
         uid = session.get("user_id")
         g.user = db.session.get(User, uid) if uid else None
-    if g.user is not None and not g.user.is_active:
+    if g.user is not None and (not g.user.is_active or session.get("sv") != g.user.session_version):
         session.pop("user_id", None)
+        session.pop("sv", None)
         session.pop("_new_api_token", None)
         session.pop("_csrf", None)
         g.user = None

@@ -31,6 +31,7 @@ def login():
             attempts.pop(key, None)  # a good password clears the run of failures
             session.clear()
             session["user_id"] = u.id
+            session["sv"] = u.session_version
             session.permanent = True
             audit("login", "user", u.id, user_id=u.id)
             db.session.commit()
@@ -97,6 +98,7 @@ def setup():
         db.session.add(u)
         db.session.commit()
         session["user_id"] = u.id
+        session["sv"] = u.session_version
         return redirect(url_for("settings.index"))
     return render_template("auth/setup.html", need_key=need_key)
 
@@ -104,5 +106,9 @@ def setup():
 @bp.route("/logout", methods=["POST"])
 @login_required
 def logout():
+    u = current_user()
+    u.session_version += 1
+    db.session.commit()
     session.pop("user_id", None)
+    session.pop("sv", None)
     return redirect(url_for("auth.login"))

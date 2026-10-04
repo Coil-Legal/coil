@@ -42,6 +42,9 @@ class User(db.Model):
     voice_phone = db.Column(db.String(50), default="")  # caller id the voice line recognises for this user
     created_at = db.Column(db.DateTime, default=now)
     office = db.relationship("Office", foreign_keys=[office_id])
+    # Bumped on logout so every other copy of this user's signed session cookie (the session
+    # has no server-side store) stops matching and is treated as logged out.
+    session_version = db.Column(db.Integer, default=0, nullable=False, server_default="0")
 
     def set_password(self, pw):
         self.password_hash = generate_password_hash(pw)

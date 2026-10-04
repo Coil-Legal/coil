@@ -181,12 +181,16 @@ def test_permission_required_decorator(app):
         from app.helpers import current_user
         from flask import g, session
         from app.models import User
-        session["user_id"] = User.query.filter_by(email="para@example.test").first().id
+        para = User.query.filter_by(email="para@example.test").first()
+        session["user_id"] = para.id
+        session["sv"] = para.session_version
         g.pop("user", None)
         import werkzeug.exceptions
         with pytest.raises(werkzeug.exceptions.Forbidden):
             view()
-        session["user_id"] = User.query.filter_by(email="bill@example.test").first().id
+        bill = User.query.filter_by(email="bill@example.test").first()
+        session["user_id"] = bill.id
+        session["sv"] = bill.session_version
         g.pop("user", None)
         assert view() == "ok"
 
