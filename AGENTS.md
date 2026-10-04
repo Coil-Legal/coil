@@ -55,8 +55,10 @@ speed anything up, because the bots overwrite each other's records.
   instructions; it is stale after the next deploy.
 - **Every deploy goes to testfirm, demo and qa2**, same commit, with `--build-arg COIL_COMMIT`.
   Otherwise Bot 2 tests old code.
-- qa2 sends no email (`SMTP_HOST` is empty; mail lands in the owner-only `/dev/outbox`) and
-  holds no Stripe, Twilio or AI keys. Keep it that way.
+- qa2 sends no email outside the server. Since 2026-10-04 its SMTP points at its own capture
+  inbox (Mailpit stack `/home/deploy/apps/coil-qa2-mail`, alias `coil-qa2-mailpit`), read at
+  https://qa2.coil.legal/qa-mail/ by a signed-in qa2 owner, the same way testfirm's works.
+  Nothing is relayed out. qa2 holds no Stripe, Twilio or AI keys. Keep it that way.
 - Do not copy testfirm's data or documents to qa2. To reset qa2, follow
   [docs/QA-HANDOFF.md](docs/QA-HANDOFF.md): back up, set the database aside, rebuild, and
   re-seed from `seed.py`, never from QA leftovers.

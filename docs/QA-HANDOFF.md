@@ -51,8 +51,8 @@ Bot 1 (`grokshaz`) runs on testfirm from issue #12. Bot 2 runs on qa2.coil.legal
 - Split the remaining tools between them; never both on one tool at once.
 - Give Bot 2 anything that changes firm-wide settings. The Settings > Tools batch below is
   its first batch.
-- On qa2, email is never sent. Magic links and notices are read in the owner-only
-  `/dev/outbox`.
+- On qa2, email never leaves the server. Since 2026-10-04 it lands in qa2's own capture
+  inbox at https://qa2.coil.legal/qa-mail/ (owner only), like testfirm's.
 
 **Resetting qa2** when its data gets in the way:
 
