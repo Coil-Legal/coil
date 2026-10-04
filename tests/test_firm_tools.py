@@ -229,6 +229,37 @@ def test_dashboard_cards_for_switched_off_tools_disappear(owner):
     assert "Log time" not in page and "Start timer" not in page
 
 
+def test_the_conflict_check_button_leaves_the_contact_page_when_off(app, owner):
+    """Settings > Tools hides /conflicts and its sidebar link; the same switch must take the
+    shortcut button on a contact's own page with it, or a click lands on a 404."""
+    from app.models import Contact
+    with app.app_context():
+        cid = Contact.query.first().id
+    assert "Conflict check</a>" in owner.get(f"/contacts/{cid}").data.decode()
+    switch(owner, off=["conflicts"])
+    page = owner.get(f"/contacts/{cid}").data.decode()
+    assert "Conflict check</a>" not in page
+    switch(owner)
+    assert "Conflict check</a>" in owner.get(f"/contacts/{cid}").data.decode()
+
+
+def test_the_request_signature_link_leaves_the_documents_list_when_off(app, owner):
+    """Same promise for the Signatures switch: the per-row shortcut on /documents must not
+    point at a tool whose own page now 404s."""
+    from app.extensions import db
+    from app.models import Document, Matter
+    with app.app_context():
+        m = Matter.query.first()
+        db.session.add(Document(matter_id=m.id, name="QA-TOOLS.pdf", path="qa-tools.pdf", mime="application/pdf"))
+        db.session.commit()
+    assert "Request signature</a>" in owner.get("/documents").data.decode()
+    switch(owner, off=["signatures"])
+    page = owner.get("/documents").data.decode()
+    assert "Request signature</a>" not in page
+    switch(owner)
+    assert "Request signature</a>" in owner.get("/documents").data.decode()
+
+
 def test_matter_tabs_follow_the_switches(app, owner):
     from app.models import Matter
     with app.app_context():
