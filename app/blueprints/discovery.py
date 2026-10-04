@@ -755,8 +755,11 @@ def build_set_pdf(ds):
     head = f"{label} to {ds.party}" if ds.direction == "propound" else f"Responses to {label} from {ds.party}"
     pdf = DraftPDF(firm, title=head)
     reset_unicode()
+    item_text = []
+    for it in ds.items:
+        item_text += [it.get("request"), it.get("response"), it.get("flag")]
     enable_unicode(pdf, firm.name, firm.address, head, ds.party, m.name,
-                   m.client.display_name if m.client else "")
+                   m.client.display_name if m.client else "", *item_text)
     pdf.alias_nb_pages()
     pdf.add_page()
     _caption(pdf, m, [("Propounded to: " if ds.direction == "propound" else "Served by: ") + (ds.party or ""),

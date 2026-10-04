@@ -196,8 +196,12 @@ def build_disposition_pdf(m, c, charges):
     firm = Firm.get()
     pdf = DocPDF(firm, f"Disposition summary {m.number}")
     reset_unicode()
+    charge_text = []
+    for ch in charges:
+        charge_text += [ch.statute, ch.description, ch.enhancement, ch.degree, ch.sentence]
     enable_unicode(pdf, firm.name, firm.address, m.name,
-                   m.client.display_name if m.client else "")
+                   m.client.display_name if m.client else "",
+                   c.court, c.cause_number, c.judge, c.prosecutor, c.notes, *charge_text)
     pdf.alias_nb_pages()
     pdf.add_page()
     _line(pdf, "Disposition summary", 14, "B")
