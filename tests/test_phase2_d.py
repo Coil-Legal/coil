@@ -474,6 +474,9 @@ def test_engagement_emails_and_sign_errors_localized(app, staff):
     assert "Estimado(a)" in sent["html"] and "ha preparado una carta de contratación" in sent["html"] \
         and "Revisar y firmar" in sent["html"]
     assert "Hello" not in sent["html"] and "has prepared an engagement letter" not in sent["html"]
+    # Issue #107 retest: the subject line itself (not just the body) must not carry the
+    # English "Engagement letter" boilerplate for a Spanish contact's default-titled letter.
+    assert sent["subject"] == "Carta de contratación: Alvarez Estate Plan" and "Engagement letter" not in sent["subject"]
 
     with app.app_context():
         from app.models import Engagement
@@ -482,6 +485,8 @@ def test_engagement_emails_and_sign_errors_localized(app, staff):
         db.session.commit()
     reminded = dev_outbox()[0]
     assert "está pendiente de su firma" in reminded["html"] and "waiting for your signature" not in reminded["html"]
+    assert reminded["subject"] == "Recordatorio: Carta de contratación: Alvarez Estate Plan" \
+        and "Engagement letter" not in reminded["subject"]
 
     pub = app.test_client()
     r = pub.post(f"/sign/{eng_token}", data={"signer_name": "", "agree": "1"})
@@ -499,3 +504,5 @@ def test_engagement_emails_and_sign_errors_localized(app, staff):
     signed = next(m for m in dev_outbox() if m["to"] == "maria@example.com" and m["subject"].startswith("Firmado"))
     assert "Gracias" in signed["html"] and "carta de contratación firmada" in signed["html"]
     assert "Thank you" not in signed["html"]
+    assert signed["subject"] == "Firmado: Carta de contratación: Alvarez Estate Plan" \
+        and "Engagement letter" not in signed["subject"]

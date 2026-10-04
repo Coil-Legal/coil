@@ -155,6 +155,16 @@ def _email_html(title, paragraphs, button_text, button_url, lang="en", pixel=Non
             f"<p style='font-size:13px;color:#666'>{escape(f.name or '')}<br>{escape(f.phone or '')}</p>{px}</div>")
 
 
+def _client_title(e, lang):
+    """The subject's boilerplate ('Engagement letter: {matter}') is system text and should
+    match the client's language, same as signatures.py's 'Please sign: {title}'. A
+    staff-customized subject is firm content, left exactly as typed, same as the letter body."""
+    default_subject = f"Engagement letter: {e.matter.name}"
+    if (e.subject or "").strip() != default_subject:
+        return e.subject or "Engagement letter"
+    return t("email.engagement_request.subject", lang, matter=e.matter.name)
+
+
 def send_engagement(engagement, user=None):
     """Hash the body, mark sent, email the client a sign link with an open pixel. Does not commit."""
     e = engagement
@@ -164,13 +174,14 @@ def send_engagement(engagement, user=None):
     e.sent_to = (e.contact.email or "").strip()
     f = Firm.get()
     lang = lang_for(e.contact)
+    title = _client_title(e, lang)
     delivered = True
     if e.sent_to:
-        html = _email_html(e.subject or "Engagement letter",
+        html = _email_html(title,
                            [t("email.hello", lang, name=e.contact.first_name or e.contact.display_name),
                             t("email.engagement_request.body", lang, firm=f.name, matter=e.matter.name)],
                            t("email.sig_request.button", lang), _sign_url(e), lang=lang, pixel=_pixel_url(e))
-        delivered = send_email(e.sent_to, e.subject or "Engagement letter", html,
+        delivered = send_email(e.sent_to, title, html,
                    text=t("email.engagement_request.text", lang, url=_sign_url(e)), reply_to=f.email or None)
     if not e.sent_to:
         detail = "no email on file, link not emailed"
@@ -191,11 +202,12 @@ def send_engagement_reminder(engagement, user=None, detail="reminder"):
     lang = lang_for(e.contact)
     to = e.sent_to or (e.contact.email or "")
     if to:
-        html = _email_html(f"Reminder: {e.subject or 'Engagement letter'}",
+        subj = t("email.engagement_reminder.subject", lang, title=_client_title(e, lang))
+        html = _email_html(subj,
                            [t("email.hello", lang, name=e.contact.first_name or e.contact.display_name),
                             t("email.engagement_reminder.body", lang, firm=f.name, matter=e.matter.name)],
                            t("email.sig_request.button", lang), _sign_url(e), lang=lang, pixel=_pixel_url(e))
-        send_email(to, f"Reminder: {e.subject or 'Engagement letter'}", html,
+        send_email(to, subj, html,
                    text=t("email.engagement_reminder.text", lang, url=_sign_url(e)),
                    reply_to=f.email or None)
     db.session.add(EngagementEvent(engagement_id=e.id, event="reminder", detail=f"{detail} to {to}" if to else "no email"))
@@ -593,7 +605,7 @@ def _email_signed_copies(e):
     subj = f"Signed: {e.subject or 'Engagement letter'}"
     client_to = e.signer_email or e.contact.email
     if client_to:
-        client_subj = t("email.signed.subject", lang, title=e.subject or "Engagement letter")
+        client_subj = t("email.signed.subject", lang, title=_client_title(e, lang))
         send_email(client_to, client_subj, _email_html(client_subj, [
             t("email.engagement_signed.body", lang, name=e.signer_name, firm=f.name)],
             t("email.engagement_signed.button", lang), f"{current_app.config['BASE_URL']}/sign/{e.token}/pdf", lang=lang),
