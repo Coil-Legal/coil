@@ -38,7 +38,7 @@
     <div><label>UTBMS activity code</label><select name="activity_code">{% set cura = v.get('activity_code') if v.get('activity_code') is not none else (entry.activity_code or '') %}{% for code, label in activity_codes %}<option value="{{ code }}" {{ 'selected' if cura == code }}>{{ label }}</option>{% endfor %}</select></div>
   </div>
   <div class="small muted">Task and activity codes are optional. They flow into LEDES e-billing exports for insurance and corporate clients.</div>
-  <label>Description</label><textarea name="description" placeholder="What did you do?">{{ v.get('description') if v.get('description') is not none else entry.description }}</textarea>
+  <label>Description</label><textarea name="description" placeholder="What did you do?">{{ v.get('description') if v.get('description') is not none else (entry.description or '') }}</textarea>
   <label style="display:flex;align-items:center;gap:8px;margin-top:12px"><input type="checkbox" name="billable" value="1" {{ 'checked' if (v.get('billable') if form else entry.billable) }}> Billable</label>
   <div class="actions">
     <button class="btn">{{ 'Save changes' if entry.id else 'Log time' }}</button>
