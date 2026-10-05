@@ -252,6 +252,90 @@ if allowed("leads:write"):
                                             "matter_type": matter_type, "message": message})
 
 
+# ---- added 2026-10-05, in step with the HTTP server's tool list (app/blueprints/mcp_http.py)
+if any(s.endswith(":read") for s in SCOPES):
+    @mcp.tool()
+    def search(query: str, limit: int = 10) -> dict:
+        """Search the whole firm at once: contacts, matters, documents (names and text), tasks and notes.
+        Only the kinds this connection may read are searched; the result says which."""
+        return call("GET", "/search", params={"q": query, "limit": limit})
+
+if allowed("contacts:read"):
+    @mcp.tool()
+    def get_contact(contact_id: int) -> dict:
+        """One contact in full, by numeric id, with their matters."""
+        return call("GET", f"/contacts/{contact_id}")
+
+if allowed("contacts:write"):
+    @mcp.tool()
+    def create_contact(kind: str = "person", first_name: str = "", last_name: str = "", company_name: str = "",
+                       email: str = "", phone: str = "", is_client: bool = False) -> dict:
+        """Add a person or company. Search first: Coil does not stop duplicates, and a duplicate client
+        splits their history. Confirm the spelling with the user."""
+        return call("POST", "/contacts", json={"kind": kind, "first_name": first_name, "last_name": last_name,
+                                               "company_name": company_name, "email": email, "phone": phone,
+                                               "is_client": is_client})
+
+if allowed("matters:write"):
+    @mcp.tool()
+    def create_matter(client_id: int, name: str, practice_area: str = "", description: str = "",
+                      billing_type: str = "hourly") -> dict:
+        """Open a matter for an existing contact, who becomes a client. Run run_conflict_check first and
+        tell the user what it found. Coil numbers the matter."""
+        return call("POST", "/matters", json={"client_id": client_id, "name": name, "practice_area": practice_area,
+                                              "description": description, "billing_type": billing_type})
+
+if allowed("tasks:write"):
+    @mcp.tool()
+    def create_task(title: str, matter_id: int = 0, due_on: str = "", priority: str = "normal",
+                    assignee_id: int = 0) -> dict:
+        """Add a task, optionally on a matter. due_on is YYYY-MM-DD. Court deadlines belong in Coil's
+        deadline chains; use this for ordinary work."""
+        body = {"title": title, "priority": priority}
+        if matter_id:
+            body["matter_id"] = matter_id
+        if due_on:
+            body["due_on"] = due_on
+        if assignee_id:
+            body["assignee_id"] = assignee_id
+        return call("POST", "/tasks", json=body)
+
+    @mcp.tool()
+    def complete_task(task_id: int, done: bool = True) -> dict:
+        """Mark a task done, or reopen it with done=false."""
+        return call("POST", f"/tasks/{task_id}/done", json={"done": done})
+
+if allowed("conflicts:write"):
+    @mcp.tool()
+    def run_conflict_check(names: list[str], matter_id: int = 0, contact_id: int = 0) -> dict:
+        """Run a conflict check on one or more names and store it in Coil. Hits are possible conflicts for a
+        lawyer to review; never tell the user there is no conflict beyond what the result says."""
+        body = {"names": names}
+        if matter_id:
+            body["matter_id"] = matter_id
+        if contact_id:
+            body["contact_id"] = contact_id
+        return call("POST", "/conflicts", json=body)
+
+if allowed("conflicts:read"):
+    @mcp.tool()
+    def get_conflict_check(check_id: int) -> dict:
+        """A stored conflict check and its hits, by id."""
+        return call("GET", f"/conflicts/{check_id}")
+
+if allowed("documents:read"):
+    @mcp.tool()
+    def get_document(document_id: int) -> dict:
+        """One document's details and its extracted text (up to 100,000 characters). Scans may have no text."""
+        return call("GET", f"/documents/{document_id}")
+
+if allowed("invoices:read"):
+    @mcp.tool()
+    def get_invoice(invoice_id: int) -> dict:
+        """One invoice with its lines, by numeric id. Amounts are cents."""
+        return call("GET", f"/invoices/{invoice_id}")
+
+
 @mcp.tool()
 def coil_status() -> dict:
     """What this connection can see and do, and whether client details are withheld.

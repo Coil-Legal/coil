@@ -51,7 +51,7 @@ def hash_token(raw):
 # Those are absent from the API surface rather than gated, so no token, however
 # configured, can reach client funds or remove a record.
 RESOURCES = ("matters", "contacts", "time", "invoices", "tasks",
-             "documents", "calendar", "notes", "leads", "voice")
+             "documents", "calendar", "notes", "leads", "voice", "conflicts")
 ACCESS = ("read", "write")
 ALL_SCOPES = tuple(f"{r}:{a}" for r in RESOURCES for a in ACCESS)
 
@@ -66,6 +66,7 @@ RESOURCE_LABELS = {
     "notes": "Matter notes",
     "leads": "Intake leads",
     "voice": "The phone line (client status, notes and time by phone)",
+    "conflicts": "Conflict checks (run a check and read its results)",
 }
 
 
@@ -98,7 +99,8 @@ def allowed_scopes(user):
     from ..permissions import has_permission
     areas = {"matters": "matters", "contacts": "matters", "time": "time",
              "invoices": "billing", "tasks": "matters", "documents": "documents",
-             "calendar": "calendar", "notes": "matters", "leads": "matters", "voice": "matters"}
+             "calendar": "calendar", "notes": "matters", "leads": "matters", "voice": "matters",
+             "conflicts": "matters"}
     return {f"{resource}:{access}" for resource, area in areas.items() for access in ACCESS
             if has_permission(user, area + ("_view" if access == "read" else ""))}
 
@@ -845,6 +847,268 @@ def create_note():
     audit("note_create", "note", None, f"on {m.number}", g.api_user.id)
     db.session.commit()
     return jsonify({"note": note_json(n)}), 201
+
+
+# ---------------------------------------------------------------- AI-agent additions (2026-10-05)
+# What an assistant most often needs and could not do before: look a person up properly,
+# open a client and a matter, set and finish a task, run a conflict check, read a
+# document's text and search the whole firm at once. Every write keeps the UI's own rules
+# (the same validation, numbering and audit entries) and every read honours redaction.
+
+def contact_detail_json(c):
+    d = contact_json(c)
+    d.update({"first_name": c.first_name, "last_name": c.last_name, "company_name": c.company_name,
+              "address": c.address, "tags": c.tags, "other_names": [a for a in (c.aliases or "").splitlines() if a],
+              "notes": c.notes,
+              "matters": [{"id": m.id, "number": m.number, "status": m.status}
+                          for m in Matter.query.filter_by(client_id=c.id).order_by(Matter.number).limit(100)]})
+    if is_redacted():
+        d.update(first_name=REDACTED if c.first_name else "", last_name=REDACTED if c.last_name else "",
+                 company_name=_r(c.company_name), address=_r(c.address), tags=_r(c.tags),
+                 other_names=[REDACTED for _ in d["other_names"]], notes=_r(c.notes))
+    return d
+
+
+@bp.route("/contacts/<int:id>")
+@read_required("contacts")
+def contact_detail(id):
+    c = db.session.get(Contact, id)
+    if not c:
+        return _error(404, "No such contact.")
+    return jsonify(contact_detail_json(c))
+
+
+@bp.route("/contacts", methods=["POST"])
+@scope_required("contacts:write")
+def contact_create():
+    from .contacts import _valid
+    b = _body()
+    kind = "company" if str(b.get("kind") or "").strip().lower() == "company" else "person"
+    c = Contact(kind=kind, first_name=str(b.get("first_name") or "").strip()[:120],
+                last_name=str(b.get("last_name") or "").strip()[:120],
+                company_name=str(b.get("company_name") or "").strip()[:200],
+                email=str(b.get("email") or "").strip()[:200], phone=str(b.get("phone") or "").strip()[:50],
+                address=str(b.get("address") or "").strip()[:1000], notes=str(b.get("notes") or "").strip()[:20000],
+                tags="", aliases="", language="", ledes_client_id="",
+                is_client=_truthy(b.get("is_client"), False))
+    if not _valid(c):
+        return _error(400, "A company needs company_name; a person needs first_name or last_name.")
+    db.session.add(c)
+    db.session.flush()
+    audit("create", "contact", c.id, f"{c.display_name} via api", g.api_user.id)
+    db.session.commit()
+    return jsonify({"contact": contact_detail_json(c)}), 201
+
+
+@bp.route("/matters", methods=["POST"])
+@scope_required("matters:write")
+def matter_create():
+    from .matters import assign_number, BILLING_TYPES
+    from ..models import Office
+    b = _body()
+    try:
+        client_id = int(b.get("client_id") or 0)
+    except (TypeError, ValueError):
+        return _error(400, "client_id must be a contact id (a whole number).")
+    client = db.session.get(Contact, client_id) if client_id else None
+    if not client:
+        return _error(400, "client_id must be an existing contact. Create the contact first.")
+    name = str(b.get("name") or "").strip()[:300]
+    if not name:
+        return _error(400, "name is required.")
+    billing = str(b.get("billing_type") or "hourly").strip().lower()
+    if billing not in BILLING_TYPES:
+        return _error(400, f"billing_type must be one of {', '.join(BILLING_TYPES)}.")
+    office = Office.query.filter_by(is_default=True).first()
+    m = Matter(client_id=client.id, name=name, status="open", opened_on=date.today(),
+               practice_area=str(b.get("practice_area") or "").strip()[:100],
+               description=str(b.get("description") or "").strip()[:20000],
+               billing_type=billing, responsible_user_id=g.api_user.id,
+               office_id=office.id if office else None)
+    assign_number(m)
+    db.session.add(m)
+    db.session.flush()
+    if not client.is_client:
+        client.is_client = True
+    audit("create", "matter", m.id, f"{m.number} {m.name} via api", g.api_user.id)
+    db.session.commit()
+    return jsonify({"matter": matter_json(m)}), 201
+
+
+@bp.route("/tasks", methods=["POST"])
+@scope_required("tasks:write")
+def task_create():
+    from .tasks import KINDS, PRIORITIES
+    from ..models import User
+    b = _body()
+    title = str(b.get("title") or "").strip()[:300]
+    if not title:
+        return _error(400, "title is required.")
+    kind = str(b.get("kind") or "task").strip().lower()
+    if kind not in KINDS:
+        return _error(400, f"kind must be one of {', '.join(KINDS)}.")
+    priority = str(b.get("priority") or "normal").strip().lower()
+    if priority not in PRIORITIES:
+        return _error(400, f"priority must be one of {', '.join(PRIORITIES)}.")
+    due = None
+    if b.get("due_on"):
+        due = parse_date(str(b["due_on"]))
+        if due is None or due.isoformat() != str(b["due_on"]):
+            return _error(400, "due_on must be a valid date in YYYY-MM-DD format.")
+    matter = None
+    if b.get("matter_id"):
+        matter = db.session.get(Matter, int(b["matter_id"]))
+        if not matter:
+            return _error(404, "No such matter.")
+    assignee = g.api_user
+    if b.get("assignee_id"):
+        assignee = db.session.get(User, int(b["assignee_id"]))
+        if not assignee or not assignee.is_active:
+            return _error(400, "assignee_id must be an active user.")
+    t = Task(title=title, kind=kind, priority=priority, due_on=due, matter_id=matter.id if matter else None,
+             assignee_id=assignee.id, notes=str(b.get("notes") or "").strip()[:20000])
+    db.session.add(t)
+    db.session.flush()
+    audit("create", "task", t.id, f"{t.title} via api", g.api_user.id)
+    if t.matter_id:
+        audit("add_task", "matter", t.matter_id, t.title, g.api_user.id)
+    db.session.commit()
+    return jsonify({"task": task_json(t)}), 201
+
+
+@bp.route("/tasks/<int:id>/done", methods=["POST"])
+@scope_required("tasks:write")
+def task_done(id):
+    t = db.session.get(Task, id)
+    if not t:
+        return _error(404, "No such task.")
+    done = _truthy(_body().get("done"), True)
+    if bool(t.done) != done:
+        t.done = done
+        t.done_at = now() if done else None
+        audit("done" if done else "reopen", "task", t.id, f"{t.title} via api", g.api_user.id)
+        db.session.commit()
+    return jsonify({"task": task_json(t)})
+
+
+def conflict_json(chk):
+    hits = chk.results
+    out = {"id": chk.id, "outcome": chk.outcome, "names_searched": chk.query.splitlines(),
+           "matter_id": chk.matter_id, "contact_id": chk.contact_id, "created_at": _iso(chk.created_at),
+           "hit_count": len(hits),
+           "hits": [{"searched": h.get("query"), "found": h.get("label"), "where": h.get("source"),
+                     "role": h.get("role"), "score": h.get("score"), "url": h.get("url")} for h in hits],
+           "url": f"{current_app.config['BASE_URL']}/conflicts/{chk.id}",
+           "note": ("A hit is a possible conflict for a person to review, not a decision. "
+                    "Resolve or waive it in Coil, never by assumption.")}
+    if is_redacted():
+        out["names_searched"] = [REDACTED for _ in out["names_searched"]]
+        for h in out["hits"]:
+            h["searched"] = REDACTED
+            h["found"] = REDACTED
+    return out
+
+
+@bp.route("/conflicts", methods=["POST"])
+@scope_required("conflicts:write")
+def conflict_run():
+    from .conflicts import run_check
+    b = _body()
+    names = b.get("names")
+    if isinstance(names, (list, tuple)):
+        names = "\n".join(str(n) for n in names)
+    names = str(names or "").strip()
+    if not names:
+        return _error(400, "names is required: one or more names, as a list or one per line.")
+    try:
+        chk = run_check(names, matter_id=int(b["matter_id"]) if b.get("matter_id") else None,
+                        contact_id=int(b["contact_id"]) if b.get("contact_id") else None,
+                        user_id=g.api_user.id)
+    except ValueError as e:
+        return _error(400, str(e))
+    return jsonify({"conflict_check": conflict_json(chk)}), 201
+
+
+@bp.route("/conflicts/<int:id>")
+@read_required("conflicts")
+def conflict_get(id):
+    from ..models import ConflictCheck
+    chk = db.session.get(ConflictCheck, id)
+    if not chk:
+        return _error(404, "No such conflict check.")
+    return jsonify(conflict_json(chk))
+
+
+DOCUMENT_TEXT_LIMIT = 100_000
+
+
+@bp.route("/documents/<int:id>")
+@read_required("documents")
+def document_detail(id):
+    from ..models import Document
+    d = db.session.get(Document, id)
+    if not d:
+        return _error(404, "No such document.")
+    out = document_json(d)
+    text = d.extracted_text or ""
+    out["text_available"] = bool(text)
+    out["text_truncated"] = len(text) > DOCUMENT_TEXT_LIMIT
+    out["text"] = REDACTED if (is_redacted() and text) else text[:DOCUMENT_TEXT_LIMIT]
+    if not text:
+        out["note"] = "Coil has no extracted text for this file (a scan, an image or an unsupported type)."
+    return jsonify(out)
+
+
+@bp.route("/invoices/<int:id>")
+@read_required("invoices")
+def invoice_detail(id):
+    i = db.session.get(Invoice, id)
+    if not i:
+        return _error(404, "No such invoice.")
+    out = invoice_json(i)
+    out["lines"] = [{"kind": l.kind, "date": _iso(l.date),
+                     "description": REDACTED if (is_redacted() and l.description) else l.description,
+                     "quantity": l.quantity, "unit_cents": l.unit_cents, "amount_cents": l.amount_cents,
+                     "time_entry_id": l.time_entry_id, "expense_id": l.expense_id} for l in i.lines]
+    return jsonify(out)
+
+
+@bp.route("/search")
+def search_all():
+    """One query across everything this token may read. Each group appears only when the
+    token has that resource's read scope, so search can never reach past a token's scopes."""
+    from ..models import Document, Note
+    q = (request.args.get("q") or "").strip()
+    if not q:
+        return _error(400, "q is required.")
+    scopes = token_scopes(g.api_token)
+    limit = max(1, min(int(request.args.get("limit", 10) or 10), 50))
+    like = f"%{q}%"
+    out = {"query": REDACTED if is_redacted() else q, "results": {}}
+    if "contacts:read" in scopes:
+        rows = Contact.query.filter(_search_filter(q)).limit(limit).all()
+        out["results"]["contacts"] = [contact_json(c) for c in rows]
+    if "matters:read" in scopes:
+        rows = (Matter.query.outerjoin(Contact, Contact.id == Matter.client_id)
+                .filter(or_(Matter.number.ilike(like), Matter.name.ilike(like), Matter.case_number.ilike(like),
+                            Matter.description.ilike(like), Contact.first_name.ilike(like),
+                            Contact.last_name.ilike(like), Contact.company_name.ilike(like)))
+                .order_by(Matter.number.desc()).limit(limit).all())
+        out["results"]["matters"] = [matter_json(m) for m in rows]
+    if "documents:read" in scopes:
+        rows = (Document.query.filter(Document.is_current == True)  # noqa: E712
+                .filter(or_(Document.name.ilike(like), Document.extracted_text.ilike(like),
+                            Document.tags.ilike(like), Document.folder.ilike(like)))
+                .order_by(Document.created_at.desc()).limit(limit).all())
+        out["results"]["documents"] = [document_json(d) for d in rows]
+    if "tasks:read" in scopes:
+        rows = Task.query.filter(Task.title.ilike(like)).order_by(Task.due_on.is_(None), Task.due_on).limit(limit).all()
+        out["results"]["tasks"] = [task_json(t) for t in rows]
+    if "notes:read" in scopes:
+        rows = Note.query.filter(Note.body.ilike(like)).order_by(Note.created_at.desc()).limit(limit).all()
+        out["results"]["notes"] = [note_json(n) for n in rows]
+    out["searched"] = sorted(out["results"].keys())
+    return jsonify(out)
 
 
 @bp.route("/<path:_rest>", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])

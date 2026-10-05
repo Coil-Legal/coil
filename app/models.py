@@ -1929,4 +1929,20 @@ class AuditLog(db.Model):
 
 
 def audit(action, entity, entity_id=None, detail="", user_id=None):
+    """Record one action. When it happens through an API token (an AI assistant, an
+    automation, an OAuth-connected app), the token's name is added, so the log says not just
+    whose authority was used but which connection used it."""
+    via = _api_token_label()
+    if via:
+        detail = f"{detail or ''} [via {via}]".strip()
     db.session.add(AuditLog(user_id=user_id, action=action, entity=entity, entity_id=entity_id, detail=detail))
+
+
+def _api_token_label():
+    from flask import g, has_request_context
+    if not has_request_context():
+        return ""
+    tok = getattr(g, "api_token", None)
+    if tok is None:
+        return ""
+    return f"API token \"{(tok.name or 'unnamed')[:80]}\" ({tok.prefix or ''})"

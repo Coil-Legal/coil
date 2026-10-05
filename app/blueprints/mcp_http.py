@@ -159,6 +159,73 @@ TOOLS = [
      "required": ["name"],
      "call": lambda a: ("POST", "/leads", None, {"name": a["name"], "email": a.get("email", ""), "phone": a.get("phone", ""),
                                                  "matter_type": a.get("matter_type", ""), "message": a.get("message", "")})},
+    {"name": "search", "scope": None, "any_read": True,
+     "description": ("Search the whole firm at once: contacts, matters, documents (names and text), tasks and "
+                     "notes. Only the kinds this connection may read are searched; the result says which."),
+     "props": {"query": _s("What to look for: a name, a matter number, words in a document"),
+               "limit": _i("Max results per kind", default=10)},
+     "required": ["query"],
+     "call": lambda a: ("GET", "/search", {"q": a["query"], "limit": a.get("limit", 10)}, None)},
+    {"name": "get_contact", "scope": "contacts:read",
+     "description": "One contact in full, by numeric id, with their matters.",
+     "props": {"contact_id": _i("Numeric contact id")}, "required": ["contact_id"],
+     "call": lambda a: ("GET", f"/contacts/{int(a['contact_id'])}", None, None)},
+    {"name": "create_contact", "scope": "contacts:write",
+     "description": ("Add a person or company. Search first with list_contacts or search: Coil does not stop "
+                     "duplicates, and a duplicate client splits their history. Confirm the spelling with the user."),
+     "props": {"kind": _s("person or company", default="person"), "first_name": _s("Person's first name", default=""),
+               "last_name": _s("Person's last name", default=""), "company_name": _s("Company name", default=""),
+               "email": _s("Email", default=""), "phone": _s("Phone", default=""),
+               "is_client": _b("Mark as a client", default=False)},
+     "call": lambda a: ("POST", "/contacts", None, {k: a.get(k) for k in ("kind", "first_name", "last_name", "company_name",
+                                                                         "email", "phone", "is_client") if k in a})},
+    {"name": "create_matter", "scope": "matters:write",
+     "description": ("Open a matter for an existing contact, who becomes a client. Run run_conflict_check on the "
+                     "client and the other side first, and tell the user what it found. Coil numbers the matter."),
+     "props": {"client_id": _i("Numeric contact id of the client"), "name": _s("Matter name, usually the caption"),
+               "practice_area": _s("Practice area", default=""), "description": _s("Scope of the work", default=""),
+               "billing_type": _s("flat, hourly, contingency or hybrid", default="hourly")},
+     "required": ["client_id", "name"],
+     "call": lambda a: ("POST", "/matters", None, {k: a.get(k) for k in ("client_id", "name", "practice_area",
+                                                                        "description", "billing_type") if k in a})},
+    {"name": "create_task", "scope": "tasks:write",
+     "description": ("Add a task, optionally on a matter. due_on is YYYY-MM-DD. Court deadlines belong in Coil's "
+                     "deadline chains, which calculate from court rules; use this for ordinary work."),
+     "props": {"title": _s("What needs doing"), "matter_id": _i("Matter, optional", default=0),
+               "due_on": _s("YYYY-MM-DD, optional", default=""), "priority": _s("low, normal or high", default="normal"),
+               "assignee_id": _i("User id, default the token's owner", default=0)},
+     "required": ["title"],
+     "call": lambda a: ("POST", "/tasks", None, _drop({"title": a["title"], "matter_id": a.get("matter_id") or None,
+                                                       "due_on": a.get("due_on") or None, "priority": a.get("priority") or None,
+                                                       "assignee_id": a.get("assignee_id") or None}))},
+    {"name": "complete_task", "scope": "tasks:write",
+     "description": "Mark a task done, or reopen it with done=false.",
+     "props": {"task_id": _i("Numeric task id"), "done": _b("true to complete, false to reopen", default=True)},
+     "required": ["task_id"],
+     "call": lambda a: ("POST", f"/tasks/{int(a['task_id'])}/done", None, {"done": a.get("done", True)})},
+    {"name": "run_conflict_check", "scope": "conflicts:write",
+     "description": ("Run a conflict check on one or more names (the prospective client, the other side, "
+                     "related people) and store it in Coil. Hits are possible conflicts for a lawyer to review; "
+                     "never tell the user there is no conflict beyond what the result says, and never resolve one."),
+     "props": {"names": {"type": "array", "items": {"type": "string"}, "description": "Names to check"},
+               "matter_id": _i("Matter it is for, optional", default=0),
+               "contact_id": _i("Contact it is for, optional", default=0)},
+     "required": ["names"],
+     "call": lambda a: ("POST", "/conflicts", None, _drop({"names": a["names"], "matter_id": a.get("matter_id") or None,
+                                                           "contact_id": a.get("contact_id") or None}))},
+    {"name": "get_conflict_check", "scope": "conflicts:read",
+     "description": "A stored conflict check and its hits, by id.",
+     "props": {"check_id": _i("Numeric conflict check id")}, "required": ["check_id"],
+     "call": lambda a: ("GET", f"/conflicts/{int(a['check_id'])}", None, None)},
+    {"name": "get_document", "scope": "documents:read",
+     "description": ("One document's details and its extracted text (up to 100,000 characters), by numeric id. "
+                     "Scans and images may have no text."),
+     "props": {"document_id": _i("Numeric document id")}, "required": ["document_id"],
+     "call": lambda a: ("GET", f"/documents/{int(a['document_id'])}", None, None)},
+    {"name": "get_invoice", "scope": "invoices:read",
+     "description": "One invoice with its lines, by numeric id. Amounts are cents.",
+     "props": {"invoice_id": _i("Numeric invoice id")}, "required": ["invoice_id"],
+     "call": lambda a: ("GET", f"/invoices/{int(a['invoice_id'])}", None, None)},
     {"name": "coil_status", "scope": None,
      "description": ("What this connection can see and do, and whether client details are withheld.\n\n"
                      "Worth calling first: it says which mode you are in, and the user may not know."),
@@ -226,7 +293,32 @@ def _instructions(me):
 
 def _visible_tools(me):
     scopes = set(me.get("token", {}).get("scopes") or [])
-    return [t for t in TOOLS if t["scope"] is None or t["scope"] in scopes]
+    has_read = any(s.endswith(":read") for s in scopes)
+    return [t for t in TOOLS if (t["scope"] is None and (not t.get("any_read") or has_read)) or t["scope"] in scopes]
+
+
+def _annotations(tool):
+    """Hints clients use to decide when to ask the user first. Nothing Coil exposes deletes
+    anything, so nothing is destructive; reads are safe to repeat."""
+    read_only = tool["scope"] is None or str(tool["scope"]).endswith(":read")
+    return {"title": tool["name"].replace("_", " ").capitalize(), "readOnlyHint": read_only,
+            "destructiveHint": False, "idempotentHint": read_only, "openWorldHint": False}
+
+
+def _bad_types(tool, args):
+    """Say plainly when an argument has the wrong type, instead of 'missing'."""
+    for key, spec in tool["props"].items():
+        if key not in args or args[key] in (None, ""):
+            continue
+        v = args[key]
+        if spec.get("type") == "integer" and not (isinstance(v, int) and not isinstance(v, bool)):
+            try:
+                int(str(v))
+            except ValueError:
+                return f"{key} must be a whole number, got {v!r}."
+        if spec.get("type") == "array" and not isinstance(v, list):
+            return f"{key} must be a list."
+    return None
 
 
 # ------------------------------------------------------------------ JSON-RPC
@@ -275,7 +367,8 @@ def _handle(msg, me):
         return _ok(id_, {})
 
     if method == "tools/list":
-        return _ok(id_, {"tools": [{"name": t["name"], "description": t["description"], "inputSchema": _schema(t)}
+        return _ok(id_, {"tools": [{"name": t["name"], "description": t["description"], "inputSchema": _schema(t),
+                                    "annotations": _annotations(t)}
                                    for t in _visible_tools(me)]})
 
     if method == "tools/call":
@@ -291,6 +384,9 @@ def _handle(msg, me):
         missing = [r for r in tool.get("required", []) if r not in args]
         if missing:
             return _ok(id_, _tool_result({"error": f"Missing required argument(s): {', '.join(missing)}"}, True))
+        wrong = _bad_types(tool, args)
+        if wrong:
+            return _ok(id_, _tool_result({"error": wrong}, True))
         if tool["call"] is None:                     # coil_status
             tok = me.get("token", {})
             return _ok(id_, _tool_result({
