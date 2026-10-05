@@ -522,7 +522,8 @@ def backup():
     print(f"Backups are stored in: {backup_dir}")
     print("This folder is inside your mounted data directory, so copy it somewhere off this")
     print("machine as well. A backup on the same disk does not survive losing the disk.")
-    print("Restore with: tar xzf <file> -C <install dir>   (stop Coil first)")
+    print(f"Restore with: ops/restore.sh {backup_file.name} <empty-install-dir>   (stop Coil first)")
+    print("Use the same Coil version that made this backup, then upgrade after checking the restored records.")
     return backup_file
 
 

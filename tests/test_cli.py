@@ -5,6 +5,8 @@ Two regressions this guards against, both shipped once already:
      client with an open invoice instead of printing usage.
   2. backup() tarred the live SQLite file, which can capture a torn database.
 """
+import contextlib
+import io
 import os
 import subprocess
 import sys
@@ -52,8 +54,13 @@ def test_backup_snapshots_the_database_and_bundles_uploads(tmp_path):
     (data_dir / "uploads" / "note.txt").write_text("hello")
     cli.DATA_DIR = str(data_dir)
 
-    with app.app_context():
+    with app.app_context(), contextlib.redirect_stdout(io.StringIO()) as printed:
         out = backup()
+
+    # #114: the closing hint must point at the safe restore script, not a bare tar that
+    # would overwrite a live data dir with none of restore.sh's integrity checks.
+    printed_text = printed.getvalue()
+    assert "ops/restore.sh" in printed_text and "tar xzf" not in printed_text
 
     assert out.parent == data_dir / "backups", "backups must sit inside the mounted data dir"
     names = set(tarfile.open(out).getnames())
