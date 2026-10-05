@@ -40,15 +40,15 @@ def post_stripe_event(client, app, event):
                            headers={'Stripe-Signature': f't={stamp},v1={signature}'})
 
 
-def post_twilio_form(client, app, data):
+def post_twilio_form(client, app, data, path='/webhooks/twilio'):
     """Deliver a signed synthetic form using the configured public URL."""
     import base64
     import hashlib
     import hmac
     from unittest.mock import patch
     token = 'local-twilio-test-token'
-    url = app.config['BASE_URL'].rstrip('/') + '/webhooks/twilio'
+    url = app.config['BASE_URL'].rstrip('/') + path
     payload = url + ''.join(key + data[key] for key in sorted(data))
     signature = base64.b64encode(hmac.new(token.encode(), payload.encode(), hashlib.sha1).digest()).decode()
     with patch.dict(app.config, {'TWILIO_AUTH_TOKEN': token}):
-        return client.post('/webhooks/twilio', data=data, headers={'X-Twilio-Signature': signature})
+        return client.post(path, data=data, headers={'X-Twilio-Signature': signature})

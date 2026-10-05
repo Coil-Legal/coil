@@ -252,6 +252,48 @@ def test_messages_send_and_twilio_inbound(app, staff):
     assert r.status_code == 200 and b"Great, thanks!" in r.data and b"M-1001" in r.data
 
 
+def test_twilio_status_callback_marks_undelivered_with_reason(app, staff):
+    """#113: a carrier-refused text must stop showing as queued forever."""
+    client, tok = staff
+    from app.extensions import db
+    from app.integrations import save_firm_values
+    from app.models import Contact, Message
+    with app.app_context():
+        maria = Contact.query.filter_by(last_name="Alvarez").first()
+        m = Message(contact_id=maria.id, direction="out", channel="sms", to_addr=maria.phone,
+                    provider_id="SMoutbound001", status="queued")
+        db.session.add(m)
+        save_firm_values({"TWILIO_AUTH_TOKEN": "local-twilio-test-token"})
+        db.session.commit()
+        mid, cid = m.id, maria.id
+    from tests.helpers import post_twilio_form
+    c = app.test_client()
+    r = post_twilio_form(c, app, {"MessageSid": "SMoutbound001", "MessageStatus": "undelivered",
+                                  "ErrorCode": "30034"}, path="/webhooks/twilio/status")
+    assert r.status_code == 200
+    with app.app_context():
+        m = db.session.get(Message, mid)
+        assert m.status == "undelivered" and "30034" in m.error_detail and "A2P 10DLC" in m.error_detail
+    r = client.get(f"/messages/{cid}")
+    assert r.status_code == 200 and b"undelivered" in r.data and b"A2P 10DLC" in r.data
+    # an unknown MessageSid (callback for a message this install never sent) changes nothing and does not error
+    r = post_twilio_form(c, app, {"MessageSid": "SMnosuchmessage", "MessageStatus": "delivered"},
+                         path="/webhooks/twilio/status")
+    assert r.status_code == 200
+    # a tampered payload replayed against the real signature is refused
+    r = post_twilio_form(c, app, {"MessageSid": "SMoutbound001", "MessageStatus": "delivered"},
+                         path="/webhooks/twilio/status")
+    signature = r.request.headers["X-Twilio-Signature"]
+    tampered = c.post("/webhooks/twilio/status", data={"MessageSid": "SMoutbound001", "MessageStatus": "delivered",
+                                                        "ErrorCode": "tampered"},
+                      headers={"X-Twilio-Signature": signature})
+    assert tampered.status_code == 403
+    with app.app_context():
+        m = db.session.get(Message, mid)
+        assert m.status == "delivered" and m.error_detail == "", \
+            "the legitimately-signed 'delivered' callback above should have applied, the tampered one must not"
+
+
 def test_settings_surcharge_and_users(app, staff):
     client, tok = staff
     from app.models import Firm, User

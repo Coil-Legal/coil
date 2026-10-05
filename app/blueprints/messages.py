@@ -269,5 +269,34 @@ def twilio_inbound():
     return _twiml()
 
 
+@bp.route("/webhooks/twilio/status", methods=["POST"])
+def twilio_status():
+    """Twilio's delivery-status callback for an outbound text (StatusCallback on the create call).
+
+    Without this, an SMS a carrier refuses sits in Coil as "queued" forever; staff believe
+    a client got a text that never arrived. See issue #113."""
+    from ..integrations import setting
+    from ..services.twilio_verify import valid_signature
+    from ..services.sms import explain_delivery_error
+    token = setting("TWILIO_AUTH_TOKEN")
+    if not token:
+        return "Twilio webhook verification is not configured", 503
+    url = current_app.config["BASE_URL"].rstrip("/") + request.path
+    if request.query_string:
+        url += "?" + request.query_string.decode("ascii", errors="replace")
+    if not valid_signature(token, url, request.form, request.headers.get("X-Twilio-Signature", "")):
+        return "Invalid Twilio signature", 403
+    sid = request.form.get("MessageSid", "")
+    status = request.form.get("MessageStatus", "")
+    m = Message.query.filter_by(provider_id=sid).first() if sid else None
+    if not m or not status:
+        return ("", 200)
+    m.status = status
+    m.error_detail = explain_delivery_error(request.form.get("ErrorCode", "")) if status in (
+        "undelivered", "failed") else ""
+    db.session.commit()
+    return ("", 200)
+
+
 def _twiml():
     return Response('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', mimetype="text/xml")

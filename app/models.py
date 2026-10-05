@@ -990,6 +990,7 @@ class Message(db.Model):
     body = db.Column(db.Text, default="")
     provider_id = db.Column(db.String(120), default="")
     status = db.Column(db.String(30), default="queued")
+    error_detail = db.Column(db.Text, default="")  # SMS channel: Twilio's delivery-status error explained, if any
     created_at = db.Column(db.DateTime, default=now)
     # channel "portal": secure messages typed in the client portal or replied to from the staff thread.
     read_at = db.Column(db.DateTime)  # when the other side opened it
