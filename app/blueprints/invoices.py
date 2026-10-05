@@ -1238,7 +1238,8 @@ def render_invoice_pdf(inv, tpl=None, sample=False):
     # in a non-Latin script needs a real font, not a question mark.
     reset_unicode()
     enable_unicode(pdf, firm.name, firm.address, inv.client.display_name, inv.client.address,
-                   inv.notes, tpl.title, *[ln.description for ln in (inv.lines or [])])
+                   inv.notes, tpl.title, tpl.payment_instructions, firm.invoice_footer,
+                   *tpl.labels.values(), *[ln.description for ln in (inv.lines or [])])
     pdf.alias_nb_pages()
     pdf.add_page()
     if sample:

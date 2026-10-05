@@ -172,7 +172,7 @@ def render_statement_pdf(st):
     # set_font() below asks for a family this pdf object never registered.
     reset_unicode()
     enable_unicode(pdf, firm.name, firm.address, title, client.display_name, client.address, client.email,
-                   tpl.statement_footer, firm.invoice_footer,
+                   tpl.statement_footer, firm.invoice_footer, *tpl.labels.values(),
                    *[e["description"] for e in st["entries"]],
                    *[g["matter"].label if g["matter"] else "" for g in st["groups"]])
     pdf.alias_nb_pages()
