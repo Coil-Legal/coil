@@ -1,0 +1,45 @@
+{% extends "base.html" %}{% block title %}Connect {{ client.client_name }}{% endblock %}{% block content %}
+<div class="topbar"><h1>Connect {{ client.client_name }} to Coil?</h1></div>
+{% if error %}<div class="flash error">{{ error }}</div>{% endif %}
+<div class="card" style="max-width:760px">
+  <dl class="kv">
+    <dt>App</dt><dd><strong>{{ client.client_name }}</strong> <span class="small muted">(the app names itself; Coil has not checked it)</span></dd>
+    <dt>Sends you back to</dt><dd><code>{{ host }}</code></dd>
+    <dt>Acting as</dt><dd>{{ user.name }} ({{ user.role }})</dd>
+  </dl>
+  <p class="small">If you approve, this app can use Coil as you, within what you tick below. It cannot reach trust accounting, payments, user permissions or firm settings, and it cannot delete anything. You can disconnect it at any time from <a href="/oauth/connections">Connected apps</a>.</p>
+  <p class="small"><strong>Only continue if you started this connection yourself</strong> and recognise <code>{{ host }}</code>.</p>
+
+  <form method="post" action="/oauth/authorize">{{ csrf() }}
+    {% for k, v in params.items() %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+    <label>What may this app see and do?</label>
+    <table style="margin:4px 0 14px">
+      <tr><th></th><th class="small" style="width:70px">Read</th><th class="small" style="width:70px">Write</th></tr>
+      {% for r in resources %}{% if (r ~ ':read') in offer or (r ~ ':write') in offer %}
+      <tr>
+        <td class="small">{{ resource_labels[r] }}</td>
+        <td>{% if (r ~ ':read') in offer %}<input type="checkbox" name="scopes" value="{{ r }}:read" aria-label="Read {{ resource_labels[r] }}"{% if (r ~ ':read') in picked %} checked{% endif %}>{% endif %}</td>
+        <td>{% if (r ~ ':write') in offer %}<input type="checkbox" name="scopes" value="{{ r }}:write" aria-label="Write {{ resource_labels[r] }}"{% if (r ~ ':write') in picked %} checked{% endif %}>{% endif %}</td>
+      </tr>
+      {% endif %}{% endfor %}
+    </table>
+    {% if trimmed %}<p class="small muted">The app also asked for {{ trimmed|join(', ') }}. Your role does not allow that, so it is not offered.</p>{% endif %}
+
+    <label style="margin-top:14px">Client confidentiality</label>
+    <label><input type="radio" name="confidentiality" value="redacted" checked>
+      <strong>Withhold client details.</strong> Coil replaces client names, contact details and the
+      substance of matters before anything leaves this server. Numbers, dates, amounts and statuses
+      still come through, so the AI service can help with billing and deadlines without learning who
+      the client is or what the case is about.</label>
+    <label><input type="radio" name="confidentiality" value="full">
+      <strong>Send everything.</strong> Client names, contact details and case details are sent to
+      the AI service behind this app. Choose this only if your firm has checked how that service
+      handles and keeps client data. That is your call to make under Rule 1.6.</label>
+
+    <div class="actions">
+      <button class="btn" name="decision" value="approve">Approve</button>
+      <button class="btn secondary" name="decision" value="deny">Deny</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

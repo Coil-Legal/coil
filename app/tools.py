@@ -35,7 +35,8 @@ from flask import g, has_request_context
 
 # Paths a tool switch never closes. See the module docstring for why each is here.
 NEVER_GUARDED = ("/static", "/health", "/login", "/logout", "/setup", "/webhooks/", "/sign/", "/pay/",
-                 "/p/", "/track/", "/api/", "/mcp", "/manifest.webmanifest", "/sw.js", "/offline")
+                 "/p/", "/track/", "/api/", "/mcp", "/oauth/", "/.well-known/", "/manifest.webmanifest", "/sw.js",
+                 "/offline")
 
 
 class Tool:

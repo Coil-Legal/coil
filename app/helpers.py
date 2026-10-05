@@ -200,7 +200,10 @@ def csrf_field():
 
 
 CSRF_EXEMPT_PREFIXES = ("/webhooks/", "/intake/submit", "/track/", "/sign/", "/pay/", "/p/", "/portal/", "/api/v1/",
-                        "/mcp")  # bearer-authenticated JSON-RPC, same footing as the API
+                        "/mcp",  # bearer-authenticated JSON-RPC, same footing as the API
+                        # OAuth machine endpoints (blueprints/oauth.py). They never read the session.
+                        # The consent POST at /oauth/authorize is deliberately NOT here.
+                        "/oauth/token", "/oauth/register", "/oauth/revoke", "/.well-known/")
 
 
 def check_csrf():

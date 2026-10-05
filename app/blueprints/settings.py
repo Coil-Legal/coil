@@ -868,11 +868,16 @@ def api_tokens():
         session["_new_api_token"] = raw
         return redirect(url_for("settings.api_tokens"))
     new_token = session.pop("_new_api_token", None)
-    rows = ApiToken.query.order_by(ApiToken.revoked_at.isnot(None), ApiToken.created_at.desc()).all()
+    # Tokens made here. OAuth access tokens are ApiToken rows too, one an hour per connected
+    # app, so they are listed per app under Connected apps instead of flooding this table.
+    rows = ApiToken.query.filter(ApiToken.oauth_client_id.is_(None)) \
+        .order_by(ApiToken.revoked_at.isnot(None), ApiToken.created_at.desc()).all()
     from .api import RESOURCES, RESOURCE_LABELS, allowed_scopes
+    from .oauth import connected_apps, resource_url
     return render_template("settings/api.html", rows=rows, new_token=new_token, base=current_app.config["BASE_URL"],
                            resources=RESOURCES, resource_labels=RESOURCE_LABELS, allowed_scopes=allowed_scopes(u),
-                           rate_limit=current_app.config.get("API_RATE_LIMIT", RATE_LIMIT))
+                           rate_limit=current_app.config.get("API_RATE_LIMIT", RATE_LIMIT),
+                           apps=connected_apps(u, everyone=(u.role == "owner")), mcp_url=resource_url())
 
 
 @bp.route("/settings/api/<int:id>/revoke", methods=["POST"])

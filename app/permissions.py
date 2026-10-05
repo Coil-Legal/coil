@@ -208,6 +208,11 @@ def enforce():
     m = _SELF_EDIT.match(path)
     if m and int(m.group(1)) == user.id:
         return None
+    # OAuth consent and connected apps: any signed-in role, readonly included, may approve an app for
+    # itself and disconnect its own. Each route in blueprints/oauth.py checks whose grant it is, and the
+    # scopes offered are capped by api.allowed_scopes(), so this widens nothing a role could reach.
+    if path.startswith("/oauth/"):
+        return None
     # Own API tokens: anyone who can track time. Readonly cannot track time, so it still falls through to the
     # settings check below and is refused.
     if _API_TOKENS.match(path) and has_permission(user, "time"):

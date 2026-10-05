@@ -41,6 +41,9 @@ def create_app(config=None):
             # The public lead form is intentionally embedded on a firm's own website.
             response.headers.pop("X-Frame-Options", None)
             response.headers["Content-Security-Policy"] += " frame-ancestors *;"
+        elif request.endpoint in ("oauth.authorize", "oauth.authorize_decide"):
+            # The OAuth consent page must never be framed, or a page could trick a click on Approve.
+            response.headers["Content-Security-Policy"] += " frame-ancestors 'none';"
         return response
 
     if app.config.get("COIL_QA_HEADERS"):
@@ -62,7 +65,7 @@ def create_app(config=None):
                     "rules", "doctemplates", "emailin", "accounting", "api", "webhooks_out", "ai",
                     "statements", "research", "pi", "features", "records", "discovery", "caseaudit",
                     "money", "criminal", "capture",
-                    "importer", "voice", "feedback", "setupguide", "mcp_http",):
+                    "importer", "voice", "feedback", "setupguide", "mcp_http", "oauth",):
         try:
             mod = __import__(f"app.blueprints.{modname}", fromlist=["bp"])
             app.register_blueprint(mod.bp)

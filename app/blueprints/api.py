@@ -179,7 +179,8 @@ def _authenticate():
         return _error(401, "Send an Authorization: Bearer <token> header.")
     raw = header[7:].strip()
     tok = ApiToken.query.filter_by(token_hash=hash_token(raw)).first() if raw else None
-    if not tok or tok.revoked_at or not tok.user or not tok.user.is_active:
+    if not tok or tok.revoked_at or not tok.user or not tok.user.is_active or \
+            (tok.expires_at and tok.expires_at <= now()):  # OAuth tokens expire; hand-made ones never do
         return _error(401, "Unknown or revoked token.")
     if _rate_limited(tok.id):
         resp = _error(429, f"Rate limit of {current_app.config.get('API_RATE_LIMIT') or RATE_LIMIT} "

@@ -1,0 +1,7 @@
+{% extends "base.html" %}{% block title %}Connected apps{% endblock %}{% block content %}
+<div class="topbar"><h1>Connected apps</h1></div>
+<div class="card"><h2>{{ 'Connected apps in the firm' if is_owner else 'Your connected apps' }}</h2>
+{% set back = '/oauth/connections' %}{% include "oauth/_connections.html" %}
+<p class="small">To connect an AI app, add <code>{{ mcp_url }}</code> as a custom connector in the app. It sends you here to sign in and approve it.</p>
+</div>
+{% endblock %}

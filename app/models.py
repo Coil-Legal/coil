@@ -1223,6 +1223,81 @@ class ApiToken(db.Model):
     revoked_at = db.Column(db.DateTime)
     created_at = db.Column(db.DateTime, default=now)
     user = db.relationship("User")
+    # OAuth access tokens (app/blueprints/oauth.py) are ApiToken rows that expire after an
+    # hour and name the app they were issued to. Tokens made by hand on Settings > API leave
+    # both NULL and never expire.
+    expires_at = db.Column(db.DateTime)
+    oauth_client_id = db.Column(db.Integer, db.ForeignKey("oauth_clients.id"))
+
+
+class OAuthClient(db.Model):
+    """An app that registered itself through OAuth dynamic client registration (RFC 7591),
+    such as a claude.ai or ChatGPT connector. Registering grants nothing: a person still has
+    to sign in to Coil and approve the app before it gets a token."""
+    __tablename__ = "oauth_clients"
+    id = db.Column(db.Integer, primary_key=True)
+    client_id = db.Column(db.String(80), unique=True, nullable=False)
+    # sha256 of the secret, only for apps that registered as confidential clients. Public
+    # clients (token_endpoint_auth_method "none") rely on PKCE and leave this blank.
+    client_secret_hash = db.Column(db.String(80), default="")
+    client_name = db.Column(db.String(200), default="")
+    redirect_uris_json = db.Column(db.Text, default="[]")
+    grant_types = db.Column(db.String(200), default="authorization_code,refresh_token")
+    token_endpoint_auth_method = db.Column(db.String(40), default="none")
+    scope = db.Column(db.String(500), default="")  # blank: any supported scope may be asked for
+    created_ip = db.Column(db.String(64), default="")
+    created_at = db.Column(db.DateTime, default=now)
+
+    @property
+    def redirect_uris(self):
+        try:
+            v = json.loads(self.redirect_uris_json or "[]")
+        except ValueError:
+            return []
+        return [u for u in v if isinstance(u, str)] if isinstance(v, list) else []
+
+
+class OAuthCode(db.Model):
+    """A single-use authorization code. Only its sha256 is stored. It is bound to the app, the
+    exact redirect URI, the person who approved it, what they approved and the PKCE challenge."""
+    __tablename__ = "oauth_codes"
+    id = db.Column(db.Integer, primary_key=True)
+    code_hash = db.Column(db.String(80), unique=True, nullable=False)
+    oauth_client_id = db.Column(db.Integer, db.ForeignKey("oauth_clients.id"), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    redirect_uri = db.Column(db.String(1000), default="")
+    scopes = db.Column(db.String(500), default="")
+    confidentiality = db.Column(db.String(20), default="redacted")
+    code_challenge = db.Column(db.String(200), default="")
+    resource = db.Column(db.String(500), default="")
+    expires_at = db.Column(db.DateTime)
+    used_at = db.Column(db.DateTime)
+    created_at = db.Column(db.DateTime, default=now)
+    client = db.relationship("OAuthClient")
+    user = db.relationship("User")
+
+
+class OAuthRefreshToken(db.Model):
+    """A refresh token. Only its sha256 is stored. Every use replaces it with a new one in the
+    same chain; presenting a replaced one again means it leaked, and the whole chain and the
+    access tokens it issued are revoked."""
+    __tablename__ = "oauth_refresh_tokens"
+    id = db.Column(db.Integer, primary_key=True)
+    token_hash = db.Column(db.String(80), unique=True, nullable=False)
+    oauth_client_id = db.Column(db.Integer, db.ForeignKey("oauth_clients.id"), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    scopes = db.Column(db.String(500), default="")
+    confidentiality = db.Column(db.String(20), default="redacted")
+    chain = db.Column(db.String(64), index=True, nullable=False)  # one approval, every rotation since
+    code_id = db.Column(db.Integer, db.ForeignKey("oauth_codes.id"))
+    access_token_id = db.Column(db.Integer, db.ForeignKey("api_tokens.id"))  # issued alongside this one
+    granted_at = db.Column(db.DateTime, default=now)  # when the person approved; carried across rotation
+    expires_at = db.Column(db.DateTime)
+    rotated_at = db.Column(db.DateTime)
+    revoked_at = db.Column(db.DateTime)
+    created_at = db.Column(db.DateTime, default=now)
+    client = db.relationship("OAuthClient")
+    user = db.relationship("User")
 
 
 class Webhook(db.Model):

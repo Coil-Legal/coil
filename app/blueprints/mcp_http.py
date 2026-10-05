@@ -327,7 +327,9 @@ def rpc():
         resp = jsonify(_err(None, -32001, "Send an Authorization: Bearer <Coil API token> header. "
                                           "Create one in Coil at Settings, API tokens."))
         resp.status_code = 401
-        resp.headers["WWW-Authenticate"] = 'Bearer realm="coil-mcp"'
+        # RFC 9728: point an OAuth client (claude.ai, ChatGPT) at where tokens come from.
+        from .oauth import www_authenticate
+        resp.headers["WWW-Authenticate"] = www_authenticate(bool(request.headers.get("Authorization")))
         return resp
     try:
         payload = request.get_json(force=True, silent=False)

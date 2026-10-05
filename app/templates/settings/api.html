@@ -50,6 +50,10 @@
     <p class="small muted">{% if is_owner %}As the firm owner you see every token here and can revoke any of them. Everyone else sees only their own.{% else %}These are your tokens. Other people's tokens are not shown here and you cannot revoke them.{% endif %}</p>
   </div>
 </div>
+<div class="card"><h2>Connected apps</h2>
+<p class="small">AI apps such as claude.ai, Claude Desktop and ChatGPT can connect without a token from this page: add <code>{{ mcp_url }}</code> as a custom connector in the app, then sign in to Coil and approve it when it asks. The approval page lets you choose what the app may do and defaults to withholding client details.</p>
+{% set back = '/settings/api' %}{% set is_owner = current_user() and current_user().role == 'owner' %}{% include "oauth/_connections.html" %}
+</div>
 <div class="card"><h2>API reference</h2>
 <p class="small">Base URL <code>{{ base }}/api/v1</code>. Send <code>Authorization: Bearer &lt;token&gt;</code> on every request. Responses are JSON. Errors look like <code>{"error": "...", "status": 401}</code>: 401 bad token, 403 missing scope, 404 not found, 429 more than {{ rate_limit }} calls in a minute. Money is integer cents; dates are YYYY-MM-DD.</p>
 <table>
