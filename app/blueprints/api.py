@@ -174,8 +174,13 @@ def reset_rate_limits():
         _rate.clear()
 
 
+PUBLIC_PATHS = ("/api/v1/openapi.json",)
+
+
 @bp.before_request
 def _authenticate():
+    if request.path in PUBLIC_PATHS:
+        return None                                  # the API's own description is public
     header = request.headers.get("Authorization", "")
     if not header.lower().startswith("bearer "):
         return _error(401, "Send an Authorization: Bearer <token> header.")
@@ -1109,6 +1114,16 @@ def search_all():
         out["results"]["notes"] = [note_json(n) for n in rows]
     out["searched"] = sorted(out["results"].keys())
     return jsonify(out)
+
+
+@bp.route("/openapi.json")
+def openapi_json():
+    """OpenAPI 3.1 description of this API, for agents, GPT actions and automation tools."""
+    from ..openapi import spec
+    resp = jsonify(spec(current_app.config.get("BASE_URL") or request.host_url,
+                        current_app.config.get("COIL_VERSION", "dev")))
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    return resp
 
 
 @bp.route("/<path:_rest>", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
