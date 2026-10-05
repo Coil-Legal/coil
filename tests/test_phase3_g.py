@@ -334,6 +334,9 @@ def test_api_read_endpoints(app):
     assert r.status_code == 404
     r = c.get("/api/v1/contacts?q=blue", headers=_h(raw))
     assert any("Bluebonnet" in x["name"] for x in r.json["contacts"])
+    # A full name spans first_name and last_name; it must still find the contact (#112).
+    r = c.get("/api/v1/contacts?q=Maria Alvarez", headers=_h(raw))
+    assert any("Alvarez" in x["name"] for x in r.json["contacts"]), r.json
     r = c.get("/api/v1/invoices?status=all", headers=_h(raw))
     assert any(i["number"] == "INV-G1" for i in r.json["invoices"])
     r = c.get("/api/v1/tasks?due=today", headers=_h(raw))

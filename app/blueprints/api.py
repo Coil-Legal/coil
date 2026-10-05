@@ -22,6 +22,7 @@ from werkzeug.exceptions import HTTPException
 from ..extensions import db
 from ..models import ApiToken, Matter, Contact, TimeEntry, Timer, Invoice, Task, Firm, IntakeLead, audit, now
 from ..helpers import parse_date, parse_minutes
+from .contacts import _search_filter
 
 bp = Blueprint("api", __name__, url_prefix="/api/v1")
 
@@ -444,9 +445,7 @@ def contacts():
     q = (request.args.get("q") or "").strip()
     query = Contact.query
     if q:
-        like = f"%{q}%"
-        query = query.filter(or_(Contact.first_name.ilike(like), Contact.last_name.ilike(like),
-                                 Contact.company_name.ilike(like), Contact.email.ilike(like)))
+        query = query.filter(_search_filter(q))
     rows = query.order_by(Contact.last_name, Contact.company_name, Contact.first_name).limit(50).all()
     return jsonify({"contacts": [contact_json(c) for c in rows]})
 
