@@ -319,8 +319,9 @@ def test_full_flow(app):
     with app.app_context():
         from app.models import AuditLog
         actions = [a.action for a in AuditLog.query.all()]
-        for want in ("oauth_authorize", "oauth_token_issue", "oauth_token_refresh", "oauth_refresh_reuse"):
+        for want in ("oauth_authorize", "oauth_token_issue", "oauth_refresh_reuse"):
             assert want in actions, want
+        assert "oauth_token_refresh" not in actions, "routine refreshes are not audited"
 
     # A fresh grant, then revocation (RFC 7009) of the access token and of the refresh token.
     c3, cid3, tok3 = grant(app)

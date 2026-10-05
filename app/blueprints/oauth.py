@@ -606,8 +606,9 @@ def _grant_refresh(client):
         revoke_chain(rt.chain)
         db.session.commit()
         return _json_error("invalid_grant", "Your role no longer allows any of what was approved.")
-    audit("oauth_token_refresh", "api_token", tok.id,
-          f"{client.client_name} [{tok.confidentiality}] ({tok.scopes})", user.id)
+    # Not audited: an hourly refresh is the app staying connected, not a decision anyone made,
+    # and logging it would add a row an hour per app. Connecting, disconnecting and any refresh
+    # token reuse are audited.
     db.session.commit()
     return _no_store(jsonify(body))
 
