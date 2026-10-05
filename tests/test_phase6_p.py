@@ -381,6 +381,16 @@ def test_charge_refused_when_stripe_unset(app, client):
 # ---------------------------------------------------------------------------
 # 3. Payment plans
 # ---------------------------------------------------------------------------
+def test_plan_setup_flash_uses_frequency_adjective_not_period_noun(app, client):
+    inv_id, token = _invoice(app, 26700, number="INV-P6-PLAN-FLASH")
+    r = client.post("/money/plans/new", data={"_csrf": S["tok"], "invoice_id": inv_id, "installments": "3",
+                                             "frequency": "monthly", "first_charge_on": TODAY.isoformat()},
+                    follow_redirects=True)
+    assert r.status_code == 200
+    assert b"3 monthly installments of" in r.data
+    assert b"3 month installments of" not in r.data
+
+
 def test_auto_charge_plan_lifecycle(app, client, stripe_on, monkeypatch):
     from app.extensions import db
     from app.models import Invoice, PaymentPlan, Payment, AuditLog

@@ -654,7 +654,7 @@ def plan_new():
     db.session.add(InvoiceEvent(invoice_id=inv.id, event="plan",
                                 detail=f"payment plan: {n} {freq} installments of {cents_to_str(per)}"))
     db.session.commit()
-    flash(f"Payment plan set up: {n} {FREQUENCY_LABELS[freq].replace('every ', '')} installments of "
+    flash(f"Payment plan set up: {n} {freq} installments of "
           f"{cents_to_str(per)} starting {first:%b %-d, %Y}.", "ok")
     return redirect(url_for("money.plan_detail", plan_id=plan.id))
 
