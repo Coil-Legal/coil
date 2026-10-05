@@ -1790,6 +1790,93 @@ discovery is paused per Ian's 2026-10-02 direction.
     deactivated; engagement template 2 deleted; the owner's dashboard at defaults;
     Signatures on; speedy-trial task 22 on matter 165) is untouched.
 
+### S45. Mail round trip on qa2 (P2-B2-1): signature requests and engagement letters actually
+### deliver via the capture inbox, sign from the captured link, and the no-mail-server edge
+status: posted https://github.com/Coil-Legal/coil/issues/89#issuecomment-5984637110 2026-10-04T21:33:00Z
+
+Backlog item P2-B2-1. qa2 got its own Mailpit capture inbox on 2026-10-04 (commit
+`b26aad0`), so the signature and engagement-letter send flows that previously stuck at
+"Email delivery failed" for lack of any SMTP server should now actually deliver and be
+signable end to end, the same way testfirm's already work.
+
+## Cases 5688 to 5701: Mail round trip on qa2 (P2-B2-1)
+
+1. Setup (act and check): create contact `QA2 Mail Roundtrip Client 20261004` (person,
+   client), email `qa2-mailrt-20261004@coil.test`. Expect `Contact created.` New matter
+   `QA2 Mail Roundtrip Matter 20261004` for that contact, practice area blank, office
+   none, no template. Expect a flash matching `Matter M-.... opened.` Upload a small text
+   document named `QA2 Mail Roundtrip Doc 20261004.txt` to it. Expect `Uploaded QA2 Mail
+   Roundtrip Doc 20261004.txt.` Record the contact id, the matter id/number, and the
+   document id.
+
+2. Act and check: from that document, request a signature (default title, no message)
+   addressed to the matter's client. Expect flash matching `Signature request sent to
+   qa2-mailrt-20261004@coil.test.` — specifically NOT `Email delivery failed. The
+   signature request remains a draft; check mail settings and try again.` If the
+   delivery-failed flash still appears, say so plainly as a regression of the
+   capture-inbox fix, do not refile #105, and skip ahead to case 6 (the no-email edge)
+   plus cleanup.
+
+3. Check (owner session, read-only): open https://qa2.coil.legal/qa-mail/ and confirm
+   exactly one new message to `qa2-mailrt-20261004@coil.test`, sent since case 2, with a
+   subject naming the document. Open its sign link from inside that captured email and
+   confirm it lands on the public sign page for this document.
+
+4. Act and check, non-Latin: on that signing page, type signer name `Ελένη
+   Παπαδοπούλου 20261004`, tick the agree box, submit. Expect the signed/done page.
+   Reload the signature's detail page as owner: confirm status `signed`, the signer name
+   is exactly that Greek text, and the certificate download opens.
+
+5. Check: reload https://qa2.coil.legal/qa-mail/ and confirm two more new messages since
+   case 3: one to `qa2-mailrt-20261004@coil.test` (the client's signed copy) and one to
+   the firm's own email. Confirm the client copy carries the signed PDF as an attachment.
+
+6. Edge, no email on file: create a second contact `QA2 Mail Roundtrip No-Email 20261004`
+   (person, client) with no email. Request a signature on the same document for this
+   contact. Expect flash matching `Signature request sent to nobody (no email on
+   file).` Confirm /qa-mail/ gets no new message for this one, and the signature's own
+   detail page still shows a working sign link.
+
+7. Edge, blocked role: reactivate user 42 (billing, inactive per the retained list);
+   expect `User saved.` Signed in as it, `GET /signatures` and the signature detail page
+   from case 2. Expect HTTP 403 on both, flash exactly `Your role (billing) cannot open
+   documents. Ask the firm owner if you need that access.` Deactivate user 42 again;
+   expect `User saved.`
+
+8. Act and check: on the matter from case 1, create and send an engagement letter (any
+   template, default scope) to the client. Expect flash matching `Engagement letter sent
+   to qa2-mailrt-20261004@coil.test.` — not `Saved, but the email to ... could not be
+   delivered. The sign link is still active; check the firm's email settings and
+   resend.`
+
+9. Check: https://qa2.coil.legal/qa-mail/ shows one new message for the engagement
+   letter since case 8. Open its sign link from the captured email.
+
+10. Act and check, empty-input edge: on the engagement sign page, submit with the name
+    field blank and the agree box ticked. Expect flash exactly `Type your full name and
+    tick the box to confirm you agree.` and the letter still `sent`, not signed. Submit
+    again with a real name and the box ticked. Expect the signed/done page.
+
+11. Check: /qa-mail/ shows two more new messages since case 9 (the client's and firm's
+    signed copies). Confirm the client's carries the signed PDF as an attachment.
+
+12. Act and check, duplicate edge: submit that same engagement's sign form a third time
+    (the same token, already signed). Confirm it shows the already-signed status page,
+    not a second signature, and no third round of signed-copy emails in /qa-mail/.
+
+13. Act and check: create and send a third, fresh signature request on the document from
+    case 1, to the original client contact. From its public sign page, decline it with
+    reason `QA2 decline 20261004`. Confirm the signature's detail page shows status
+    `declined` with that reason, and /qa-mail/ gets one new message addressed to the firm
+    noting the decline.
+
+14. Clean up and what remains: void any signature request from this batch that is not
+    already signed or declined, close the matter from case 1. Report every id created
+    this batch: both contacts, the matter and its number, the document, all three
+    signature ids and their final statuses, and the engagement id and its final status.
+    Reconfirm user 42 is inactive and that the full retained list above this batch is
+    untouched.
+
 ## Backlog
 
 Areas for the coordinator to turn into batches when a bot's queue is empty, in priority
@@ -1798,14 +1885,21 @@ order. Take the first area marked `open`, write one batch for it, and change its
 say what is left in a sentence under it. Never write a batch for a parked area: the AI
 assistant (saved for the very end, Ian 2026-10-04), or anything that sends real email, SMS or money. Since Ian's 2026-10-04 "let's do
 Phase 2", invoicing, manual payments, payment plans, multi-currency and trust are in scope on
-QA records. Card payments are not: testfirm holds LIVE Stripe keys, so on testfirm never
-click Pay now, Request card on file, Charge card, or start a Stripe checkout. qa2 has no
-Stripe keys, so there the expected answer is the "not configured" message.
+QA records. Since 2026-10-04 20:45 UTC testfirm runs on Stripe TEST keys (Ian swapped them), so card
+payments are in scope on testfirm with Stripe's test cards only (4242 4242 4242 4242 succeeds,
+4000 0000 0000 0002 is declined, any future expiry, any CVC). Never a real card number. qa2 has
+no Stripe keys, so there the expected answer is the "not configured" message.
 
 ### Bot 1 backlog (testfirm)
 
 Phase 2 first (Ian, 2026-10-04), in this order:
 
+- `open` P2-B1-0. Card payments in Stripe test mode, now unblocked: a QA invoice sent to the
+  capture inbox, its public page, Pay now by card with 4242 (the surcharge shown before
+  redirect if the firm has one), the payment recorded once from Stripe's webhook, the
+  invoice paid; a second invoice declined with 4000 0000 0000 0002 and left unpaid; ACH
+  chosen and shown with no surcharge; Request card on file for a QA client with 4242 and a
+  charge against it; a plan installment charged to that card. Two batches if needed.
 - `open` P2-B1-1. Invoicing core: a new QA matter with time and an expense, an invoice
   drafted from them, approval, send to the capture inbox, resend, reminder, the PDF with
   Greek names, void, and the client statement. Two batches if needed.

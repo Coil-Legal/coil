@@ -25,8 +25,8 @@ the date, and the next handoff posted in the same comment that records the last 
 Reads of pages that are empty because nothing was created do not count as cases.
 Since 2026-10-04 (Ian: "let's do Phase 2") invoicing, manual payments, plans, multi-currency
 and trust are back in scope on QA records. The AI assistant (P1-AI) stays parked until the very end (Ian, 2026-10-04: "almost a
-separate product"), and on
-testfirm nothing touches card payments while it holds live Stripe keys.
+separate product"), and since
+2026-10-04 testfirm runs on Stripe test keys, so card flows there use Stripe test cards only.
 They moved to Phase 2 on 2026-10-03, so Phase 1 is 21 tools. Open Phase 1 tools now get
 one sign-off batch each, then a decision: see "Sign-off batches" in docs/QA-HANDOFF.md.
 A name that must match nothing is built when the case runs, never written in a handoff.
