@@ -139,6 +139,13 @@ def build_statement(client, d_from=None, d_to=None, matter_id=None, today=None):
         for g in groups.values():
             for code, cents in g[k + "_cur"].items():
                 _bump(totals_cur[k], code, cents)
+    # Seed at zero for every invoice currency on the statement, same as the totals above, so a
+    # client with no payments yet (or none in a currency that is unpaid) shows "€0.00 + £0.00"
+    # instead of falling through curmix's single-currency empty case ("$0.00" in the firm's own
+    # currency, wrong when the client has no USD invoices at all: see issue #129).
+    for k in ("payments", "credits", "payments_and_credits"):
+        for code in totals_cur["invoiced"]:
+            totals_cur[k][code] = 0
     for e in entries:
         if e["kind"] in ("payment", "trust"):
             _bump(totals_cur["payments"], (e["currency"] or "USD").upper(), e["credit"])
