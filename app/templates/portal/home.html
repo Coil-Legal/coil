@@ -26,7 +26,7 @@
 <div class="card">
   <h2>{{ t('portal.home.invoices', lang) }}</h2>
   {% if invoices %}<table><tr><th>{{ t('portal.home.invoice', lang) }}</th><th>{{ t('portal.home.matter', lang) }}</th><th>{{ t('portal.home.due', lang) }}</th><th class="num">{{ t('portal.home.balance', lang) }}</th><th></th></tr>
-  {% for i in invoices %}<tr><td>{{ i.number }}</td><td>{{ i.matter.name if i.matter else '' }}</td><td class="nowrap">{{ i.due_on|d }}{% if i.is_overdue %} <span class="badge overdue">{{ t('portal.home.past_due', lang) }}</span>{% endif %}</td><td class="num">{{ i.balance_cents|money }}</td><td class="right nowrap"><a href="/p/{{ i.public_token }}">{{ t('portal.home.view_pay', lang) }}</a></td></tr>{% endfor %}</table>
+  {% for i in invoices %}<tr><td>{{ i.number }}</td><td>{{ i.matter.name if i.matter else '' }}</td><td class="nowrap">{{ i.due_on|d }}{% if i.is_overdue %} <span class="badge overdue">{{ t('portal.home.past_due', lang) }}</span>{% endif %}</td><td class="num">{{ i.balance_cents|cur(i.currency) }}</td><td class="right nowrap"><a href="/p/{{ i.public_token }}">{{ t('portal.home.view_pay', lang) }}</a></td></tr>{% endfor %}</table>
   {% else %}<p class="muted">{{ t('portal.home.nothing_due', lang) }}</p>{% endif %}
 </div>
 
