@@ -67,6 +67,30 @@ Set up 2026-10-02 22:00 UTC at Ian's request. Rules in `AGENTS.md` and `CLAUDE.m
 
 ## Active work
 
+- **Autonomous QA loop: #129 fixed and deployed, no files held.** 2026-10-06 (this run) UTC.
+  Issue #129 (QA2, Bot 2's cases 5872/5874 on issue #89): `build_statement`
+  (`app/blueprints/statements.py`) seeded `totals_cur["paid"]`/`["credited"]`/`["balance"]`/
+  `["invoiced"]` with a key per invoice currency, zero or not, but `["payments"]`/`["credits"]`/
+  `["payments_and_credits"]` only got a key once a real payment or credit existed. On a client
+  with EUR+GBP invoices and no USD ones, that left the "Paid or applied" card's sub-line and the
+  Activity Totals row falling through `curmix`'s empty-dict case to `$0.00` (firm currency, wrong
+  symbol) right next to the correctly-split `€0.00 + £0.00` on the same page: same bug class as
+  #125, at zero. Fixed by seeding the three event-driven totals at zero for every currency already
+  in `totals_cur["invoiced"]`, before the real bumps apply, so all seven per-currency totals on the
+  page use one rule. New test `tests/test_statement_zero_currency_totals.py` (two cases: unpaid
+  EUR+GBP client, and a partial EUR payment that must keep GBP's zero rather than dropping it);
+  confirmed both fail pre-fix (`{}` instead of `{"EUR": 0, "GBP": 0}`) and pass post-fix. Full
+  suite in the foreground: 1344 passed, 1 skipped (1089s; auto-backgrounded by the harness past
+  600s, retrieved via `TaskOutput`). Committed as `eac07b0` on `main`, touching only that function
+  and the new test file. Deployed to `testfirm.coil.legal`, `demo.coil.legal` and `qa2.coil.legal`
+  (`--build-arg COIL_COMMIT=eac07b0`); `/health` on all three reports it, healthy. #129 commented
+  with repro, root cause and a 4-step retest, moved `qa:reported` → `qa:fixed`. Checked
+  `docs/LAUNCH-CHECKLIST.md`: no line specific to statement per-currency display, nothing to
+  untick. #123 and #126 (both `qa:needs-ian`, the CJK font gap) and the rest of the open issue
+  list were unchanged by this run; no other `qa:reported` issue was open. Checkout's only other
+  uncommitted change was `docs/QA-QUEUE.md`, the posting-coordinator's own in-flight file; stashed
+  it before the commit and popped it back untouched afterward. Touched nothing else.
+
 - **Autonomous QA loop: idle, no files held.** 2026-10-05 (this run, after the #119 entry) UTC.
   No open `qa:reported` issues beyond #12 itself (the `next-phase` queue, not a finding;
   checked `gh issue list --repo Coil-Legal/coil --label qa:reported --state open`). No open
