@@ -825,17 +825,18 @@ def send_plan_reminder(plan):
     link = installment_pay_link(plan)
     view = f"{_base()}/p/{inv.public_token}"
     due = plan.next_charge_on
+    amount_str = fmt_money(amount, inv.currency)
     html = (f"<div style='font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.5;color:#1c2430'>"
             f"<p>Hello {escape(c.first_name or c.display_name)},</p>"
             f"<p>Installment {k} of {plan.installments} on invoice {escape(inv.number or '')} is "
-            f"<strong>{cents_to_str(amount)}</strong>{', due ' + due.strftime('%B %-d, %Y') if due else ''}. "
+            f"<strong>{amount_str}</strong>{', due ' + due.strftime('%B %-d, %Y') if due else ''}. "
             f"You can pay it online here:</p>"
             f"<p><a href='{link}' style='background:#1f5f8b;color:#fff;padding:10px 18px;border-radius:6px;"
-            f"text-decoration:none;display:inline-block'>Pay {cents_to_str(amount)}</a></p>"
+            f"text-decoration:none;display:inline-block'>Pay {amount_str}</a></p>"
             f"<p style='font-size:12px;color:#666'>Pay link: {link}<br>Full invoice: {view}</p>"
             f"<p style='font-size:13px;color:#666'>{escape(firm.name or '')}<br>{escape(firm.phone or '')}</p></div>")
-    send_email(to, f"Payment of {cents_to_str(amount)} due on invoice {inv.number}", html,
-               text=f"Installment {k} of {plan.installments} on invoice {inv.number} is {cents_to_str(amount)}. "
+    send_email(to, f"Payment of {amount_str} due on invoice {inv.number}", html,
+               text=f"Installment {k} of {plan.installments} on invoice {inv.number} is {amount_str}. "
                     f"Pay: {link}", reply_to=firm.email or None)
     db.session.add(InvoiceEvent(invoice_id=inv.id, event="reminder",
                                 detail=f"payment plan installment {k} of {plan.installments}, to {to}"))

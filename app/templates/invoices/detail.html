@@ -180,7 +180,7 @@
 {% endif %}
 <h3 style="margin-top:14px">Payment plan</h3>
 {% if plan %}
-<p class="small">{{ plan.installments }} x {{ plan.installment_cents|money }} {{ money_freq_labels[plan.frequency] }}, {{ plan.paid_installments }} paid, <span class="badge {{ {'active':'open','paused':'draft','failed':'overdue'}[plan.status] }}">{{ plan.status }}</span>{% if plan.status == 'active' %}, next {{ money_next_cents(plan)|money }} on {{ plan.next_charge_on|d }}{% endif %}. <a href="/money/plans/{{ plan.id }}">Open plan</a></p>
+<p class="small">{{ plan.installments }} x {{ plan.installment_cents|cur(inv.currency) }} {{ money_freq_labels[plan.frequency] }}, {{ plan.paid_installments }} paid, <span class="badge {{ {'active':'open','paused':'draft','failed':'overdue'}[plan.status] }}">{{ plan.status }}</span>{% if plan.status == 'active' %}, next {{ money_next_cents(plan)|cur(inv.currency) }} on {{ plan.next_charge_on|d }}{% endif %}. <a href="/money/plans/{{ plan.id }}">Open plan</a></p>
 {% else %}
 <form method="post" action="/money/plans/new">{{ csrf() }}<input type="hidden" name="invoice_id" value="{{ inv.id }}">
   <div class="row">

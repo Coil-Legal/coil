@@ -105,3 +105,40 @@ def test_plans_list_uses_the_invoice_currency(app, client, gbp_invoice):
     assert "£50.00".encode() in body, "the list's schedule/next-amount columns should read £50.00"
     assert b"$50.00" not in body
     assert b"$100.00" not in body
+
+
+def test_invoice_detail_payment_plan_summary_uses_the_invoice_currency(app, client, gbp_invoice):
+    """Issue #138: the invoice detail page's own 'Payment plan' summary line (distinct from
+    the Activity log line fixed by #136) still built the installment and next-due amounts
+    with the plain |money filter, so it read '3 x $66.67 ... next $66.67' on a GBP invoice."""
+    resp = client.get(f"/invoices/{gbp_invoice}")
+    body = resp.data
+    assert "x £50.00 every month".encode() in body
+    assert "next £50.00 on".encode() in body
+    assert b"x $50.00" not in body
+    assert b"next $50.00" not in body
+
+
+def test_plan_reminder_email_uses_the_invoice_currency(app, gbp_invoice):
+    """Issue #138: send_plan_reminder() (the manual 'Send reminder now' button and the daily
+    payment_plans cron) built the subject, HTML body, pay-button label and text body with a
+    bare cents_to_str(), defaulting to $, on every currency."""
+    from app.extensions import db
+    from app.models import PaymentPlan
+    from app.blueprints import money as money_bp
+    from app.services.mail import _dev_outbox
+
+    with app.app_context():
+        plan = PaymentPlan.query.filter_by(invoice_id=gbp_invoice).first()
+        plan.contact.email = "client@example.test"
+        db.session.commit()
+        _dev_outbox.clear()
+        to = money_bp.send_plan_reminder(plan)
+        db.session.commit()
+
+    assert to == "client@example.test"
+    mail = _dev_outbox[-1]
+    assert "£50.00" in mail["subject"], mail["subject"]
+    assert "£50.00" in mail["html"]
+    assert "$50.00" not in mail["subject"]
+    assert "$50.00" not in mail["html"]
