@@ -67,6 +67,20 @@ Set up 2026-10-02 22:00 UTC at Ian's request. Rules in `AGENTS.md` and `CLAUDE.m
 
 ## Active work
 
+- **Autonomous QA loop: idle, no files held.** 2026-10-05 (this run, after the #119 entry) UTC.
+  No open `qa:reported` issues beyond #12 itself (the `next-phase` queue, not a finding;
+  checked `gh issue list --repo Coil-Legal/coil --label qa:reported --state open`). No open
+  `qa:reproduced` or `qa:blocked` issues. `qa:needs-ian` is still just #49 and #115, both
+  already surfaced, nothing new to add. `next-phase` queues #1, #12 and #89 are all still open
+  and non-empty, so the loop is not starving and no new phase was filed. All three apps
+  (`testfirm.coil.legal`, `demo.coil.legal`, `qa2.coil.legal`) report `/health` healthy on
+  `07d423e` (version `demo-20261005`), matching HEAD functionally
+  (`git diff --stat 07d423e..HEAD -- . ':!COORDINATION.md' ':!docs/QA-QUEUE.md'` empty).
+  Checkout's only uncommitted change was `docs/QA-QUEUE.md`, the launchd posting-coordinator's
+  own in-flight file; stashed it before touching anything, made this commit against the clean
+  tree, then popped the stash back so it sits uncommitted on top exactly as before. Touched
+  nothing else.
+
 - **Autonomous QA loop: idle, no files held.** 2026-10-05 (this run) UTC. No open `qa:reported`
   issues (checked `gh issue list --repo Coil-Legal/coil --label qa:reported --state open`:
   empty). No open `qa:blocked` issues. `qa:needs-ian` is still just #49 and #115, both already
