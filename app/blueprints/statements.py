@@ -10,7 +10,7 @@ from html import escape
 from flask import Blueprint, render_template, request, redirect, url_for, flash, abort, Response
 from ..extensions import db
 from ..models import Firm, Contact, Matter, Invoice, Payment, CreditNote, audit
-from ..helpers import login_required, current_user, parse_date, fmt_money
+from ..helpers import login_required, current_user, parse_date, fmt_money, fmt_money_by_currency
 from ..services.mail import send_email
 from .invoices import TemplatePDF, invoice_settings, _pdf_txt, _para, OPEN_STATUSES
 from ..services.pdf import enable_unicode, reset_unicode
@@ -202,6 +202,9 @@ def render_statement_pdf(st):
     def money(c):
         return _pdf_txt(fmt_money(c, cur))
 
+    def mix(totals):
+        return _pdf_txt(fmt_money_by_currency(totals))
+
     title = f"Statement for {client.display_name}"
     pdf = TemplatePDF(firm, title, tpl)
     # A client name, address or invoice/matter description is free text and routinely
@@ -249,13 +252,13 @@ def render_statement_pdf(st):
         for h in ("Invoiced", "Paid or applied", "Credited", tpl.label("balance_due")):
             row.cell(_pdf_txt(h))
         row = table.row()
-        row.cell(money(st["totals"]["invoiced"]))
-        row.cell(money(st["totals"]["paid"]))
-        row.cell(money(st["totals"]["credited"]))
-        row.cell(money(st["totals"]["balance"]))
+        row.cell(mix(st["totals_cur"]["invoiced"]))
+        row.cell(mix(st["totals_cur"]["paid"]))
+        row.cell(mix(st["totals_cur"]["credited"]))
+        row.cell(mix(st["totals_cur"]["balance"]))
     if st["totals"]["overdue"]:
         pdf.set_font("Helvetica", "B", 9.5)
-        pdf.cell(0, 6, _pdf_txt(f"Past due: {money(st['totals']['overdue'])}"), new_x="LMARGIN", new_y="NEXT")
+        pdf.cell(0, 6, _pdf_txt(f"Past due: {mix(st['totals_cur']['overdue'])}"), new_x="LMARGIN", new_y="NEXT")
     if st["trust_balance"] > 0:
         pdf.set_font("Helvetica", "", 9.5)
         pdf.cell(0, 6, _pdf_txt(f"Held in trust for you: {money(st['trust_balance'])}"), new_x="LMARGIN", new_y="NEXT")
@@ -314,23 +317,23 @@ def render_statement_pdf(st):
                     row.cell(_pdf_txt(g["matter"].number if g["matter"] else ""))
                     row.cell(inv.issued_on.strftime("%m/%d/%Y") if inv.issued_on else "")
                     row.cell(inv.due_on.strftime("%m/%d/%Y") if inv.due_on else "")
-                    row.cell(money(inv.total_cents))
-                    row.cell(money(inv.paid_cents))
-                    row.cell(money(inv.balance_cents))
+                    row.cell(_pdf_txt(fmt_money(inv.total_cents, inv.currency)))
+                    row.cell(_pdf_txt(fmt_money(inv.paid_cents, inv.currency)))
+                    row.cell(_pdf_txt(fmt_money(inv.balance_cents, inv.currency)))
                 row = table.row()
                 row.cell("")
                 row.cell(_pdf_txt(f"Subtotal {g['matter'].number if g['matter'] else ''}"))
                 row.cell("")
                 row.cell("")
-                row.cell(money(g["invoiced"]))
-                row.cell(money(g["paid"]))
-                row.cell(money(g["balance"]))
+                row.cell(mix(g["invoiced_cur"]))
+                row.cell(mix(g["paid_cur"]))
+                row.cell(mix(g["balance_cur"]))
         pdf.ln(3)
 
     pdf.set_font("Helvetica", "B", 10)
     pdf.cell(116, 6, "")
     pdf.cell(36, 6, _pdf_txt(tpl.label("balance_due")), align="R")
-    pdf.cell(22, 6, money(st["totals"]["balance"]), align="R", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(22, 6, mix(st["totals_cur"]["balance"]), align="R", new_x="LMARGIN", new_y="NEXT")
     footer = tpl.statement_footer or firm.invoice_footer
     if footer:
         pdf.ln(5)
@@ -379,8 +382,10 @@ def send(client_id):
     st = build_statement(client, d_from, d_to, matter_id)
     data = statement_pdf_bytes(st)
     note = (f.get("note") or "").strip()[:2000]
-    cur = st["currency"]
-    balance = fmt_money(st["totals"]["balance"], cur)
+    invoiced = fmt_money_by_currency(st["totals_cur"]["invoiced"])
+    paid = fmt_money_by_currency(st["totals_cur"]["paid"])
+    credited = fmt_money_by_currency(st["totals_cur"]["credited"])
+    balance = fmt_money_by_currency(st["totals_cur"]["balance"])
     subject = f"Statement of account from {firm.name}"
     intro = note or (f"Attached is your statement of account with {firm.name}, showing every invoice we have sent "
                      f"you, the payments received and issued credit notes.")
@@ -389,15 +394,15 @@ def send(client_id):
 <p>Hello {escape(client.display_name)},</p>
 <p>{escape(intro).replace(chr(10), '<br>')}</p>
 <table style="border-collapse:collapse;font-size:14px">
-<tr><td style="padding:4px 8px"><strong>Invoiced</strong></td><td style="padding:4px 8px;text-align:right">{fmt_money(st['totals']['invoiced'], cur)}</td></tr>
-<tr><td style="padding:4px 8px"><strong>Paid or applied</strong></td><td style="padding:4px 8px;text-align:right">{fmt_money(st['totals']['paid'], cur)}</td></tr>
-<tr><td style="padding:4px 8px"><strong>Credited</strong></td><td style="padding:4px 8px;text-align:right">{fmt_money(st['totals']['credited'], cur)}</td></tr>
-<tr><td style="padding:4px 8px"><strong>Balance due</strong></td><td style="padding:4px 8px;text-align:right"><strong>{balance}</strong></td></tr>
+<tr><td style="padding:4px 8px"><strong>Invoiced</strong></td><td style="padding:4px 8px;text-align:right">{escape(invoiced)}</td></tr>
+<tr><td style="padding:4px 8px"><strong>Paid or applied</strong></td><td style="padding:4px 8px;text-align:right">{escape(paid)}</td></tr>
+<tr><td style="padding:4px 8px"><strong>Credited</strong></td><td style="padding:4px 8px;text-align:right">{escape(credited)}</td></tr>
+<tr><td style="padding:4px 8px"><strong>Balance due</strong></td><td style="padding:4px 8px;text-align:right"><strong>{escape(balance)}</strong></td></tr>
 </table>
 <p style="font-size:13px;color:#66707d">The statement is attached as a PDF. Each open invoice can be paid from the link in its own email.</p>
 <p>{escape(firm.name)}{(' | ' + escape(firm.phone)) if firm.phone else ''}</p>
 </div>"""
-    text = f"{intro}\n\nInvoiced: {fmt_money(st['totals']['invoiced'], cur)}\nPaid: {fmt_money(st['totals']['paid'], cur)}\nCredited: {fmt_money(st['totals']['credited'], cur)}\nBalance due: {balance}\n"
+    text = f"{intro}\n\nInvoiced: {invoiced}\nPaid: {paid}\nCredited: {credited}\nBalance due: {balance}\n"
     send_email(to, subject, html, text=text, attachments=[(_filename(client), data, "application/pdf")],
                reply_to=firm.email or None)
     audit("send", "statement", client.id, f"statement to {to}, balance {balance}" + (
