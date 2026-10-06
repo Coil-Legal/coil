@@ -23,7 +23,7 @@ def installment_due(plan):
 
 def apply_installment(plan, payment, number=None, due_on=None):
     """Caller holds the payment transaction. A repeated installment never advances twice."""
-    from .money import advance_date, _complete_if_done
+    from .money import advance_date, _complete_if_done, _plan_anchor_day
     if not plan or plan.invoice_id != payment.invoice_id:
         return
     if payment.amount_cents <= 0:
@@ -42,7 +42,8 @@ def apply_installment(plan, payment, number=None, due_on=None):
         if not receipt:
             break
         plan.paid_installments = receipt.number
-        next_due = advance_date(receipt.due_on or installment_due(plan), plan.frequency)
+        next_due = advance_date(receipt.due_on or installment_due(plan), plan.frequency,
+                                anchor_day=_plan_anchor_day(plan))
         plan.installment_due_on = next_due
         # The reminder scheduler may already have advanced its notification date.
         if not plan.next_charge_on or plan.next_charge_on < next_due:

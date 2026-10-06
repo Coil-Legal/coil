@@ -14,7 +14,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from markupsafe import escape
 from ..extensions import db
 from ..models import (Matter, MatterFeeSplit, User, Contact, Invoice, InvoiceEvent, Payment, PaymentPlan,
-                      PortalToken, AuditLog, Firm, audit, now)
+                      PlanInstallmentReceipt, PortalToken, AuditLog, Firm, audit, now)
 from ..helpers import (login_required, portal_required, current_user, portal_contact, parse_money, parse_date,
                        cents_to_str)
 from ..services.mail import send_email
@@ -522,14 +522,29 @@ def charge(invoice_id):
 # ---------------------------------------------------------------------------
 # Payment plans
 # ---------------------------------------------------------------------------
-def advance_date(d, frequency):
+def advance_date(d, frequency, anchor_day=None):
+    """Step one period forward. For monthly, clamp to the anchor day of month (the plan's original
+    due day), not to d.day: deriving from the previous result lets one short-month clamp carry
+    forward into every later month, even ones with enough days to honor the real anchor again."""
     if frequency == "weekly":
         return d + timedelta(days=7)
     if frequency == "biweekly":
         return d + timedelta(days=14)
+    day = d.day if anchor_day is None else anchor_day
     y = d.year + (d.month // 12)
     m = d.month % 12 + 1
-    return date(y, m, min(d.day, monthrange(y, m)[1]))
+    return date(y, m, min(day, monthrange(y, m)[1]))
+
+
+def _plan_anchor_day(plan):
+    """The plan's original day-of-month. The first installment's own due date never comes from a
+    prior clamp (nothing has advanced yet when it's recorded), so it's the one stable anchor to
+    carry through the rest of the schedule."""
+    from .collection_attempts import installment_due
+    first = PlanInstallmentReceipt.query.filter_by(plan_id=plan.id, number=1).first()
+    if first and first.due_on:
+        return first.due_on.day
+    return installment_due(plan).day
 
 
 def plan_schedule(plan):
@@ -542,8 +557,9 @@ def plan_schedule(plan):
     # than the installments could add up to.
     opening = min(planned_total, plan.installment_cents * paid_n + (inv.balance_cents if inv else 0)) if inv else planned_total
     first = plan.next_charge_on or date.today()
+    anchor_day = _plan_anchor_day(plan)
     for _ in range(paid_n):
-        first = _rewind_date(first, plan.frequency)
+        first = _rewind_date(first, plan.frequency, anchor_day=anchor_day)
     rows = []
     d = first
     left = opening
@@ -552,18 +568,19 @@ def plan_schedule(plan):
         state = "paid" if n <= paid_n else ("next" if n == paid_n + 1 else "upcoming")
         rows.append((n, d, amt, state))
         left -= amt
-        d = advance_date(d, plan.frequency)
+        d = advance_date(d, plan.frequency, anchor_day=anchor_day)
     return rows
 
 
-def _rewind_date(d, frequency):
+def _rewind_date(d, frequency, anchor_day=None):
     if frequency == "weekly":
         return d - timedelta(days=7)
     if frequency == "biweekly":
         return d - timedelta(days=14)
+    day = d.day if anchor_day is None else anchor_day
     y = d.year - (1 if d.month == 1 else 0)
     m = 12 if d.month == 1 else d.month - 1
-    return date(y, m, min(d.day, monthrange(y, m)[1]))
+    return date(y, m, min(day, monthrange(y, m)[1]))
 
 
 def next_installment_cents(plan):
@@ -685,11 +702,15 @@ def plan_detail(plan_id):
                            stripe_ok=_stripe.configured(), dollars=_dollars)
 
 
+PLAN_ACTION_PAST = {"plan_pause": "paused", "plan_resume": "resumed", "plan_cancel": "cancelled"}
+
+
 def _plan_action(plan_id, allowed, new_status, action, msg):
     plan = db.session.get(PaymentPlan, plan_id) or abort(404)
     back = redirect(url_for("money.plan_detail", plan_id=plan.id))
     if plan.status not in allowed:
-        flash(f"The plan is {plan.status}; it cannot be {action.replace('plan_', '')}d from there.", "error")
+        past = PLAN_ACTION_PAST.get(action, action.replace("plan_", "") + "d")
+        flash(f"The plan is {plan.status}; it cannot be {past} from there.", "error")
         return back
     plan.status = new_status
     if new_status == "active":
@@ -891,7 +912,8 @@ def run_payment_plans(today=None):
             db.session.commit()
             out["skipped"] += 1
             continue
-        plan.next_charge_on = advance_date(plan.next_charge_on or today, plan.frequency)
+        plan.next_charge_on = advance_date(plan.next_charge_on or today, plan.frequency,
+                                          anchor_day=_plan_anchor_day(plan))
         plan.last_error = ""
         audit("plan_reminded", "payment_plan", plan.id, today_iso)
         db.session.commit()
