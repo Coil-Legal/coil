@@ -98,7 +98,7 @@ A bug here costs a licence, not a customer. Test these properly even if it is sl
 - [ ] A payment plan at `/money/plans/new` schedules correctly and the arithmetic sums to
       the invoice total. (#121)
 - [ ] Pause, resume and cancel a plan. (#122)
-- [x] With no Stripe key, pay links show mailing instructions rather than erroring.
+- [ ] With no Stripe key, pay links show mailing instructions rather than erroring. (#134)
 
 ## Fee splits and compensation
 
