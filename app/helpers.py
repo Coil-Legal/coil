@@ -81,6 +81,13 @@ def fmt_money_by_currency(totals):
     return " + ".join(fmt_money(cents, code) for code, cents in sorted(totals.items()))
 
 
+def fmt_pct(v):
+    """0.0 -> "0%", 25.0 -> "25%", 33.33 -> "33.33%". A contingency percent is stored as a
+    float (see issue #131: a whole-number input rendered raw as "25.0%")."""
+    v = v or 0
+    return f"{v:g}%"
+
+
 def fmt_pct_by_currency(pcts):
     """Like fmt_money_by_currency, but for a ratio (e.g. margin as % of revenue) that's already computed
     separately per currency rather than being a share of one combined total (see issue #69: profitability's
@@ -288,6 +295,7 @@ def register_template_globals(app):
     app.jinja_env.filters["cur"] = fmt_money
     app.jinja_env.filters["curmix"] = fmt_money_by_currency
     app.jinja_env.filters["pctmix"] = fmt_pct_by_currency
+    app.jinja_env.filters["pct"] = fmt_pct
     app.jinja_env.filters["hours"] = lambda m: f"{(m or 0) / 60:.2f}"
     app.jinja_env.filters["d"] = lambda v: v.strftime("%b %-d, %Y") if v else ""
     app.jinja_env.filters["dt"] = lambda v: v.strftime("%b %-d, %Y %-I:%M %p") if v else ""

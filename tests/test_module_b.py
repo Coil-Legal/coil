@@ -372,6 +372,24 @@ def test_builder_hybrid_and_contingency(app, client):
     # an empty builder POST is refused
     r = client.post("/invoices/new", data={"_csrf": tok, "matter_id": con_id})
     assert r.status_code == 400 and b"Pick at least one item" in r.data
+    # a whole-number contingency percent shows without a trailing ".0", and the hybrid sub-line
+    # names it "contingency" too, not just a bare "%" (issue #131)
+    with app.app_context():
+        c = M.Contact.query.filter_by(last_name="Alvarez").first()
+        u = M.User.query.first()
+        hyb2 = M.Matter(number="T-HYB2", client_id=c.id, name="Smoke hybrid whole pct", billing_type="hybrid",
+                        flat_fee_cents=50000, hourly_rate_cents=15000, contingency_pct=10, responsible_user_id=u.id)
+        con2 = M.Matter(number="T-CON2", client_id=c.id, name="Smoke contingency whole pct",
+                        billing_type="contingency", contingency_pct=25, responsible_user_id=u.id)
+        db.session.add_all([hyb2, con2])
+        db.session.commit()
+        hyb2_id, con2_id = hyb2.id, con2.id
+    r = client.get(f"/matters/{hyb2_id}")
+    assert r.status_code == 200
+    assert b"10% contingency" in r.data and b"10.0%" not in r.data
+    r = client.get(f"/matters/{con2_id}")
+    assert r.status_code == 200
+    assert b"25% contingency" in r.data and b"25.0%" not in r.data
     # /invoices/new without a matter shows the picker
     r = client.get("/invoices/new")
     assert r.status_code == 200 and b"Which matter" in r.data
