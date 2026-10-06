@@ -9,6 +9,24 @@ bp = Blueprint("auth", __name__)
 KEY_SHAPE = re.compile(r"^COIL-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$")
 
 
+def _safe_next(nxt):
+    """A `next` is only safe to redirect to if it is a local path AND reachable with GET.
+    login_required stamps next=request.path for any protected route it bounces, including
+    POST-only ones like /logout; following the redirect would land the browser on a 405."""
+    if not nxt or not nxt.startswith("/") or nxt.startswith("//"):
+        return None
+    from werkzeug.exceptions import NotFound, MethodNotAllowed
+    from werkzeug.routing import RequestRedirect
+    try:
+        current_app.url_map.bind(current_app.config.get("SERVER_NAME") or "localhost").match(
+            nxt.split("?")[0], method="GET")
+    except RequestRedirect:
+        pass  # a valid GET route, just one werkzeug wants to redirect (e.g. a trailing slash)
+    except (NotFound, MethodNotAllowed):
+        return None
+    return nxt
+
+
 @bp.route("/login", methods=["GET", "POST"])
 def login():
     if User.query.count() == 0:
@@ -35,8 +53,8 @@ def login():
             session.permanent = True
             audit("login", "user", u.id, user_id=u.id)
             db.session.commit()
-            nxt = request.args.get("next") or url_for("dashboard.index")
-            return redirect(nxt if nxt.startswith("/") else url_for("dashboard.index"))
+            nxt = _safe_next(request.args.get("next"))
+            return redirect(nxt or url_for("dashboard.index"))
         attempts[key].append(now)
         flash("Email or password did not match.", "error")
     return render_template("auth/login.html")
