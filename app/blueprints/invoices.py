@@ -1163,7 +1163,7 @@ def void(id):
     if inv.status == "void":
         flash("Already void.", "error")
         return redirect(url_for("invoices.detail", id=id))
-    group = [inv] + group_siblings(inv)
+    group = sorted([inv] + group_siblings(inv), key=lambda i: i.id)
     paid = [i for i in group if (i.paid_cents or 0) > 0]
     if paid:
         who = ", ".join(i.number for i in paid)
