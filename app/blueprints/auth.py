@@ -108,6 +108,7 @@ def setup():
 def logout():
     u = current_user()
     u.session_version += 1
+    audit("logout", "user", u.id, user_id=u.id)
     db.session.commit()
     session.pop("user_id", None)
     session.pop("sv", None)

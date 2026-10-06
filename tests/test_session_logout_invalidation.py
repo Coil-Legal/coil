@@ -60,3 +60,18 @@ def test_copied_session_cookie_dies_on_logout(app):
     r = client_b.get("/settings/users")
     assert r.status_code == 302
     assert "/login" in r.headers["Location"]
+
+
+def test_logout_writes_an_audit_entry(app):
+    """Issue #127 (QA2): logout bumped session_version (the #101 fix above) but wrote no
+    audit row, so /settings/audit never showed when a session ended, only when it began."""
+    client_a = app.test_client()
+    tok = login(client_a)
+    r = client_a.post("/logout", data={"_csrf": tok})
+    assert r.status_code == 302
+
+    client_c = app.test_client()
+    login(client_c)
+    page = client_c.get("/settings/audit").get_data(as_text=True)
+    assert "logout" in page
+    assert 'value="logout"' in page  # the action-filter dropdown now offers it
