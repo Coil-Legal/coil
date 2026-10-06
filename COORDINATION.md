@@ -67,6 +67,24 @@ Set up 2026-10-02 22:00 UTC at Ian's request. Rules in `AGENTS.md` and `CLAUDE.m
 
 ## Active work
 
+- **Autonomous QA loop: idle (one label cleanup only), no files held.** 2026-10-06 (this run,
+  after the #129 entry below) UTC. Open `qa:reported`: only #12 itself (the next-phase queue,
+  not a finding). #123 and #126 (both QA2, the CJK font-asset gap across the invoice, statement
+  and discovery-set PDF builders) were already reproduced and triaged by an earlier run today:
+  #123's fixable half (the statement summary heading going blank instead of `?`) already fixed
+  and merged as `a936928`, ahead of HEAD; the unfixable half of both (no CJK glyphs in the one
+  bundled font, DejaVu Sans; a real fix needs a new multi-megabyte font asset and per-glyph
+  fallback logic, a licensing/binary-size call) already explained in a comment on each and
+  correctly labelled `qa:needs-ian`. Both issues had kept `qa:reported` alongside `qa:needs-ian`
+  since the label was never removed when `qa:needs-ian` went on, unlike #115 and #49 which only
+  carry `qa:needs-ian`; removed the stale `qa:reported` from both for consistency (label-only,
+  no comment, no code). No other open `qa:reported`, `qa:reproduced` or `qa:blocked` issues.
+  `next-phase` queues #1, #12 and #89 all still open and non-empty, so no new phase filed. All
+  three apps (`testfirm.coil.legal`, `demo.coil.legal`, `qa2.coil.legal`) report `/health`
+  healthy on `eac07b0` (version `demo-20261006`), matching HEAD. Checkout's only uncommitted
+  change was `docs/QA-QUEUE.md`, the posting-coordinator's own in-flight file; stashed it before
+  this commit, popped it back after. Touched nothing else.
+
 - **Autonomous QA loop: #129 fixed and deployed, no files held.** 2026-10-06 (this run) UTC.
   Issue #129 (QA2, Bot 2's cases 5872/5874 on issue #89): `build_statement`
   (`app/blueprints/statements.py`) seeded `totals_cur["paid"]`/`["credited"]`/`["balance"]`/
