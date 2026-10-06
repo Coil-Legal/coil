@@ -66,6 +66,14 @@ def test_new_time_entry_description_box_starts_empty(app, client):
     assert b'placeholder="What did you do?"></textarea>' in r.data
 
 
+def test_new_expense_description_box_starts_empty(app, client):
+    """Issue #128: same None-default-not-applied-until-flush bug as #116, in the expense form."""
+    r = client.get("/time/expenses/new")
+    assert r.status_code == 200
+    assert b'value="None" placeholder="e.g. Filing fee, Travis County District Clerk"' not in r.data
+    assert b'value="" placeholder="e.g. Filing fee, Travis County District Clerk"' in r.data
+
+
 def test_log_time_with_colon_duration(app, client):
     db, M = _models()
     with app.app_context():
