@@ -121,6 +121,27 @@ def test_milestone_due_date_inputs_have_accessible_names(app):
     assert html.count('name="ms_due" aria-label="Milestone due date"') >= 1
 
 
+def test_payments_month_filter_has_an_accessible_name(app):
+    """Issue #120 (QA Bot 2): the /payments month input had no label, id, title
+    or aria-label, so axe-core flagged it as `label` (critical)."""
+    from tests.helpers import login
+    c = app.test_client()
+    login(c)
+    html = c.get("/payments").get_data(as_text=True)
+    assert re.search(r'name="month" value="[^"]*" aria-label="Month"', html)
+
+
+def test_accounting_ledger_filter_controls_have_accessible_names(app):
+    """Same unlabeled-filter pattern as #120, found in the operating ledger's
+    month input and account select while fixing the payments page."""
+    from tests.helpers import login
+    c = app.test_client()
+    login(c)
+    html = c.get("/accounting/").get_data(as_text=True)
+    assert 'name="month"' in html and 'aria-label="Month"' in html
+    assert 'name="account_id" aria-label="Filter by account"' in html
+
+
 def test_matter_custom_field_inputs_have_accessible_names(app):
     """Bot 1's final rescan (case 1458): the new-matter custom field value box sits in a
     table cell with no label the sibling script can reach."""

@@ -11,9 +11,9 @@
 <div class="card">
   <form method="get" class="inline actions" style="margin-bottom:10px">
     <a class="btn small secondary" href="{{ url_for('accounting.index', month=prev_month, account_id=account_filter) }}">&larr;</a>
-    <input type="month" name="month" value="{{ month }}">
+    <input type="month" name="month" value="{{ month }}" aria-label="Month">
     <a class="btn small secondary" href="{{ url_for('accounting.index', month=next_month, account_id=account_filter) }}">&rarr;</a>
-    <select name="account_id"><option value="">All accounts</option>{% for a in accounts %}<option value="{{ a.id }}" {% if a.id == account_filter %}selected{% endif %}>{{ a.code }} {{ a.name }}</option>{% endfor %}</select>
+    <select name="account_id" aria-label="Filter by account"><option value="">All accounts</option>{% for a in accounts %}<option value="{{ a.id }}" {% if a.id == account_filter %}selected{% endif %}>{{ a.code }} {{ a.name }}</option>{% endfor %}</select>
     <button class="btn small secondary">Show</button>
   </form>
   {% if rows %}

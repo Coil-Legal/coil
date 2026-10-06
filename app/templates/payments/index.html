@@ -1,7 +1,7 @@
 {% extends "base.html" %}{% block title %}Payments{% endblock %}{% block content %}
 <div class="topbar"><h1>Payments</h1>
 <form method="get" class="searchbar">
-  <input type="month" name="month" value="{{ month if month != 'all' else '' }}"> <button class="btn small secondary">Show</button>
+  <input type="month" name="month" value="{{ month if month != 'all' else '' }}" aria-label="Month"> <button class="btn small secondary">Show</button>
   <a class="small" href="{{ url_for('payments.index', month='all') }}">All time</a>
 </form></div>
 <div class="grid c3">
