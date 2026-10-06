@@ -805,18 +805,23 @@ def group_siblings(inv):
 def detail(id):
     inv = db.session.get(Invoice, id) or abort(404)
     # What this invoice can actually draw: the matter's own trust funds plus the client's
-    # unallocated balance. The pooled client total overstates it when another matter is earmarked,
-    # and /trust/apply would refuse the difference.
+    # unallocated balance, as of today. The pooled client total overstates it when another
+    # matter is earmarked or some of it is dated in the future, and /trust/apply (which also
+    # caps at today) would refuse the difference.
     try:
         from .trust import available_for_matter
-        _own, _unalloc, trust_balance = available_for_matter(inv.client, inv.matter)
+        _own, _unalloc, trust_balance = available_for_matter(inv.client, inv.matter, as_of=date.today())
+        _, _, trust_balance_all = available_for_matter(inv.client, inv.matter)
+        trust_dated_later = max(0, trust_balance_all - trust_balance)
     except Exception:  # noqa: BLE001
         trust_balance = inv.client.trust_balance_cents()
+        trust_dated_later = 0
     apply_default = min(inv.balance_cents, trust_balance) if trust_balance > 0 else 0
     viewed_events = [e for e in inv.events if e.event == "viewed"]
     firm = Firm.get()
     u = current_user()
     return render_template("invoices/detail.html", inv=inv, trust_balance=trust_balance,
+                           trust_dated_later=trust_dated_later,
                            apply_default=apply_default, public_url=public_url(inv), today=date.today(),
                            viewed_events=viewed_events, dollars=_dollars, siblings=group_siblings(inv),
                            format_quantity=format_quantity,

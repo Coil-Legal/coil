@@ -151,9 +151,10 @@
   </div>
   <div class="actions"><button class="btn small">Record payment</button></div>
 </form>
-{% if trust_balance > 0 %}
+{% if trust_balance > 0 or trust_dated_later > 0 %}
 <h3 style="margin-top:14px">Apply from trust</h3>
-<p class="small muted">{{ trust_balance|money }} of {{ inv.client.display_name }}'s trust money can be applied to this invoice. Funds earmarked to another matter are not included.</p>
+<p class="small muted">{{ trust_balance|money }} of {{ inv.client.display_name }}'s trust money can be applied to this invoice today. Funds earmarked to another matter are not included.{% if trust_dated_later > 0 %} {{ trust_dated_later|money }} more is dated after today and cannot be applied until then.{% endif %}</p>
+{% if trust_balance > 0 %}
 <form method="post" action="/trust/apply">{{ csrf() }}
   <input type="hidden" name="invoice_id" value="{{ inv.id }}">
   <div class="row">
@@ -161,6 +162,7 @@
     <div><label>&nbsp;</label><button class="btn small">Apply from trust</button></div>
   </div>
 </form>
+{% endif %}
 {% endif %}
 {# ---- Agent P: charge card on file + payment plan ---- #}
 {% set plan = money_active_plan(inv) %}

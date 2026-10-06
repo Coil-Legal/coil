@@ -499,10 +499,21 @@ def apply():
     own, unallocated, available = available_for_matter(inv.client, inv.matter, as_of=date.today())
     if amount > available:
         mlabel = inv.matter.label if inv.matter else inv.client.display_name
-        flash(f"Only {cents_to_str(available)} can be applied to this invoice: {cents_to_str(own)} held in "
-              f"trust for {mlabel} and {cents_to_str(unallocated)} unallocated for "
-              f"{inv.client.display_name}. Any other trust money this client holds is earmarked to a "
-              f"different matter and cannot pay this one.", "error")
+        _, _, available_all = available_for_matter(inv.client, inv.matter)
+        dated_later = max(0, available_all - available)
+        message = (f"Only {cents_to_str(available)} can be applied to this invoice: {cents_to_str(own)} held in "
+                   f"trust for {mlabel} and {cents_to_str(unallocated)} unallocated for "
+                   f"{inv.client.display_name}.")
+        if dated_later > 0 and available_all >= amount:
+            message += (f" {cents_to_str(dated_later)} of this client's trust money is dated after today and "
+                        f"cannot be applied until then.")
+        elif dated_later > 0:
+            message += (f" {cents_to_str(dated_later)} more is dated after today, and the rest is earmarked to "
+                        f"a different matter; neither can pay this invoice.")
+        else:
+            message += (" Any other trust money this client holds is earmarked to a different matter and "
+                        "cannot pay this one.")
+        flash(message, "error")
         return back
     from_matter = min(amount, own) if inv.matter_id else 0
     from_unallocated = amount - from_matter
