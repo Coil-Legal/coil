@@ -5,6 +5,7 @@ import threading
 from html import unescape
 from fpdf import FPDF
 from flask import current_app
+from app.i18n import t
 
 # Helvetica is one of the PDF core fonts and cannot represent anything outside cp1252, so
 # every builder used to force text through a lossy encode. A client called Nadia in Arabic,
@@ -70,6 +71,7 @@ class DocPDF(FPDF):
         super().__init__()
         self.firm = firm
         self.doc_title = title
+        self.lang = "en"
         self.set_auto_page_break(auto=True, margin=18)
         self.set_margins(18, 18, 18)
 
@@ -98,7 +100,7 @@ class DocPDF(FPDF):
         self.set_y(-14)
         self.set_font("Helvetica", "I", 8)
         self.set_text_color(120, 120, 120)
-        self.cell(0, 5, f"{self.doc_title}   Page {self.page_no()}/{{nb}}", align="C")
+        self.cell(0, 5, f"{self.doc_title}   {t('inv.pdf.page', self.lang)} {self.page_no()}/{{nb}}", align="C")
         self.set_text_color(0, 0, 0)
 
 

@@ -1235,7 +1235,13 @@ def render_invoice_pdf(inv, tpl=None, sample=False):
     def money(c):
         return _pdf_txt(fmt_money(c, cur))
 
-    pdf = TemplatePDF(_letterhead(firm, inv), f"Invoice {inv.number}", tpl)
+    # The word for "Invoice" in the client's language, used for both the footer (which has
+    # never followed a custom title; it never did before this fix either) and, when the
+    # firm has not customised the title, the heading itself. A customised title is the
+    # firm's own wording and stays untouched, same rule the public invoice page already uses.
+    inv_word = t("inv.heading", lang, number="").strip()
+    pdf = TemplatePDF(_letterhead(firm, inv), f"{inv_word} {inv.number}", tpl)
+    pdf.lang = lang
     # Decide the font before a single string is written: a client name or a line description
     # in a non-Latin script needs a real font, not a question mark.
     reset_unicode()
@@ -1246,8 +1252,8 @@ def render_invoice_pdf(inv, tpl=None, sample=False):
     pdf.add_page()
     if sample:
         pdf.sample_mark()
-    pdf.heading(tpl.title)
-    invoice_number_label = tpl.label("invoice_number", t("inv.heading", lang, number="").strip())
+    pdf.heading(tpl.title if tpl.title != DEFAULT_TITLE else inv_word.upper())
+    invoice_number_label = tpl.label("invoice_number", inv_word)
     due_label = tpl.label("due", t("inv.due", lang))
     bill_to_label = tpl.label("bill_to", t("inv.bill_to", lang))
     matter_label_text = tpl.label("matter", t("inv.matter", lang))

@@ -222,6 +222,7 @@ T = {
         "inv.pdf.checks_mailed_to": ", mailed to {address}.",
         "inv.pdf.split_note": "This invoice is {pct}% of the charges on this matter, billed to {client}. The "
                               "remainder is billed separately.",
+        "inv.pdf.page": "Page",
     },
     "es": {
         # ---- portal: login, expired, nav ----
@@ -443,6 +444,7 @@ T = {
         "inv.pdf.checks_mailed_to": ", enviados a {address}.",
         "inv.pdf.split_note": "Esta factura corresponde al {pct}% de los cargos de este asunto, facturado a "
                               "{client}. El resto se factura por separado.",
+        "inv.pdf.page": "Página",
     },
 }
 
