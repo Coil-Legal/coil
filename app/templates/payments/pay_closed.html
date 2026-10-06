@@ -2,6 +2,8 @@
 <div class="card">
   {% if reason == 'draft' %}<h1>Invoice {{ inv.number }} is not ready yet</h1><p>This invoice has not been sent, so there is nothing to pay on it yet. You will get a new link when it is issued. Nothing is wrong with the one you followed.</p>
   {% elif reason == 'paid' %}<h1>Invoice {{ inv.number }} is paid</h1><p>Nothing is owed on this invoice. Thank you.</p>
+  {% elif reason == 'plan_cancelled' %}<h1>This payment plan was cancelled</h1><p>The installment link you followed is no longer active. Invoice {{ inv.number }}'s balance stays due; use the link below to view and pay it, or get in touch{% if firm().phone %} at {{ firm().phone }}{% endif %} with any questions.</p>
+  {% elif reason == 'plan_paused' %}<h1>This payment plan is paused</h1><p>Nothing is being charged or requested on invoice {{ inv.number }} right now. If you would like to pay now anyway, use the link below, or get in touch{% if firm().phone %} at {{ firm().phone }}{% endif %}.</p>
   {% else %}<h1>Invoice {{ inv.number }} is no longer open</h1><p>This invoice was cancelled. If you were expecting to pay something, please get in touch{% if firm().phone %} at {{ firm().phone }}{% endif %}.</p>{% endif %}
   <p><a href="/p/{{ inv.public_token }}">View the invoice</a></p>
 </div>

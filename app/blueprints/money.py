@@ -826,18 +826,31 @@ def send_plan_reminder(plan):
     view = f"{_base()}/p/{inv.public_token}"
     due = plan.next_charge_on
     amount_str = fmt_money(amount, inv.currency)
+    # Mirrors plan_pay()'s own online_payment check (#145): a reminder must not promise a payment
+    # method the installment link is about to refuse (non-USD, or Stripe not configured).
+    online_ok = (inv.currency or "USD").upper() == "USD" and _stripe.configured()
+    if online_ok:
+        pay_html = (f"You can pay it online here:</p>"
+                    f"<p><a href='{link}' style='background:#1f5f8b;color:#fff;padding:10px 18px;border-radius:6px;"
+                    f"text-decoration:none;display:inline-block'>Pay {amount_str}</a></p>"
+                    f"<p style='font-size:12px;color:#666'>Pay link: {link}<br>Full invoice: {view}</p>")
+        pay_text = f"Pay: {link}"
+    else:
+        contact = (f"call {escape(firm.phone)}" if firm.phone
+                   else f"email {escape(firm.email)}" if firm.email else "get in touch with us")
+        pay_html = (f"We are not able to take card or bank payments online right now. Please {contact} to "
+                    f"arrange payment, or view the full invoice here: <a href='{view}'>{view}</a>.</p>")
+        pay_text = (f"We are not able to take card or bank payments online right now. Please {contact} to "
+                    f"arrange payment, or view the full invoice: {view}")
     html = (f"<div style='font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.5;color:#1c2430'>"
             f"<p>Hello {escape(c.first_name or c.display_name)},</p>"
             f"<p>Installment {k} of {plan.installments} on invoice {escape(inv.number or '')} is "
             f"<strong>{amount_str}</strong>{', due ' + due.strftime('%B %-d, %Y') if due else ''}. "
-            f"You can pay it online here:</p>"
-            f"<p><a href='{link}' style='background:#1f5f8b;color:#fff;padding:10px 18px;border-radius:6px;"
-            f"text-decoration:none;display:inline-block'>Pay {amount_str}</a></p>"
-            f"<p style='font-size:12px;color:#666'>Pay link: {link}<br>Full invoice: {view}</p>"
+            f"{pay_html}"
             f"<p style='font-size:13px;color:#666'>{escape(firm.name or '')}<br>{escape(firm.phone or '')}</p></div>")
     send_email(to, f"Payment of {amount_str} due on invoice {inv.number}", html,
                text=f"Installment {k} of {plan.installments} on invoice {inv.number} is {amount_str}. "
-                    f"Pay: {link}", reply_to=firm.email or None)
+                    f"{pay_text}", reply_to=firm.email or None)
     db.session.add(InvoiceEvent(invoice_id=inv.id, event="reminder",
                                 detail=f"payment plan installment {k} of {plan.installments}, to {to}"))
     return to
@@ -940,8 +953,23 @@ def plan_pay(plan_id, token):
         method = "card"
     if inv.status == "void":
         return render_template("payments/pay_closed.html", inv=inv, reason="void")
+    # A cancelled or paused plan is closed to the public link the same way a completed one is: the
+    # staff side already refuses to resume/charge/remind a cancelled plan and tells a paused one
+    # "nothing will be charged or sent until you resume it" (see plan_remind_now, resume()), but this
+    # route itself only ever checked for "completed", so an old reminder's link kept offering a card
+    # surcharge and a live Checkout button for a plan staff had already turned off (#146).
+    if plan.status == "cancelled":
+        return render_template("payments/pay_closed.html", inv=inv, reason="plan_cancelled")
+    if plan.status == "paused":
+        return render_template("payments/pay_closed.html", inv=inv, reason="plan_paused")
     if inv.balance_cents <= 0 or plan.status == "completed":
         return render_template("payments/pay_closed.html", inv=inv, reason="paid")
+    # Checked before building the surcharge/confirm page (not just before the Checkout POST) so a
+    # client without Stripe sees the same "not set up" refusal immediately, rather than a confirm
+    # page quoting a card surcharge that can never be charged (#145, same gap #134 closed for the
+    # non-plan /pay/<token> route).
+    if not _stripe.configured():
+        return render_template("payments/pay_unconfigured.html", inv=inv, f=firm)
     amount = next_installment_cents(plan)
     sc = surcharge_cents(amount, firm) if method == "card" else 0
     total = amount + sc
@@ -950,8 +978,6 @@ def plan_pay(plan_id, token):
                pct=_pct(firm.surcharge_bps), token=token)
     if request.method == "GET":
         return render_template("money/plan_pay.html", **ctx)
-    if not _stripe.configured():
-        return render_template("payments/pay_unconfigured.html", inv=inv, f=firm)
     line_items = [{"price_data": {"currency": "usd", "unit_amount": amount,
                                   "product_data": {"name": f"Invoice {inv.number}, installment {k} of {plan.installments}"}},
                    "quantity": 1}]
