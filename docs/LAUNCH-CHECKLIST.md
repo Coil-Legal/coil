@@ -146,7 +146,7 @@ Missing one of these is malpractice.
 - [x] Magic-link login works and expires.
 - [x] A client sees **only** their own matters, invoices, documents and messages. Try to
       reach another client's record by editing the URL. It must refuse.
-- [x] Spanish rendering, if the contact's language is set.
+- [ ] Spanish rendering, if the contact's language is set. (#130)
 
 ## E-signature `/signatures`
 
