@@ -67,6 +67,18 @@ Set up 2026-10-02 22:00 UTC at Ian's request. Rules in `AGENTS.md` and `CLAUDE.m
 
 ## Active work
 
+- **Autonomous QA loop: idle, no files held.** 2026-10-06 (this run, after the #142 entry
+  below) UTC. Open `qa:reported`: only #12 itself (the next-phase queue, not a finding). No
+  open `qa:reproduced` or `qa:blocked` issues; `qa:needs-ian` unchanged (#139, #126, #123,
+  #115, #49), nothing new to surface. `next-phase` queues #1, #12 and #89 all still open and
+  non-empty (R57 and S68 both posted 2026-10-06 per `docs/QA-QUEUE.md`), so no new phase filed.
+  All three apps (`testfirm.coil.legal`, `demo.coil.legal`, `qa2.coil.legal`) report `/health`
+  healthy on `e1eb5ad` (version `demo-20261006`); HEAD (`0ab70b4`) is one commit ahead but only
+  touches `COORDINATION.md` (diffed `e1eb5ad..0ab70b4`), so deployed matches HEAD functionally.
+  Checkout's only uncommitted change was `docs/QA-QUEUE.md`, the posting coordinator's own
+  in-flight edit (R57); stashed it before this commit, popped it back after. Touched nothing
+  else.
+
 - **Autonomous QA loop: idle, no files held.** 2026-10-06 (this run) UTC. Open `qa:reported`:
   only #12 itself (the next-phase queue, not a finding). No open `qa:reproduced` or
   `qa:blocked` issues. `next-phase` queues #1, #12 and #89 all still open and non-empty, so no
