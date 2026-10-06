@@ -286,8 +286,8 @@ def render_statement_pdf(st):
             row.cell(e["date"].strftime("%m/%d/%Y"))
             row.cell(_pdf_txt(e["matter"].number if e["matter"] else ""))
             row.cell(_pdf_txt(e["description"]))
-            row.cell(money(e["charge"]) if e["charge"] else "")
-            row.cell(money(e["credit"]) if e["credit"] else "")
+            row.cell(_pdf_txt(fmt_money(e["charge"], e["currency"])) if e["charge"] else "")
+            row.cell(_pdf_txt(fmt_money(e["credit"], e["currency"])) if e["credit"] else "")
             row.cell(money(e["balance"]))
         if not st["entries"]:
             row = table.row()
@@ -331,9 +331,9 @@ def render_statement_pdf(st):
         pdf.ln(3)
 
     pdf.set_font("Helvetica", "B", 10)
-    pdf.cell(116, 6, "")
+    pdf.cell(94.5, 6, "")
     pdf.cell(36, 6, _pdf_txt(tpl.label("balance_due")), align="R")
-    pdf.cell(22, 6, mix(st["totals_cur"]["balance"]), align="R", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(43.5, 6, mix(st["totals_cur"]["balance"]), align="R", new_x="LMARGIN", new_y="NEXT")
     footer = tpl.statement_footer or firm.invoice_footer
     if footer:
         pdf.ln(5)
