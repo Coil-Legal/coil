@@ -227,8 +227,13 @@ def test_pay_page_shows_the_invoice_currency_and_refuses_a_non_usd_checkout(app,
     assert "Pay online" not in pdf and "GBP" in pdf
 
 
-def test_usd_invoice_still_offers_online_payment(app, client):
-    """The refusal is scoped to the currency: a USD invoice for an English-speaking client is unchanged."""
+def test_usd_invoice_still_offers_online_payment(app, client, monkeypatch):
+    """The currency refusal is scoped to currency: with Stripe configured, a USD invoice for an
+    English-speaking client is unchanged. (Stripe itself is unconfigured on this app fixture, the
+    firm's real state, which is the separate gate issue #134 added; monkeypatched on here so this
+    test still isolates the currency behaviour it is named for.)"""
+    from app.blueprints import _stripe
+    monkeypatch.setattr(_stripe, "configured", lambda: True)
     db, M = _models()
     with app.app_context():
         u = db.session.get(M.User, S["user_id"])

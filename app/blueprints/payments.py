@@ -127,6 +127,15 @@ def pay(token):
         # A 404 tells a client their link is broken and prompts a phone call. It is not
         # broken; the invoice simply has not been sent yet.
         return render_template("payments/pay_closed.html", inv=inv, reason="draft")
+    # A non-USD invoice is refused by pay_confirm.html itself on GET (in the client's own
+    # language, no surcharge computed) and, if POSTed directly past that page, by the explicit
+    # check below. A USD invoice on a firm with no Stripe keys has no such built-in refusal on
+    # GET, so it is checked here, before the confirm page or its surcharge figure is built: the
+    # public invoice page already withholds the pay button for the same reason (see
+    # online_payment_ok), so a visitor reaching this route by URL should see the same refusal
+    # immediately rather than a surcharged confirm page that always ends in "not set up" (#134).
+    if (inv.currency or "USD").upper() == "USD" and not _stripe.configured():
+        return render_template("payments/pay_unconfigured.html", inv=inv, f=firm)
     surcharge = surcharge_for(inv, method)
     total = inv.balance_cents + surcharge
     if request.method == "GET":
@@ -141,8 +150,6 @@ def pay(token):
     # in the client's language; this closes a direct POST past it.
     if (inv.currency or "USD").upper() != "USD":
         return render_template("payments/pay_unconfigured.html", inv=inv, f=firm, reason="currency")
-    if not _stripe.configured():
-        return render_template("payments/pay_unconfigured.html", inv=inv, f=firm)
     base_url = current_app.config["BASE_URL"]
     line_items = [{"price_data": {"currency": "usd", "unit_amount": inv.balance_cents,
                                   "product_data": {"name": f"Invoice {inv.number}"}}, "quantity": 1}]

@@ -39,7 +39,7 @@ def csrf(client):
         return s["_csrf"]
 
 
-def test_module_c_flow(app, client):
+def test_module_c_flow(app, client, monkeypatch):
     from app.extensions import db
     from app.models import (Contact, Matter, Invoice, InvoiceLine, Payment, TrustTransaction,
                             TrustReconciliation, PortalToken, Firm)
@@ -152,7 +152,7 @@ def test_module_c_flow(app, client):
     r = client.get(f"/payments?month={today[:7]}")
     assert r.status_code == 200 and b"check" in r.data
 
-    # 7. Public pay page: card shows a 3% surcharge of $30.00, ACH shows none.
+    # 7. Public pay page, Stripe configured: card shows a 3% surcharge of $30.00, ACH shows none.
     with app.app_context():
         inv2 = Invoice(number="INV-TEST-2", matter_id=m1002_id, client_id=blue_id, kind="hourly", status="sent",
                        issued_on=date.today(), due_on=date.today(), subtotal_cents=100000, total_cents=100000)
@@ -162,13 +162,22 @@ def test_module_c_flow(app, client):
         db.session.commit()
         inv2_id, token2 = inv2.id, inv2.public_token
     anon = app.test_client()
+    from app.blueprints import _stripe
+    monkeypatch.setattr(_stripe, "configured", lambda: True)
     r = anon.get(f"/pay/{token2}?method=card")
     assert r.status_code == 200
     assert b"Card processing surcharge 3%" in r.data and b"$30.00" in r.data and b"$1,030.00" in r.data
     r = anon.get(f"/pay/{token2}?method=ach")
     assert r.status_code == 200
     assert b"Card processing surcharge" not in r.data and b"$30.00" not in r.data and b"$1,000.00" in r.data
-    # POST with Stripe unset renders the not-configured page rather than erroring.
+    # Stripe unset, the firm's real state here: no surcharge is ever computed and the confirm
+    # page never appears, on GET or POST alike (issue #134; the GET path used to skip this check).
+    monkeypatch.setattr(_stripe, "configured", lambda: False)
+    r = anon.get(f"/pay/{token2}?method=card")
+    assert r.status_code == 200 and b"not set up" in r.data and b"Austin" in r.data
+    assert b"Card processing surcharge" not in r.data and b"$30.00" not in r.data
+    r = anon.get(f"/pay/{token2}?method=ach")
+    assert r.status_code == 200 and b"not set up" in r.data
     r = anon.post(f"/pay/{token2}?method=card")
     assert r.status_code == 200 and b"not set up" in r.data and b"Austin" in r.data
     r = anon.get(f"/pay/{token2}/cancel")

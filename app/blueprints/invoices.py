@@ -22,6 +22,7 @@ from ..helpers import (login_required, current_user, parse_money, parse_date, cl
 from ..i18n import t, lang_for
 from ..services.mail import send_email
 from ..services.pdf import DocPDF, save_pdf, enable_unicode, reset_unicode, unicode_on, mark_unsupported
+from . import _stripe
 
 try:  # Agent B's multi-currency formatter. Fall back to a local copy if helpers.py is older than this module.
     from ..helpers import fmt_money
@@ -1517,8 +1518,10 @@ def online_payment_ok(inv):
 
     Stripe Checkout is built in US dollars in payments.py, and the amount, the surcharge and the recorded
     payment are all treated as invoice cents. Offering it on a GBP invoice would charge the client the same
-    number in the wrong currency, so a non-USD invoice is pointed at bank transfer instead."""
-    return (inv.currency or "USD").upper() == "USD"
+    number in the wrong currency, so a non-USD invoice is pointed at bank transfer instead. A firm with no
+    Stripe keys at all cannot complete either method, so the buttons stay hidden for it too rather than
+    leading to a confirm page (with a card surcharge already computed) that always ends in "not set up"."""
+    return (inv.currency or "USD").upper() == "USD" and _stripe.configured()
 
 
 

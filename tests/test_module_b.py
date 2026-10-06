@@ -395,10 +395,21 @@ def test_builder_hybrid_and_contingency(app, client):
     assert r.status_code == 200 and b"Which matter" in r.data
 
 
-def test_public_view_and_tracking_pixel(app):
+def test_public_view_and_tracking_pixel(app, monkeypatch):
     db, M = _models()
     anon = app.test_client()  # no login
     token = S["hourly_token"]
+    # Seed sets no Stripe key, so by default (issue #134) neither pay button, nor the card
+    # surcharge copy, should appear: a USD invoice on an unconfigured firm has no way to pay online.
+    r = anon.get(f"/p/{token}")
+    assert r.status_code == 200
+    assert b"Pay by bank transfer (ACH), no fee" not in r.data
+    assert f"/pay/{token}?method=ach".encode() not in r.data
+    assert f"/pay/{token}?method=card".encode() not in r.data
+    assert b"3% card surcharge applies" not in r.data
+    # With Stripe configured, the buttons and the surcharge copy (seed sets 300 bps) appear.
+    from app.blueprints import _stripe
+    monkeypatch.setattr(_stripe, "configured", lambda: True)
     r = anon.get(f"/p/{token}")
     assert r.status_code == 200
     assert b"Pay by bank transfer (ACH), no fee" in r.data

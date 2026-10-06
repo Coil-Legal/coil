@@ -163,7 +163,9 @@ def _png_bytes():
     return buf.getvalue()
 
 
-def test_template_settings_round_trip_and_apply(app, client):
+def test_template_settings_round_trip_and_apply(app, client, monkeypatch):
+    from app.blueprints import _stripe
+    monkeypatch.setattr(_stripe, "configured", lambda: True)
     r = client.get("/settings/invoice-template")
     assert r.status_code == 200 and b"Preview PDF" in r.data and b'name="col_qty"' in r.data
     data = {"_csrf": S["tok"], "action": "save",

@@ -354,11 +354,13 @@ def test_document_signature_decline_remind_void(app, staff):
 # ---------------------------------------------------------------------------
 # Spanish for es contacts, English for en contacts
 # ---------------------------------------------------------------------------
-def test_language_on_public_pages(app, staff):
+def test_language_on_public_pages(app, staff, monkeypatch):
     from app.extensions import db
     from app.models import Contact, Matter, Invoice, InvoiceLine, Engagement
     from app.blueprints.engagements import build_engagement, send_engagement
     from app.services.mail import dev_outbox
+    from app.blueprints import _stripe
+    monkeypatch.setattr(_stripe, "configured", lambda: True)
     client, tok = staff
     mid = maria_id(app)
     with app.app_context():
