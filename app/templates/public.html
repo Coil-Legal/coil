@@ -13,7 +13,7 @@
 <div class="public">
   <div style="margin-bottom:16px"><strong>{{ firm().name }}</strong>{% if firm().phone %} <span class="muted">· {{ firm().phone }}</span>{% endif %}</div>
   {% with msgs = get_flashed_messages(with_categories=true) %}
-    {% for cat, m in msgs %}<div class="flash {{ cat }}">{{ m }}</div>{% endfor %}
+    {% for cat, m in msgs %}<div class="flash {{ cat }}" role="{{ 'alert' if cat == 'error' else 'status' }}">{{ m }}</div>{% endfor %}
   {% endwith %}
   {% block content %}{% endblock %}
 </div>
