@@ -99,18 +99,29 @@ def build_statement(client, d_from=None, d_to=None, matter_id=None, today=None):
         running += e["charge"] - e["credit"]
         e["balance"] = running
 
+    def _bump(d, code, cents):
+        d[code] = d.get(code, 0) + (cents or 0)
+
     groups = OrderedDict()
     shown = [i for i in invoices if in_range(i.issued_on or i.created_at.date())]
     for inv in shown:
         g = groups.setdefault(inv.matter_id, {"matter": inv.matter, "invoices": [], "invoiced": 0, "paid": 0, "balance": 0,
-                                              "overdue": 0, "credited": 0})
+                                              "overdue": 0, "credited": 0,
+                                              "invoiced_cur": {}, "paid_cur": {}, "balance_cur": {}, "overdue_cur": {},
+                                              "credited_cur": {}})
+        code = (inv.currency or "USD").upper()
         g["invoices"].append(inv)
         g["invoiced"] += inv.total_cents or 0
         g["paid"] += inv.paid_cents or 0
         g["credited"] += inv.credited_cents
         g["balance"] += inv.balance_cents
+        _bump(g["invoiced_cur"], code, inv.total_cents)
+        _bump(g["paid_cur"], code, inv.paid_cents)
+        _bump(g["credited_cur"], code, inv.credited_cents)
+        _bump(g["balance_cur"], code, inv.balance_cents)
         if inv.is_overdue:
             g["overdue"] += inv.balance_cents
+            _bump(g["overdue_cur"], code, inv.balance_cents)
     totals = {"invoiced": sum(g["invoiced"] for g in groups.values()),
               "paid": sum(g["paid"] for g in groups.values()),
               "balance": sum(g["balance"] for g in groups.values()),
@@ -118,10 +129,29 @@ def build_statement(client, d_from=None, d_to=None, matter_id=None, today=None):
               "payments": sum(e["credit"] for e in entries if e["kind"] in ("payment", "trust")),
               "credits": sum(e["credit"] for e in entries if e["kind"] == "credit_note"),
               "credited": sum(g["credited"] for g in groups.values())}
+    # Per-currency breakdowns for the same figures, so the HTML page can show "€275.00 + £275.00"
+    # instead of summing cents across currencies under one symbol (same bug class as #60/#61,
+    # never applied here). `totals` above stays a blended int for the PDF and reminder email,
+    # which this issue's repro didn't cover.
+    totals_cur = {"invoiced": {}, "paid": {}, "balance": {}, "overdue": {}, "credited": {},
+                  "payments": {}, "credits": {}, "payments_and_credits": {}}
+    for k in ("invoiced", "paid", "balance", "overdue", "credited"):
+        for g in groups.values():
+            for code, cents in g[k + "_cur"].items():
+                _bump(totals_cur[k], code, cents)
+    for e in entries:
+        if e["kind"] in ("payment", "trust"):
+            _bump(totals_cur["payments"], (e["currency"] or "USD").upper(), e["credit"])
+        elif e["kind"] == "credit_note":
+            _bump(totals_cur["credits"], (e["currency"] or "USD").upper(), e["credit"])
+    for k in ("payments", "credits"):
+        for code, cents in totals_cur[k].items():
+            _bump(totals_cur["payments_and_credits"], code, cents)
     currencies = {i.currency or "USD" for i in shown}
     currency = next(iter(currencies)) if len(currencies) == 1 else (Firm.get().currency or "USD")
     open_balance = sum(i.balance_cents for i in invoices if i.status in OPEN_STATUSES)
     return {"client": client, "entries": entries, "groups": list(groups.values()), "totals": totals,
+            "totals_cur": totals_cur,
             "opening": opening, "closing": running, "currency": currency, "mixed": len(currencies) > 1,
             "d_from": d_from, "d_to": d_to, "matter_id": matter_id,
             "invoices": shown, "open_balance": open_balance, "today": today, "trust_balance": client.trust_balance_cents()}
