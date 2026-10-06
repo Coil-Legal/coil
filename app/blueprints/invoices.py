@@ -1557,11 +1557,13 @@ def public_view(token):
     surcharge_pct = (firm.surcharge_bps or 0) / 100.0 if firm.surcharge_enabled else 0
     trust_balance = inv.client.trust_balance_cents()
     tpl = invoice_settings(firm)
+    is_usd = (inv.currency or "USD").upper() == "USD"
     return render_template("invoices/public.html", inv=inv, firm_settings=firm, surcharge_pct=surcharge_pct,
                            trust_balance=trust_balance, payments=[p for p in inv.payments], tpl=tpl,
                            columns=visible_columns(tpl), line_meta=line_meta, line_description=line_description,
                            column_titles=COLUMN_TITLES, format_quantity=format_quantity,
-                           lang=lang_for(inv.client), online_payment=online_payment_ok(inv))
+                           lang=lang_for(inv.client), online_payment=online_payment_ok(inv),
+                           online_payment_blocked_by_currency=(not is_usd))
 
 
 @bp.route("/p/firm-logo")

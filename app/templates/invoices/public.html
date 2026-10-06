@@ -78,7 +78,7 @@ table th.acc{background:{{ tpl.accent }};color:#fff}
       {% if surcharge_pct %}<div class="small muted" style="text-align:center;margin-top:6px">{{ t('inv.surcharge', lang, pct='%g' % surcharge_pct) }}</div>{% endif %}
     </div>
   </div>
-  {% else %}
+  {% elif online_payment_blocked_by_currency %}
   {# Card and bank checkout are set up in US dollars only. Charging this invoice through them would take the
      wrong currency from the client, so we say so instead of offering the buttons. #}
   <p>{% if lang == 'es' %}Esta factura está expresada en {{ cc }}. Nuestro pago en línea con tarjeta o
@@ -87,6 +87,11 @@ table th.acc{background:{{ tpl.accent }};color:#fff}
      las instrucciones de pago.{% else %}This invoice is in {{ cc }}. Our online card and bank transfer
      payments only work in US dollars, so please pay by bank transfer, or contact
      {{ firm_settings.phone or 'our office' }} and we will send you payment instructions.{% endif %}</p>
+  {% else %}
+  {# USD, but online payments are not configured at all (no Stripe keys). The currency sentence above
+     would be self-contradictory here and points the client at a method ("bank transfer") this page
+     never offers, so this is a separate sentence rather than reusing the currency branch (#142). #}
+  <p>{% if lang == 'es' %}No podemos aceptar pagos en línea en este momento. Por favor {{ 'póngase en contacto con ' + firm_settings.phone if firm_settings.phone else 'contáctenos' }} y le indicaremos cómo enviar el pago.{% else %}We are not able to take card or bank payments online at the moment. Please {{ 'call ' + firm_settings.phone if firm_settings.phone else 'get in touch with us' }} and we will tell you where to send payment.{% endif %}</p>
   {% endif %}
   {% if trust_balance > 0 %}<p class="small muted" style="margin-top:12px">{{ t('inv.trust_note', lang, amount=trust_balance|cur(firm_settings.currency or 'USD'), phone=(firm_settings.phone or t('inv.our_office', lang))) }}</p>{% endif %}
   {% if tpl.payment_instructions %}<p class="small muted" style="white-space:pre-line">{{ tpl.payment_instructions|replace('{link}', url_for('invoices.public_view', token=inv.public_token, _external=True)) }}</p>
