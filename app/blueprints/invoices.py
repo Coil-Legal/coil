@@ -19,7 +19,7 @@ from ..models import (Firm, Matter, Invoice, InvoiceLine, InvoiceEvent, CreditNo
                       FlatFeeMilestone, PaymentPlan, User, audit, now)
 from ..helpers import (login_required, current_user, parse_money, parse_date, client_ip, cents_to_str,
                         UNUSUAL_INVOICE_CENTS, CURRENCY_SYMBOLS, LOCK_RETRIES, is_lock_error)
-from ..i18n import lang_for
+from ..i18n import t, lang_for
 from ..services.mail import send_email
 from ..services.pdf import DocPDF, save_pdf, enable_unicode, reset_unicode, unicode_on, mark_unsupported
 
@@ -1229,6 +1229,7 @@ def render_invoice_pdf(inv, tpl=None, sample=False):
     firm = Firm.get()
     tpl = tpl or invoice_settings(firm)
     cur = inv.currency or "USD"
+    lang = lang_for(inv.client)
 
     def money(c):
         return _pdf_txt(fmt_money(c, cur))
@@ -1245,16 +1246,21 @@ def render_invoice_pdf(inv, tpl=None, sample=False):
     if sample:
         pdf.sample_mark()
     pdf.heading(tpl.title)
-    pdf.cell(0, 5, _pdf_txt(f"{tpl.label('invoice_number')}: {inv.number}"), new_x="LMARGIN", new_y="NEXT")
-    pdf.cell(0, 5, _pdf_txt(f"Issued: {inv.issued_on.strftime('%B %d, %Y') if inv.issued_on else ''}"),
+    invoice_number_label = tpl.label("invoice_number", t("inv.heading", lang, number="").strip())
+    due_label = tpl.label("due", t("inv.due", lang))
+    bill_to_label = tpl.label("bill_to", t("inv.bill_to", lang))
+    matter_label_text = tpl.label("matter", t("inv.matter", lang))
+    balance_due_label = tpl.label("balance_due", t("inv.balance_due", lang))
+    pdf.cell(0, 5, _pdf_txt(f"{invoice_number_label}: {inv.number}"), new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 5, _pdf_txt(f"{t('inv.issued', lang)}: {inv.issued_on.strftime('%B %d, %Y') if inv.issued_on else ''}"),
              new_x="LMARGIN", new_y="NEXT")
-    pdf.cell(0, 5, _pdf_txt(f"{tpl.label('due')}: {inv.due_on.strftime('%B %d, %Y') if inv.due_on else 'On receipt'}"),
+    pdf.cell(0, 5, _pdf_txt(f"{due_label}: {inv.due_on.strftime('%B %d, %Y') if inv.due_on else t('inv.on_receipt', lang)}"),
              new_x="LMARGIN", new_y="NEXT")
     if cur != "USD":
-        pdf.cell(0, 5, _pdf_txt(f"Currency: {cur}"), new_x="LMARGIN", new_y="NEXT")
+        pdf.cell(0, 5, _pdf_txt(f"{t('inv.pdf.currency', lang)}: {cur}"), new_x="LMARGIN", new_y="NEXT")
     pdf.ln(4)
     pdf.set_font("Helvetica", "B", 10)
-    pdf.cell(0, 5, _pdf_txt(tpl.label("bill_to")), new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 5, _pdf_txt(bill_to_label), new_x="LMARGIN", new_y="NEXT")
     pdf.set_font("Helvetica", "", 10)
     pdf.cell(0, 5, _pdf_txt(inv.client.display_name), new_x="LMARGIN", new_y="NEXT")
     for line in (inv.client.address or "").splitlines():
@@ -1264,25 +1270,28 @@ def render_invoice_pdf(inv, tpl=None, sample=False):
         pdf.cell(0, 5, _pdf_txt(inv.client.email), new_x="LMARGIN", new_y="NEXT")
     pdf.ln(3)
     pdf.set_font("Helvetica", "B", 10)
-    matter_label = _pdf_txt(tpl.label("matter")) + ":"
+    matter_label = _pdf_txt(matter_label_text) + ":"
     pdf.cell(max(22, pdf.get_string_width(matter_label) + 3), 5, matter_label)
     pdf.set_font("Helvetica", "", 10)
     pdf.cell(0, 5, _pdf_txt(inv.matter.label), new_x="LMARGIN", new_y="NEXT")
     if inv.split_group:
         pdf.set_font("Helvetica", "I", 9.5)
-        pdf.cell(0, 5, _pdf_txt(f"This invoice is {inv.split_pct:g}% of the charges on this matter, billed to "
-                                f"{inv.client.display_name}. The remainder is billed separately."),
+        pdf.cell(0, 5, _pdf_txt(t("inv.pdf.split_note", lang, pct="%g" % inv.split_pct,
+                                  client=inv.client.display_name)),
                  new_x="LMARGIN", new_y="NEXT")
         pdf.set_font("Helvetica", "", 10)
     pdf.ln(4)
 
     cols = visible_columns(tpl)
+    col_titles = {"date": t("inv.date", lang), "description": t("inv.description", lang), "qty": t("inv.qty", lang),
+                 "rate": t("inv.rate", lang), "amount": t("inv.amount", lang),
+                 "timekeeper": COLUMN_TITLES["timekeeper"], "code": COLUMN_TITLES["code"]}
     pdf.set_font("Helvetica", "", 9.5)
     with pdf.table(col_widths=column_widths(cols), text_align=tuple(_COL_ALIGN[c] for c in cols),
                    line_height=5.5, borders_layout="HORIZONTAL_LINES", headings_style=pdf.heading_style()) as table:
         row = table.row()
         for c in cols:
-            row.cell(COLUMN_TITLES[c])
+            row.cell(_pdf_txt(col_titles[c]))
         for l in inv.lines:
             row = table.row()
             for cell in line_cells(l, cols, tpl, money):
@@ -1295,16 +1304,16 @@ def render_invoice_pdf(inv, tpl=None, sample=False):
         pdf.cell(42, 6, _pdf_txt(label), align="R")
         pdf.cell(22, 6, money(amount), align="R", new_x="LMARGIN", new_y="NEXT")
 
-    total_row("Subtotal", inv.subtotal_cents)
+    total_row(t("inv.subtotal", lang), inv.subtotal_cents)
     if inv.tax_cents:
-        total_row("Tax", inv.tax_cents)
+        total_row(t("inv.tax", lang), inv.tax_cents)
     if inv.paid_cents:
-        total_row("Paid", -(inv.paid_cents or 0))
-    total_row(tpl.label("balance_due"), inv.balance_cents, bold=True)
+        total_row(t("inv.paid", lang), -(inv.paid_cents or 0))
+    total_row(balance_due_label, inv.balance_cents, bold=True)
     pdf.ln(6)
 
     pdf.set_font("Helvetica", "B", 10)
-    pdf.cell(0, 5, "Payment instructions", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 5, _pdf_txt(t("inv.pdf.payment_instructions", lang)), new_x="LMARGIN", new_y="NEXT")
     pdf.set_font("Helvetica", "", 9.5)
     link = public_url(inv)
     if tpl.payment_instructions:
@@ -1313,21 +1322,20 @@ def render_invoice_pdf(inv, tpl=None, sample=False):
                 _para(pdf, _pdf_txt(para.strip()))
     else:
         if online_payment_ok(inv):
-            _para(pdf, _pdf_txt(f"Pay online by bank transfer (no fee) or card at: {link}"))
+            _para(pdf, _pdf_txt(t("inv.pdf.pay_online", lang, link=link)))
             if firm.surcharge_enabled and firm.surcharge_bps:
-                _para(pdf, _pdf_txt(f"A {firm.surcharge_bps / 100:.2f}% surcharge applies to card payments. "
-                                    f"Bank transfers carry no surcharge."))
+                _para(pdf, _pdf_txt(t("inv.pdf.pay_online_surcharge", lang, pct=f"{firm.surcharge_bps / 100:.2f}")))
         else:
             # The online pages only take US dollars, so do not point this client at them.
-            _para(pdf, _pdf_txt(f"This invoice is in {cur}. Please pay by bank transfer, or contact us and we "
-                                f"will send you payment instructions. Your invoice is at: {link}"))
+            _para(pdf, _pdf_txt(t("inv.pdf.pay_nonusd", lang, cur=cur, link=link)))
         head = _letterhead(firm, inv)
         mail_to = " ".join([x.strip() for x in (head.address or "").splitlines() if x.strip()])
-        _para(pdf, _pdf_txt(f"Checks payable to {firm.name}" + (f", mailed to {mail_to}." if mail_to else ".")))
+        _para(pdf, _pdf_txt(t("inv.pdf.checks_payable", lang, firm=firm.name)
+                            + (t("inv.pdf.checks_mailed_to", lang, address=mail_to) if mail_to else ".")))
     if inv.notes:
         pdf.ln(3)
         pdf.set_font("Helvetica", "B", 10)
-        pdf.cell(0, 5, "Notes", new_x="LMARGIN", new_y="NEXT")
+        pdf.cell(0, 5, _pdf_txt(t("inv.pdf.notes", lang)), new_x="LMARGIN", new_y="NEXT")
         pdf.set_font("Helvetica", "", 9.5)
         _para(pdf, _pdf_txt(inv.notes))
     if firm.invoice_footer:
@@ -1378,6 +1386,8 @@ def _send_invoice_email(inv, reminder=False):
     to = (inv.client.email or "").strip()
     if not to:
         return "The client has no email address on file."
+    lang = lang_for(inv.client)
+    tpl = invoice_settings(firm)
     # Build the PDF before anything is marked sent. A client should never get an invoice email with no
     # invoice attached, and the firm should never read "sent" when nothing went out. The caller rolls the
     # session back on an error, so a failure leaves the invoice exactly as it was and it can be sent again.
@@ -1391,47 +1401,47 @@ def _send_invoice_email(inv, reminder=False):
                 f"The invoice is unchanged. Fix the problem and send it again.")
     link = public_url(inv)
     pixel = f"{_base_url()}/track/invoice/{inv.public_token}.gif"
-    subject = (f"Reminder: invoice {inv.number} from {firm.name}" if reminder
-               else f"Invoice {inv.number} from {firm.name}")
-    intro = ("This is a friendly reminder that the invoice below is still open." if reminder
-             else "Please find your invoice below.")
+    subject = t("email.invoice_reminder.subject" if reminder else "email.invoice_request.subject",
+                lang, number=inv.number, firm=firm.name)
+    intro = t("email.invoice_reminder.intro" if reminder else "email.invoice_request.intro", lang)
     if inv.split_group:
-        intro += (f" This invoice covers your {inv.split_pct:g}% share of the charges on this matter; "
-                  f"the remainder is billed separately.")
+        intro += t("email.invoice.split_note", lang, pct="%g" % inv.split_pct)
     rows = "".join(
         f"<tr><td style='padding:4px 8px;border-bottom:1px solid #eee'>{escape(l.description or '')}</td>"
         f"<td style='padding:4px 8px;border-bottom:1px solid #eee;text-align:right'>{fmt_money(l.amount_cents, cur)}</td></tr>"
         for l in inv.lines)
-    currency_note = f" Amounts are in {cur}." if cur != "USD" else ""
+    currency_note = t("email.invoice.currency_note", lang, cur=cur) if cur != "USD" else ""
     # Do not promise online payment on an invoice the pay page will refuse (see online_payment_ok).
     if online_payment_ok(inv):
-        pay_note = "Bank transfer (ACH) carries no fee." + (
-            f" A {firm.surcharge_bps / 100:.2f}% surcharge applies to card payments."
+        pay_note = t("email.invoice.pay_ach_note", lang) + (
+            t("email.invoice.pay_surcharge_note", lang, pct=f"{firm.surcharge_bps / 100:.2f}")
             if firm.surcharge_enabled and firm.surcharge_bps else "")
     else:
-        pay_note = (f"This invoice is in {cur}, which our online payment pages do not take, so please pay by "
-                    f"bank transfer or contact us for payment instructions.")
+        pay_note = t("email.invoice.pay_nonusd_note", lang, cur=cur)
+    due_label = tpl.label("due", t("inv.due", lang))
+    balance_due_label = tpl.label("balance_due", t("inv.balance_due", lang))
+    due_display = inv.due_on.strftime("%b %d, %Y") if inv.due_on else t("inv.on_receipt", lang)
     html = f"""<div style="font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:#1c2430;max-width:600px">
 <p><strong>{escape(firm.name)}</strong></p>
-<p>Hello {escape(inv.client.display_name)},</p>
+<p>{escape(t("email.hello", lang, name=inv.client.display_name))}</p>
 <p>{intro}</p>
 <table style="border-collapse:collapse;width:100%;font-size:14px">
-<tr><td style="padding:4px 8px"><strong>Invoice</strong></td><td style="padding:4px 8px;text-align:right">{escape(inv.number)}</td></tr>
-<tr><td style="padding:4px 8px"><strong>Matter</strong></td><td style="padding:4px 8px;text-align:right">{escape(inv.matter.label)}</td></tr>
-<tr><td style="padding:4px 8px"><strong>Issued</strong></td><td style="padding:4px 8px;text-align:right">{inv.issued_on.strftime('%b %d, %Y') if inv.issued_on else ''}</td></tr>
-<tr><td style="padding:4px 8px"><strong>Due</strong></td><td style="padding:4px 8px;text-align:right">{inv.due_on.strftime('%b %d, %Y') if inv.due_on else 'On receipt'}</td></tr>
+<tr><td style="padding:4px 8px"><strong>{escape(t("portal.home.invoice", lang))}</strong></td><td style="padding:4px 8px;text-align:right">{escape(inv.number)}</td></tr>
+<tr><td style="padding:4px 8px"><strong>{escape(tpl.label("matter", t("inv.matter", lang)))}</strong></td><td style="padding:4px 8px;text-align:right">{escape(inv.matter.label)}</td></tr>
+<tr><td style="padding:4px 8px"><strong>{escape(t("inv.issued", lang))}</strong></td><td style="padding:4px 8px;text-align:right">{inv.issued_on.strftime('%b %d, %Y') if inv.issued_on else ''}</td></tr>
+<tr><td style="padding:4px 8px"><strong>{escape(due_label)}</strong></td><td style="padding:4px 8px;text-align:right">{escape(due_display)}</td></tr>
 </table>
 <table style="border-collapse:collapse;width:100%;font-size:14px;margin-top:10px">{rows}
-<tr><td style="padding:6px 8px"><strong>Balance due</strong></td><td style="padding:6px 8px;text-align:right"><strong>{fmt_money(inv.balance_cents, cur)}</strong></td></tr>
+<tr><td style="padding:6px 8px"><strong>{escape(balance_due_label)}</strong></td><td style="padding:6px 8px;text-align:right"><strong>{fmt_money(inv.balance_cents, cur)}</strong></td></tr>
 </table>
-<p style="margin:22px 0"><a href="{link}" style="background:#1f5f8b;color:#fff;padding:11px 20px;border-radius:6px;text-decoration:none;display:inline-block">View and pay</a></p>
-<p style="font-size:13px;color:#66707d">{pay_note}{currency_note} A PDF copy is attached.</p>
-<p style="font-size:13px;color:#66707d">If the button does not work, open this link: <a href="{link}">{link}</a></p>
+<p style="margin:22px 0"><a href="{link}" style="background:#1f5f8b;color:#fff;padding:11px 20px;border-radius:6px;text-decoration:none;display:inline-block">{escape(t("portal.home.view_pay", lang))}</a></p>
+<p style="font-size:13px;color:#66707d">{pay_note}{currency_note}{t("email.invoice.pdf_note", lang)}</p>
+<p style="font-size:13px;color:#66707d">{escape(t("email.fallback_link", lang, url=link))}</p>
 <p>{escape(firm.name)}{(' | ' + escape(firm.phone)) if firm.phone else ''}</p>
 <img src="{pixel}" width="1" height="1" alt="" style="display:block">
 </div>"""
-    text = (f"{intro}\n\nInvoice {inv.number} for {inv.matter.label}\nBalance due: {fmt_money(inv.balance_cents, cur)}\n"
-            f"Due: {inv.due_on.isoformat() if inv.due_on else 'on receipt'}\n\nView and pay: {link}\n")
+    text = f"{intro}\n\n" + t("email.invoice.text_summary", lang, number=inv.number, matter=inv.matter.label,
+                               balance=fmt_money(inv.balance_cents, cur), due=due_display, url=link)
     attachments = [(f"{inv.number}.pdf", pdf_data, "application/pdf")]
     try:
         delivered = send_email(to, subject, html, text=text, attachments=attachments, reply_to=firm.email or None)

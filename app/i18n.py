@@ -197,6 +197,31 @@ T = {
         "email.engagement_signed.body": "Thank you, {name}. Your signed engagement letter with {firm} is attached for your records.",
         "email.engagement_signed.button": "View the signed letter",
         "email.engagement_signed.text": "Your signed engagement letter is attached.",
+        "email.invoice_request.subject": "Invoice {number} from {firm}",
+        "email.invoice_request.intro": "Please find your invoice below.",
+        "email.invoice_reminder.subject": "Reminder: invoice {number} from {firm}",
+        "email.invoice_reminder.intro": "This is a friendly reminder that the invoice below is still open.",
+        "email.invoice.split_note": " This invoice covers your {pct}% share of the charges on this matter; the "
+                                    "remainder is billed separately.",
+        "email.invoice.pay_ach_note": "Bank transfer (ACH) carries no fee.",
+        "email.invoice.pay_surcharge_note": " A {pct}% surcharge applies to card payments.",
+        "email.invoice.pay_nonusd_note": "This invoice is in {cur}, which our online payment pages do not take, so "
+                                         "please pay by bank transfer or contact us for payment instructions.",
+        "email.invoice.currency_note": " Amounts are in {cur}.",
+        "email.invoice.pdf_note": " A PDF copy is attached.",
+        "email.invoice.text_summary": "Invoice {number} for {matter}\nBalance due: {balance}\nDue: {due}\n\n"
+                                      "View and pay: {url}\n",
+        "inv.pdf.payment_instructions": "Payment instructions",
+        "inv.pdf.notes": "Notes",
+        "inv.pdf.currency": "Currency",
+        "inv.pdf.pay_online": "Pay online by bank transfer (no fee) or card at: {link}",
+        "inv.pdf.pay_online_surcharge": "A {pct}% surcharge applies to card payments. Bank transfers carry no surcharge.",
+        "inv.pdf.pay_nonusd": "This invoice is in {cur}. Please pay by bank transfer, or contact us and we will "
+                              "send you payment instructions. Your invoice is at: {link}",
+        "inv.pdf.checks_payable": "Checks payable to {firm}",
+        "inv.pdf.checks_mailed_to": ", mailed to {address}.",
+        "inv.pdf.split_note": "This invoice is {pct}% of the charges on this matter, billed to {client}. The "
+                              "remainder is billed separately.",
     },
     "es": {
         # ---- portal: login, expired, nav ----
@@ -391,6 +416,33 @@ T = {
         "email.engagement_signed.body": "Gracias, {name}. Su carta de contratación firmada con {firm} se adjunta para su archivo.",
         "email.engagement_signed.button": "Ver la carta firmada",
         "email.engagement_signed.text": "Su carta de contratación firmada está adjunta.",
+        "email.invoice_request.subject": "Factura {number} de {firm}",
+        "email.invoice_request.intro": "A continuación encontrará su factura.",
+        "email.invoice_reminder.subject": "Recordatorio: factura {number} de {firm}",
+        "email.invoice_reminder.intro": "Le recordamos amablemente que la siguiente factura sigue pendiente de pago.",
+        "email.invoice.split_note": " Esta factura corresponde a su {pct}% de los cargos de este asunto; el resto "
+                                    "se factura por separado.",
+        "email.invoice.pay_ach_note": "La transferencia bancaria (ACH) no tiene comisión.",
+        "email.invoice.pay_surcharge_note": " Se aplica un recargo del {pct}% a los pagos con tarjeta.",
+        "email.invoice.pay_nonusd_note": "Esta factura está en {cur}, que nuestras páginas de pago en línea no "
+                                         "aceptan, así que le rogamos pagar por transferencia bancaria o "
+                                         "contactarnos para obtener instrucciones de pago.",
+        "email.invoice.currency_note": " Los importes están en {cur}.",
+        "email.invoice.pdf_note": " Se adjunta una copia en PDF.",
+        "email.invoice.text_summary": "Factura {number} del asunto {matter}\nSaldo pendiente: {balance}\n"
+                                      "Vencimiento: {due}\n\nVer y pagar: {url}\n",
+        "inv.pdf.payment_instructions": "Instrucciones de pago",
+        "inv.pdf.notes": "Notas",
+        "inv.pdf.currency": "Moneda",
+        "inv.pdf.pay_online": "Pague en línea por transferencia bancaria (sin comisión) o con tarjeta en: {link}",
+        "inv.pdf.pay_online_surcharge": "Se aplica un recargo del {pct}% a los pagos con tarjeta. Las transferencias "
+                                        "bancarias no tienen recargo.",
+        "inv.pdf.pay_nonusd": "Esta factura está en {cur}. Pague por transferencia bancaria o contáctenos y le "
+                              "enviaremos instrucciones de pago. Su factura está en: {link}",
+        "inv.pdf.checks_payable": "Cheques a nombre de {firm}",
+        "inv.pdf.checks_mailed_to": ", enviados a {address}.",
+        "inv.pdf.split_note": "Esta factura corresponde al {pct}% de los cargos de este asunto, facturado a "
+                              "{client}. El resto se factura por separado.",
     },
 }
 

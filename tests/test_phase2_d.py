@@ -506,3 +506,52 @@ def test_engagement_emails_and_sign_errors_localized(app, staff):
     assert "Thank you" not in signed["html"]
     assert signed["subject"] == "Firmado: Carta de contratación: Alvarez Estate Plan" \
         and "Engagement letter" not in signed["subject"]
+
+
+def test_invoice_email_reminder_and_pdf_localized(app, monkeypatch):
+    """Issue #130: the invoice email, its reminder, and the PDF stayed hardcoded English for a
+    Spanish-language client contact, while the public invoice page already localized correctly.
+    Same bug class as #107 (engagement letter emails), here in invoices.py."""
+    from app.extensions import db
+    from app.models import Contact, Matter, Invoice, InvoiceLine
+    from app.blueprints import invoices as inv_bp
+    from app.services.mail import dev_outbox
+    from tests.helpers import capture_delivered_mail
+    monkeypatch.setattr(inv_bp, "send_email", capture_delivered_mail)
+    mid = maria_id(app)
+    with app.app_context():
+        db.session.get(Contact, mid).language = "es"
+        m = Matter.query.filter_by(number="M-1001").first()
+        inv = Invoice(number="INV-ES-LOC", matter_id=m.id, client_id=mid, status="draft",
+                      issued_on=date.today(), due_on=date.today() + timedelta(days=30))
+        db.session.add(inv)
+        db.session.flush()
+        db.session.add(InvoiceLine(invoice_id=inv.id, kind="flat", description="Servicios", amount_cents=30000))
+        db.session.flush()
+        inv.recalc()
+        db.session.commit()
+        inv_id = inv.id
+
+        inv = db.session.get(Invoice, inv_id)
+        assert inv_bp._send_invoice_email(inv) is None
+        db.session.commit()
+        pdf_path = inv.pdf_path
+    sent = next(m for m in dev_outbox() if m["subject"].startswith("Factura"))
+    assert sent["subject"] == "Factura INV-ES-LOC de Demo Law PLLC"
+    assert "Estimado(a)" in sent["html"] and "A continuación encontrará su factura" in sent["html"] \
+        and "Ver y pagar" in sent["html"] and "Saldo pendiente" in sent["html"] and "Asunto" in sent["html"]
+    assert "Hello" not in sent["html"] and "Please find your invoice" not in sent["html"] \
+        and "View and pay" not in sent["html"] and "Balance due" not in sent["html"]
+
+    with app.app_context():
+        inv = db.session.get(Invoice, inv_id)
+        assert inv_bp._send_invoice_email(inv, reminder=True) is None
+        db.session.commit()
+    reminded = next(m for m in dev_outbox() if m["subject"].startswith("Recordatorio"))
+    assert reminded["subject"] == "Recordatorio: factura INV-ES-LOC de Demo Law PLLC"
+    assert "sigue pendiente de pago" in reminded["html"] and "still open" not in reminded["html"]
+
+    text = pdf_text(pdf_path)
+    assert "Facturar a" in text and "Vencimiento" in text and "Saldo pendiente" in text and "Subtotal" in text
+    assert "Instrucciones de pago" in text and "Bill to" not in text and "Balance due" not in text \
+        and "Payment instructions" not in text and "Issued:" not in text
