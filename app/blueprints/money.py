@@ -16,7 +16,7 @@ from ..extensions import db
 from ..models import (Matter, MatterFeeSplit, User, Contact, Invoice, InvoiceEvent, Payment, PaymentPlan,
                       PlanInstallmentReceipt, PortalToken, AuditLog, Firm, audit, now)
 from ..helpers import (login_required, portal_required, current_user, portal_contact, parse_money, parse_date,
-                       cents_to_str)
+                       cents_to_str, fmt_money)
 from ..services.mail import send_email
 from . import _stripe
 
@@ -666,13 +666,13 @@ def plan_new():
     db.session.add(plan)
     db.session.flush()
     audit("plan_created", "payment_plan", plan.id,
-          f"{inv.number}: {n} x {cents_to_str(per)} {freq} from {first.isoformat()}, "
+          f"{inv.number}: {n} x {fmt_money(per, inv.currency)} {freq} from {first.isoformat()}, "
           f"{'auto-charge' if auto else 'email reminders'}", current_user().id)
     db.session.add(InvoiceEvent(invoice_id=inv.id, event="plan",
-                                detail=f"payment plan: {n} {freq} installments of {cents_to_str(per)}"))
+                                detail=f"payment plan: {n} {freq} installments of {fmt_money(per, inv.currency)}"))
     db.session.commit()
     flash(f"Payment plan set up: {n} {freq} installments of "
-          f"{cents_to_str(per)} starting {first:%b %-d, %Y}.", "ok")
+          f"{fmt_money(per, inv.currency)} starting {first:%b %-d, %Y}.", "ok")
     return redirect(url_for("money.plan_detail", plan_id=plan.id))
 
 
