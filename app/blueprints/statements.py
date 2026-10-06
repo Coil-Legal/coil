@@ -210,7 +210,7 @@ def render_statement_pdf(st):
                    borders_layout="NONE", headings_style=pdf.heading_style()) as table:
         row = table.row()
         for h in ("Invoiced", "Paid or applied", "Credited", tpl.label("balance_due")):
-            row.cell(h)
+            row.cell(_pdf_txt(h))
         row = table.row()
         row.cell(money(st["totals"]["invoiced"]))
         row.cell(money(st["totals"]["paid"]))
