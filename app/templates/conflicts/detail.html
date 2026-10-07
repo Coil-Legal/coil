@@ -5,7 +5,7 @@
   <div class="card"><h2>Searched</h2>
     <dl class="kv">
       <dt>Names</dt><dd style="white-space:pre-line">{{ chk.query }}</dd>
-      <dt>Run</dt><dd>{{ chk.created_at|dt }}{% if chk.run_by %} by {{ chk.run_by.name }}{% endif %}</dd>
+      <dt>Run</dt><dd>{{ chk.created_at|dtlocal }}{% if chk.run_by %} by {{ chk.run_by.name }}{% endif %}</dd>
       {% if chk.matter %}<dt>Matter</dt><dd><a href="/matters/{{ chk.matter_id }}">{{ chk.matter.label }}</a></dd>{% endif %}
       {% if contact %}<dt>Contact</dt><dd><a href="/contacts/{{ contact.id }}">{{ contact.display_name }}</a></dd>{% endif %}
       <dt>Hits</dt><dd>{{ results|length }}</dd>

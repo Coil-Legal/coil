@@ -105,7 +105,7 @@
   </div>
   <div class="card"><h2>Notes</h2>
     <form method="post" action="/matters/{{ m.id }}/notes">{{ csrf() }}<textarea name="body" placeholder="Add a note" style="min-height:60px"></textarea><div class="actions" style="margin-top:8px"><button class="btn small">Add note</button></div></form>
-    {% if m.notes %}<ul class="timeline" style="margin-top:10px">{% for n in m.notes %}<li><span class="muted">{{ n.created_at|dt }}{% if n.user %} &middot; {{ n.user.name }}{% endif %}</span><br><span style="white-space:pre-line">{{ n.body }}</span></li>{% endfor %}</ul>{% endif %}
+    {% if m.notes %}<ul class="timeline" style="margin-top:10px">{% for n in m.notes %}<li><span class="muted">{{ n.created_at|dtlocal }}{% if n.user %} &middot; {{ n.user.name }}{% endif %}</span><br><span style="white-space:pre-line">{{ n.body }}</span></li>{% endfor %}</ul>{% endif %}
   </div>
 </div>
 

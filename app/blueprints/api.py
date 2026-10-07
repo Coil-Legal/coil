@@ -643,7 +643,7 @@ def invoice_create():
 def tasks():
     due = (request.args.get("due") or "").strip().lower()
     today = date.today()
-    query = Task.query.filter(Task.done == False)  # noqa: E712
+    query = Task.query.filter(Task.done == _truthy(request.args.get("done"), False))
     if request.args.get("matter_id"):
         query = query.filter(Task.matter_id == int(request.args["matter_id"]))
     if due == "today":

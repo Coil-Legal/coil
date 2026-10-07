@@ -510,7 +510,8 @@ def holiday_add():
     if Holiday.query.filter_by(date=d).first():
         flash(f"{d.isoformat()} is already a holiday.", "error")
         return redirect(url_for("rules.holidays", year=d.year))
-    db.session.add(Holiday(date=d, name=name[:120]))
+    name = name[:120]
+    db.session.add(Holiday(date=d, name=name))
     db.session.commit()
     flash(f"Added {name or d.isoformat()}.", "ok")
     return redirect(url_for("rules.holidays", year=d.year))

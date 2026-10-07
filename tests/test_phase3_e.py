@@ -242,6 +242,23 @@ def test_holidays_load_federal_set(app, owner):
         assert Holiday.query.filter_by(date=date(2026, 3, 2)).first() is None
 
 
+def test_holiday_add_flash_echoes_the_saved_truncated_name(app, owner):
+    # Coil QA #174: the row is correctly truncated to 120 chars, but the flash echoed the
+    # untyped-but-saved full name, so the confirmation named a holiday that doesn't exist.
+    c, tok = owner
+    from app.models import Holiday
+    long_name = "QA Holiday Overlong Name 20261007 " + "QA filler " * 20
+    assert len(long_name) > 120
+    r = c.post("/settings/holidays", data={"_csrf": tok, "date": "2027-04-05", "name": long_name},
+               follow_redirects=True)
+    assert r.status_code == 200
+    assert f"Added {long_name[:120]}.".encode() in r.data
+    assert long_name.encode() not in r.data
+    with app.app_context():
+        h = Holiday.query.filter_by(date=date(2027, 4, 5)).first()
+        assert h.name == long_name[:120]
+
+
 def test_apply_ruleset_to_matter_creates_tasks_and_skips_duplicates(app, owner):
     c, tok = owner
     mid, _ = _matter(app, "M-1002")
