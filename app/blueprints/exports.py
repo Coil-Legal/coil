@@ -116,7 +116,7 @@ def ledes_export():
     audit("ledes_export", "invoice", None, f"{len(invoices)} invoices {d_from.isoformat()}..{d_to.isoformat()}",
           current_user().id)
     db.session.commit()
-    resp = Response(body, mimetype="text/plain; charset=utf-8")
+    resp = Response(body, mimetype="text/plain")
     resp.headers["Content-Disposition"] = f'attachment; filename="ledes-{d_from.isoformat()}-{d_to.isoformat()}.txt"'
     return resp
 

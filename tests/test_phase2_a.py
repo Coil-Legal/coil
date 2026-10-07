@@ -478,6 +478,9 @@ def test_ledes_export_refuses_then_produces_valid_file(app, client):
     r = client.get(url)
     assert r.status_code == 200, r.data[:500]
     assert "attachment" in r.headers["Content-Disposition"]
+    # Coil QA #150: werkzeug appends its own charset to a bare mimetype, so passing
+    # "text/plain; charset=utf-8" as the mimetype itself doubled the parameter.
+    assert r.headers["Content-Type"] == "text/plain; charset=utf-8"
     lines = r.data.decode().splitlines()
     assert lines[0] == "LEDES1998B[]"
     assert lines[1].endswith("[]") and lines[1][:-2].split("|") == LEDES_FIELDS and len(LEDES_FIELDS) == 24
