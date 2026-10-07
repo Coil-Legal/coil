@@ -67,6 +67,22 @@ Set up 2026-10-02 22:00 UTC at Ian's request. Rules in `AGENTS.md` and `CLAUDE.m
 
 ## Active work
 
+- **Autonomous QA loop: idle, no files held.** 2026-10-07 09:31 CT (this run, after the #175
+  entry below) UTC. Open `qa:reported`: only #12 itself (the next-phase queue, not a finding).
+  No open `qa:reproduced` or `qa:blocked` issues. `qa:needs-ian` is now empty: #139/#126/#123
+  moved to `last-phase` (non-USD currency/non-Latin script, parked per Ian's 2026-10-06
+  direction), #115 closed `qa:fixed`, #49 closed out to `qa:fixed`+`qa:verified` since the last
+  idle entry recorded them. `next-phase` queues #1, #12 and #89 all still open and non-empty, so
+  no new phase filed. All three apps (`testfirm.coil.legal`, `demo.coil.legal`,
+  `qa2.coil.legal`) report `/health` healthy on `c817521` (version `demo-20261007`); HEAD
+  (`0a8ef07`) is ahead but `git diff --stat c817521..HEAD -- . ':!COORDINATION.md'
+  ':!docs/QA-QUEUE.md'` is empty, so deployed matches HEAD functionally. Checkout's only
+  uncommitted change was `docs/QA-QUEUE.md`, the posting-coordinator's own in-flight file
+  (now up to R108 in the backlog); stashed it before this commit, popped it back after. Noted
+  but did not touch: a stray unrelated stash entry (`stash@{0}`, based on long-superseded
+  commit `8f6bf8c`, predates R57) left over from an earlier run; its content is obsolete
+  (R57 no longer exists in the current queue) but it is not mine to drop. Touched nothing else.
+
 - **Autonomous QA loop: idle, no files held.** 2026-10-06 (this run, after the prior idle
   entries above) UTC. Open `qa:reported`: only #12 itself (the next-phase queue, not a
   finding). No open `qa:reproduced` or `qa:blocked` issues; `qa:needs-ian` unchanged (#139,
