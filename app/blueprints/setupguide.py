@@ -112,9 +112,17 @@ def step(key):
             return redirect(after)
 
         if key == "courtlistener":
-            firm = Firm.get()
-            firm.courtlistener_token = (request.form.get("COURTLISTENER_TOKEN") or "").strip()[:120]
-            db.session.add(firm)
+            # Same blank-means-keep / none-means-clear rule as every other step below, so a
+            # blank submit cannot silently wipe a working token.
+            v = (request.form.get("COURTLISTENER_TOKEN") or "").strip()[:120]
+            if v.lower() == "none":
+                firm = Firm.get()
+                firm.courtlistener_token = ""
+                db.session.add(firm)
+            elif v:
+                firm = Firm.get()
+                firm.courtlistener_token = v
+                db.session.add(firm)
         else:
             # Blank means "leave whatever is stored", so a half-filled form does not wipe a
             # working setting. Someone clears a value by typing the word none.
@@ -129,7 +137,10 @@ def step(key):
         _record(key, "done")
         audit("setup_done", "firm", Firm.get().id, key, current_user().id)
         db.session.commit()
-        flash(f"Saved. {s['title']} is set up.", "ok")
+        if is_configured(key):
+            flash(f"Saved. {s['title']} is set up.", "ok")
+        else:
+            flash(f"Saved. {s['title']} is not set up yet.", "ok")
         return redirect(after)
 
     stored = {}

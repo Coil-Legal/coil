@@ -4,8 +4,8 @@
   <td>{{ a.client.client_name if a.client else 'Unknown app' }}</td>
   {% if is_owner %}<td class="small">{{ a.user.name if a.user else '' }}</td>{% endif %}
   <td class="small">{% if a.confidentiality == 'redacted' %}<strong>client details withheld</strong>{% else %}<strong style="color:var(--bad)">full client data</strong>{% endif %}<br>{{ a.scope_list|join(', ') }}</td>
-  <td class="small muted">{{ a.connected_at|d }}</td>
-  <td class="small muted">{{ a.last_used_at|dt if a.last_used_at else 'never' }}</td>
+  <td class="small muted">{{ a.connected_at|dlocal }}</td>
+  <td class="small muted">{{ a.last_used_at|dtlocal if a.last_used_at else 'never' }}</td>
   <td>{% if a.client and a.user %}<form method="post" action="/oauth/connections/{{ a.client.id }}/{{ a.user.id }}/disconnect" class="inline" onsubmit="return confirm('Disconnect this app? It stops working until someone approves it again.')">{{ csrf() }}<input type="hidden" name="next" value="{{ back }}"><button class="btn small secondary">Disconnect</button></form>{% endif %}</td>
 </tr>{% endfor %}</table>
 {% else %}<div class="empty">No apps are connected{% if not is_owner %} for you{% endif %}.</div>{% endif %}
