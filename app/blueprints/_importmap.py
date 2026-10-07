@@ -361,7 +361,7 @@ SOURCE_ALIASES = {
             "matter_name": ["matter description"],
             "user": ["user", "firm user"],
             "category": ["activity description", "activity category", "expense category"],
-            "description": ["description", "note", "notes"],
+            "description": ["description", "note", "notes", "description note"],
             "quantity": ["quantity", "quantity hours", "hours"],
             "billable": ["billable", "non billable"],
             "billed": ["billed", "bill state"],
