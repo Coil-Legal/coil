@@ -46,7 +46,7 @@
   <table>
     <tr><th>When</th><th>Source</th><th>What</th><th>File</th><th>Rows</th><th>Created</th><th>Updated</th><th>Skipped</th><th>Problems</th><th></th></tr>
     {% for j in jobs %}
-    <tr><td>{{ j.created_at|dt }}</td><td>{{ source_labels.get(j.source, j.source) }}</td><td>{{ entity_labels.get(j.entity, j.entity) }}</td>
+    <tr><td>{{ j.created_at|dtlocal }}</td><td>{{ source_labels.get(j.source, j.source) }}</td><td>{{ entity_labels.get(j.entity, j.entity) }}</td>
       <td class="small">{{ j.filename }}</td><td>{{ j.rows }}</td><td>{{ j.created }}</td><td>{{ j.updated }}</td><td>{{ j.skipped }}</td>
       <td>{% if j.errors %}<a href="/import/jobs/{{ j.id }}"><span class="badge overdue">{{ j.errors|length }} errors</span></a>{% else %}<span class="badge open">none</span>{% endif %}</td>
       <td><a class="btn small secondary" href="/import/jobs/{{ j.id }}">Details</a></td></tr>

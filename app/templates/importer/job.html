@@ -10,7 +10,7 @@
 <div class="card">
   <dl class="kv">
     <dt>File</dt><dd>{{ job.filename }}</dd>
-    <dt>Run</dt><dd>{{ job.created_at|dt }} by {{ job.created_by.name if job.created_by else '' }}</dd>
+    <dt>Run</dt><dd>{{ job.created_at|dtlocal }} by {{ job.created_by.name if job.created_by else '' }}</dd>
     <dt>Status</dt><dd><span class="badge {{ 'open' if job.status == 'committed' else 'draft' }}">{{ job.status }}</span></dd>
     {% if meta.mapping %}<dt>Mapping used</dt><dd class="small">{% for k, v in meta.mapping.items() if v %}<span class="badge">{{ v|replace('|', ' + ') }} &rarr; {{ k }}</span> {% endfor %}</dd>{% endif %}
     {% if meta.folders %}<dt>Folders</dt><dd class="small">{% for k, v in meta.folders.items() %}<span class="badge {{ 'open' if v else 'overdue' }}">{{ k }}</span> {% endfor %}</dd>{% endif %}
