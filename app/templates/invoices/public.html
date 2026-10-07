@@ -94,7 +94,7 @@ table th.acc{background:{{ tpl.accent }};color:#fff}
   <p>{% if lang == 'es' %}No podemos aceptar pagos en línea en este momento. Por favor {{ 'póngase en contacto con ' + firm_settings.phone if firm_settings.phone else 'contáctenos' }} y le indicaremos cómo enviar el pago.{% else %}We are not able to take card or bank payments online at the moment. Please {{ 'call ' + firm_settings.phone if firm_settings.phone else 'get in touch with us' }} and we will tell you where to send payment.{% endif %}</p>
   {% endif %}
   {% if trust_balance > 0 %}<p class="small muted" style="margin-top:12px">{{ t('inv.trust_note', lang, amount=trust_balance|cur(firm_settings.currency or 'USD'), phone=(firm_settings.phone or t('inv.our_office', lang))) }}</p>{% endif %}
-  {% if tpl.payment_instructions %}<p class="small muted" style="white-space:pre-line">{{ tpl.payment_instructions|replace('{link}', url_for('invoices.public_view', token=inv.public_token, _external=True)) }}</p>
+  {% if tpl.payment_instructions %}<p class="small muted" style="white-space:pre-line">{{ tpl.payment_instructions|replace('{link}', public_link) }}</p>
   {% else %}<p class="small muted">{{ t('inv.check', lang, firm=firm_settings.name, send_to=(t('inv.send_to', lang, address=firm_settings.address|replace('\n', ', ')) if firm_settings.address else '')) }}</p>{% endif %}
 </div>
 {% endif %}

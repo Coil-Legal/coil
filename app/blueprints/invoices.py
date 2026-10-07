@@ -1568,7 +1568,7 @@ def public_view(token):
                            columns=visible_columns(tpl), line_meta=line_meta, line_description=line_description,
                            column_titles=COLUMN_TITLES, format_quantity=format_quantity,
                            lang=lang_for(inv.client), online_payment=online_payment_ok(inv),
-                           online_payment_blocked_by_currency=(not is_usd))
+                           online_payment_blocked_by_currency=(not is_usd), public_link=public_url(inv))
 
 
 @bp.route("/p/firm-logo")
