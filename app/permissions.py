@@ -109,6 +109,11 @@ PREFIX_PERMS = [
     ("/settings", "settings", "settings"),
     ("/dev", "settings", "settings"),
     ("/import", "settings", "settings"),
+    # The integration wizard reads and writes the same firm-wide credentials as /settings/integrations
+    # (its step pages prefill stored values, including the CourtListener token in plain text), so it is
+    # owner-only on the same terms. ALWAYS_ALLOW only ever covers "/setup" (the pre-login firm wizard);
+    # the boundary check below keeps that from also matching this blueprint's "/setup-guide" prefix.
+    ("/setup-guide", "settings", "settings"),
     # Money. A client statement is a full trust running balance, and the firm books are the firm's own ledger,
     # so both sit with trust rather than with invoicing.
     ("/trust", "trust", "trust"),
@@ -196,7 +201,7 @@ def enforce():
     if path == "/" and request.method in READ_METHODS:
         return None
     for p in ALWAYS_ALLOW:
-        if path == p.rstrip("/") or path.startswith(p if p.endswith("/") else p + "/") or path.startswith(p):
+        if path == p.rstrip("/") or path.startswith(p if p.endswith("/") else p + "/"):
             return None
     user = current_user()
     if not user:
