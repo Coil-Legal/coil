@@ -122,9 +122,20 @@ def build_statement(client, d_from=None, d_to=None, matter_id=None, today=None):
         if inv.is_overdue:
             g["overdue"] += inv.balance_cents
             _bump(g["overdue_cur"], code, inv.balance_cents)
+    # Balance due is the client's current open balance across every open invoice, never scoped
+    # to the statement's own From/To filter (#175: a From date dropped earlier open invoices out
+    # of a groups-based sum, so a filtered statement understated what the client still owes).
+    # Invoiced/paid/overdue/credited stay scoped to the period shown, matching the Activity
+    # table above them.
+    open_invoices = [i for i in invoices if i.status in OPEN_STATUSES]
+    open_balance = sum(i.balance_cents for i in open_invoices)
+    open_balance_cur = {}
+    for inv in open_invoices:
+        _bump(open_balance_cur, (inv.currency or "USD").upper(), inv.balance_cents)
+
     totals = {"invoiced": sum(g["invoiced"] for g in groups.values()),
               "paid": sum(g["paid"] for g in groups.values()),
-              "balance": sum(g["balance"] for g in groups.values()),
+              "balance": open_balance,
               "overdue": sum(g["overdue"] for g in groups.values()),
               "payments": sum(e["credit"] for e in entries if e["kind"] in ("payment", "trust")),
               "credits": sum(e["credit"] for e in entries if e["kind"] == "credit_note"),
@@ -133,9 +144,9 @@ def build_statement(client, d_from=None, d_to=None, matter_id=None, today=None):
     # instead of summing cents across currencies under one symbol (same bug class as #60/#61,
     # never applied here). `totals` above stays a blended int for the PDF and reminder email,
     # which this issue's repro didn't cover.
-    totals_cur = {"invoiced": {}, "paid": {}, "balance": {}, "overdue": {}, "credited": {},
+    totals_cur = {"invoiced": {}, "paid": {}, "balance": dict(open_balance_cur), "overdue": {}, "credited": {},
                   "payments": {}, "credits": {}, "payments_and_credits": {}}
-    for k in ("invoiced", "paid", "balance", "overdue", "credited"):
+    for k in ("invoiced", "paid", "overdue", "credited"):
         for g in groups.values():
             for code, cents in g[k + "_cur"].items():
                 _bump(totals_cur[k], code, cents)
@@ -156,7 +167,6 @@ def build_statement(client, d_from=None, d_to=None, matter_id=None, today=None):
             _bump(totals_cur["payments_and_credits"], code, cents)
     currencies = {i.currency or "USD" for i in shown}
     currency = next(iter(currencies)) if len(currencies) == 1 else (Firm.get().currency or "USD")
-    open_balance = sum(i.balance_cents for i in invoices if i.status in OPEN_STATUSES)
     return {"client": client, "entries": entries, "groups": list(groups.values()), "totals": totals,
             "totals_cur": totals_cur,
             "opening": opening, "closing": running, "currency": currency, "mixed": len(currencies) > 1,
