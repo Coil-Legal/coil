@@ -21,7 +21,7 @@ from werkzeug.exceptions import HTTPException
 
 from ..extensions import db
 from ..models import ApiToken, Matter, Contact, TimeEntry, Timer, Invoice, Task, Firm, IntakeLead, audit, now
-from ..helpers import parse_date, parse_minutes
+from ..helpers import parse_date, parse_minutes, firm_today
 from .contacts import _search_filter
 
 bp = Blueprint("api", __name__, url_prefix="/api/v1")
@@ -599,7 +599,7 @@ def invoice_create():
     for field in ("issued_on", "due_on"):
         value = b.get(field)
         if value is None:
-            dates[field] = dates.get("issued_on", date.today())
+            dates[field] = dates.get("issued_on", firm_today())
             continue
         try:
             parsed = date.fromisoformat(value) if isinstance(value, str) else None

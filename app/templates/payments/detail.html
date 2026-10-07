@@ -16,7 +16,7 @@
   {% if pay.stripe_payment_intent %}<dt>Payment intent</dt><dd class="small">{{ pay.stripe_payment_intent }}</dd>{% endif %}
   {% if pay.note %}<dt>Note</dt><dd>{{ pay.note }}</dd>{% endif %}
   {% if txn %}<dt>Trust entry</dt><dd><a href="{{ url_for('trust.ledger', client_id=txn.client_id) }}">{{ txn.description }} ({{ txn.amount_cents|money }})</a></dd>{% endif %}
-  <dt>Recorded</dt><dd>{{ pay.created_at|dt }}</dd>
+  <dt>Recorded</dt><dd>{{ pay.created_at|dtlocal }}</dd>
 </dl>
 </div>
 {% endblock %}

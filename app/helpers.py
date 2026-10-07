@@ -1,10 +1,32 @@
 """Shared helpers: auth decorators, CSRF, money formatting, template globals."""
 from functools import wraps
-from datetime import date, datetime
+from datetime import date, datetime, timezone
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import secrets
 from flask import session, redirect, url_for, request, abort, g, flash
 from .extensions import db
 from .models import User, Contact, Firm, now as utcnow
+
+
+# ---- firm-local time ----
+def firm_tz(firm=None):
+    """The firm's configured IANA zone, falling back to UTC if it is unset or unrecognized."""
+    firm = firm or Firm.get()
+    try:
+        return ZoneInfo(firm.timezone or "America/Chicago")
+    except (ZoneInfoNotFoundError, ValueError):
+        return ZoneInfo("UTC")
+
+
+def firm_today(firm=None):
+    """Today's date in the firm's timezone, not the server's.
+
+    date.today() is the server clock's date, which in production is UTC: after 7pm in any
+    US timezone that is already tomorrow there. An invoice issued or a statement dated with
+    date.today() lands a day ahead of the work it bills whenever a Chicago firm works an
+    evening. Use this wherever "today" means the day it is for the firm, not the server.
+    """
+    return utcnow().replace(tzinfo=timezone.utc).astimezone(firm_tz(firm)).date()
 
 
 # ---- money ----
@@ -285,6 +307,18 @@ def _tool_on(key):
     return tool_enabled(key)
 
 
+def _dt_local(v):
+    """Like the `dt` filter, but converts a naive-UTC timestamp to the firm's timezone first.
+
+    Only for columns that are actually naive UTC (created_at/*_at defaulted from models.now()).
+    CalendarEvent.starts_at/ends_at are stored as the firm-local wall clock already (see
+    calendar.py's _to_utc), so they keep using the plain `dt` filter, not this one.
+    """
+    if not v:
+        return ""
+    return v.replace(tzinfo=timezone.utc).astimezone(firm_tz()).strftime("%b %-d, %Y %-I:%M %p")
+
+
 def register_template_globals(app):
     app.jinja_env.globals.update(
         money=cents_to_str, csrf=csrf_field, current_user=current_user, portal_contact=portal_contact,
@@ -299,4 +333,5 @@ def register_template_globals(app):
     app.jinja_env.filters["hours"] = lambda m: f"{(m or 0) / 60:.2f}"
     app.jinja_env.filters["d"] = lambda v: v.strftime("%b %-d, %Y") if v else ""
     app.jinja_env.filters["dt"] = lambda v: v.strftime("%b %-d, %Y %-I:%M %p") if v else ""
+    app.jinja_env.filters["dtlocal"] = _dt_local
     app.jinja_env.filters["iso"] = lambda v: v.isoformat() if v else ""

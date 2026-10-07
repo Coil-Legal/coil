@@ -10,7 +10,7 @@ from html import escape
 from flask import Blueprint, render_template, request, redirect, url_for, flash, abort, Response
 from ..extensions import db
 from ..models import Firm, Contact, Matter, Invoice, Payment, CreditNote, audit
-from ..helpers import login_required, current_user, parse_date, fmt_money, fmt_money_by_currency
+from ..helpers import login_required, current_user, parse_date, fmt_money, fmt_money_by_currency, firm_today
 from ..services.mail import send_email
 from .invoices import TemplatePDF, invoice_settings, _pdf_txt, _para, OPEN_STATUSES
 from ..services.pdf import enable_unicode, reset_unicode
@@ -41,7 +41,7 @@ def build_statement(client, d_from=None, d_to=None, matter_id=None, today=None):
 
     Returns a dict: entries (dated rows with a running balance), groups (per matter with subtotals), totals,
     opening balance (activity before d_from), currency, and the filters used."""
-    today = today or date.today()
+    today = today or firm_today()
     inv_q = Invoice.query.filter(Invoice.client_id == client.id, Invoice.status.in_(STATEMENT_STATUSES))
     if matter_id:
         inv_q = inv_q.filter(Invoice.matter_id == matter_id)

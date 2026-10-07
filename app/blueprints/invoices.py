@@ -18,7 +18,7 @@ from ..extensions import db
 from ..models import (Firm, Matter, Invoice, InvoiceLine, InvoiceEvent, CreditNote, TimeEntry, Expense,
                       FlatFeeMilestone, PaymentPlan, User, audit, now)
 from ..helpers import (login_required, current_user, parse_money, parse_date, client_ip, cents_to_str,
-                        UNUSUAL_INVOICE_CENTS, CURRENCY_SYMBOLS, LOCK_RETRIES, is_lock_error)
+                        UNUSUAL_INVOICE_CENTS, CURRENCY_SYMBOLS, LOCK_RETRIES, is_lock_error, firm_today)
 from ..i18n import t, lang_for
 from ..services.mail import send_email
 from ..services.pdf import DocPDF, save_pdf, enable_unicode, reset_unicode, unicode_on, mark_unsupported
@@ -436,7 +436,7 @@ def _builder_context(matter, user=None):
     expenses = [e for e in sorted(matter.expenses, key=lambda e: (e.date or date.min, e.id))
                 if e.billable and e.invoice_id is None]
     firm = Firm.get()
-    issued = date.today()
+    issued = firm_today(firm)
     show_flat = matter.billing_type in ("flat", "hybrid")
     # Time is not normally billed on a flat-fee matter, so it is not offered by default.
     # But hiding time somebody deliberately marked billable is how a firm quietly loses
@@ -623,7 +623,7 @@ def new():
 
     u = current_user()
     f = request.form
-    issued_on = parse_date(f.get("issued_on"), date.today())
+    issued_on = parse_date(f.get("issued_on"), firm_today(ctx["firm_settings"]))
     due_on = parse_date(f.get("due_on"), issued_on + timedelta(days=ctx["firm_settings"].invoice_terms_days or 30))
     lines, picked_time, picked_expenses, picked_milestones = _lines_from_form(matter, ctx, f, issued_on)
     if not lines:
