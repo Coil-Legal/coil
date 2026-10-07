@@ -35,8 +35,20 @@ class _FakeDate(date):
         return SERVER_UTC_DATE
 
 
+class _FakeDateTime(datetime):
+    @classmethod
+    def now(cls, tz=None):
+        return UTC_INSTANT.replace(tzinfo=tz) if tz else UTC_INSTANT
+
+
 def _freeze_evening(monkeypatch):
     monkeypatch.setattr("app.helpers.utcnow", lambda: UTC_INSTANT)
+    # created_at columns default to app.models.now(), which reads datetime.now(timezone.utc)
+    # directly, no path through app.helpers.utcnow or the per-module date patches below. Column
+    # defaults capture that function object at class-definition time, so monkeypatching the
+    # app.models.now *name* doesn't reach it; app.models.now's own body still does a fresh global
+    # lookup of `datetime` on every call, so patching that name here does.
+    monkeypatch.setattr("app.models.datetime", _FakeDateTime)
     for module in _FAKE_DATE_MODULES:
         monkeypatch.setattr(f"{module}.date", _FakeDate)
 
@@ -176,6 +188,9 @@ def test_invoice_detail_prefills_received_on_and_first_charge_firm_local(app, mo
 def test_invoice_activity_timestamp_uses_firm_local_time(app, monkeypatch):
     c, csrf = staff(app)
     matter_id = _matter_id(app)
+    # The "sent" event's own created_at is the firm-local timestamp under test, so it must be
+    # inserted after the freeze, not before; a pre-freeze insert stamps the real wall clock.
+    _freeze_evening(monkeypatch)
     with app.app_context():
         from app.extensions import db
         from app.models import Invoice, InvoiceLine, InvoiceEvent
@@ -188,7 +203,6 @@ def test_invoice_activity_timestamp_uses_firm_local_time(app, monkeypatch):
         db.session.add(InvoiceEvent(invoice_id=inv.id, event="sent"))
         db.session.commit()
         inv_id = inv.id
-    _freeze_evening(monkeypatch)
     r = c.get(f"/invoices/{inv_id}")
     assert r.status_code == 200
     body = r.data.decode()

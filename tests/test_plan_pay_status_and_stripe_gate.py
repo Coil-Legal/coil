@@ -1,6 +1,6 @@
-"""Issues #145 and #146: the public installment pay page (/pay/plan/<id>/<token>) must refuse
-up front, on GET, in the cases where the only thing that can follow is "not set up" or
-"this plan isn't active":
+"""Issues #145, #146 and #151: the public installment pay page (/pay/plan/<id>/<token>) must
+refuse up front, on GET, in the cases where the only thing that can follow is "not set up" or
+"this plan isn't active", and must quote the right amount when it does:
 
 - #145: when the firm has no Stripe key, the GET page still rendered money/plan_pay.html,
   computing a card surcharge and a Continue-to-secure-payment button that could never complete;
@@ -9,6 +9,11 @@ up front, on GET, in the cases where the only thing that can follow is "not set 
 - #146: when a plan is cancelled or paused, the route only ever checked for "completed", so an
   old reminder's link kept offering a live installment and surcharge for a plan staff had
   already turned off.
+- #151: the #145 "not set up" refusal page quoted the invoice's full balance ($600.00) instead
+  of the installment the client was actually asked to pay ($200.00), because plan_pay() rendered
+  payments/pay_unconfigured.html with only inv and f, and the template always read
+  inv.balance_cents. Fixed by passing plan/amount/k through and having the template quote the
+  installment when a plan is present.
 
 Run: .venv/bin/python -m pytest tests/test_plan_pay_status_and_stripe_gate.py -q
 """
@@ -88,6 +93,9 @@ def test_installment_page_refuses_up_front_when_stripe_not_configured(app, clien
     assert b"not able to take card or bank payments online" in r.data
     assert b"Continue to secure payment" not in r.data
     assert b"surcharge" not in r.data.lower()
+    assert b"installment 1 of 3" in r.data
+    assert b"$200.00" in r.data
+    assert b"$600.00" not in r.data
     r = anon.get(f"/pay/plan/{plan_id}/{token}?method=ach")
     assert b"Continue to secure payment" not in r.data
 

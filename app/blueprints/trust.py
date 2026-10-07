@@ -342,9 +342,20 @@ def new():
                     flash(problem, "error")
                     return render_template("trust/new.html", clients=clients, matters=matters, form=form,
                                            types=FORM_TYPES, labels=TYPE_LABELS)
+                # A blank payee used to default to the firm's own name for every type, which on a
+                # refund reads as the firm paying itself, exactly the signal firm_fee exists to
+                # flag (#154). The right default depends on who actually receives the money: the
+                # client on a refund, the trust bank on a bank fee or interest entry, the firm
+                # only on a firm_fee.
+                if ttype == "refund":
+                    default_payee = client.display_name
+                elif ttype in ("bank_fee", "interest"):
+                    default_payee = Firm.get().trust_bank_name or ""
+                else:
+                    default_payee = Firm.get().name or ""
                 t = TrustTransaction(client_id=client.id, matter_id=matter.id if matter else None, date=when,
                                      type=ttype, amount_cents=delta, description=desc,
-                                     payee=form["payee"] or (Firm.get().name or "")[:200],
+                                     payee=(form["payee"] or default_payee)[:200],
                                      reference=form["reference"], cleared=False, created_by_id=current_user().id)
                 db.session.add(t)
                 db.session.flush()

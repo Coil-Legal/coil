@@ -35,7 +35,7 @@
 <div class="card"><h2>Installments</h2>
 <table>
 <tr><th>#</th><th>Due</th><th class="num">Amount</th><th>State</th></tr>
-{% for n, due, amt, state in schedule %}<tr><td>{{ n }}</td><td class="nowrap">{{ due|d }}</td><td class="num">{{ amt|cur(inv.currency) }}</td><td>{% if state == 'paid' %}<span class="badge paid">paid</span>{% elif state == 'next' and plan.status == 'active' %}<span class="badge pending">next</span>{% elif state == 'next' %}<span class="badge draft">next when resumed</span>{% else %}<span class="muted">upcoming</span>{% endif %}</td></tr>{% endfor %}
+{% for n, due, amt, state in schedule %}<tr><td>{{ n }}</td><td class="nowrap">{{ due|d }}</td><td class="num">{{ amt|cur(inv.currency) }}</td><td>{% if state == 'paid' %}<span class="badge paid">paid</span>{% elif state == 'next' and plan.status == 'active' %}<span class="badge pending">next</span>{% elif state == 'next' and plan.status in ('paused', 'failed') %}<span class="badge draft">next when resumed</span>{% elif state == 'next' and plan.status == 'cancelled' %}<span class="muted">cancelled</span>{% else %}<span class="muted">upcoming</span>{% endif %}</td></tr>{% endfor %}
 </table>
 <p class="small muted">The last installment absorbs rounding so the plan adds up to the balance exactly. If the client pays part of the invoice another way, later installments shrink to fit what is left.</p>
 </div>

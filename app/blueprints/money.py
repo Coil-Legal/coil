@@ -968,12 +968,13 @@ def plan_pay(plan_id, token):
     # client without Stripe sees the same "not set up" refusal immediately, rather than a confirm
     # page quoting a card surcharge that can never be charged (#145, same gap #134 closed for the
     # non-plan /pay/<token> route).
-    if not _stripe.configured():
-        return render_template("payments/pay_unconfigured.html", inv=inv, f=firm)
     amount = next_installment_cents(plan)
+    k = (plan.paid_installments or 0) + 1
+    if not _stripe.configured():
+        return render_template("payments/pay_unconfigured.html", inv=inv, f=firm,
+                                plan=plan, amount=amount, k=k)
     sc = surcharge_cents(amount, firm) if method == "card" else 0
     total = amount + sc
-    k = (plan.paid_installments or 0) + 1
     ctx = dict(inv=inv, plan=plan, amount=amount, surcharge=sc, total=total, method=method, k=k,
                pct=_pct(firm.surcharge_bps), token=token)
     if request.method == "GET":

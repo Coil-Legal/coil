@@ -99,3 +99,15 @@ def test_scrollable_code_blocks_are_keyboard_focusable():
         blocks = re.findall(r'<pre class="code"[^>]*>', html)
         assert blocks, f"no pre.code block found in {path}"
         assert all('tabindex="0"' in b for b in blocks), f"missing tabindex in {path}"
+
+
+def test_public_download_pdf_link_is_underlined():
+    """Issue #160: #98's `.muted a, td a:not(.btn)` underline rule never reached the public
+    invoice page's "Download PDF" link, since that link sits in a plain `<p class="small">`
+    in `invoices/public.html`, not inside `.muted` text or a table cell. Fixed with a
+    `.public p a` rule scoped to the client-facing pages (invoice, pay, pay_unconfigured)
+    that render inside public.html's `.public` wrapper."""
+    assert re.search(r"\.public p a[^{]*\{[^}]*text-decoration:underline", _css())
+    with open(os.path.join(ROOT, "app", "templates", "invoices", "public.html")) as f:
+        html = f.read()
+    assert re.search(r'<p class="small">\s*<a ', html), "Download PDF link should sit in a p.small inside .public"
