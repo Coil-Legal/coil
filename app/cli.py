@@ -5,10 +5,12 @@ Run with: `docker compose exec coil python -m app.cli <command>`
 Available commands:
 - agenda, reminders, interest, emailin, sequences, monthly_invoicing, webhooks
 - backup (new: creates dated backup of data/)
+- known_schema (prints the tables and columns this code knows, as JSON; used by ops/restore.sh)
 - voice_reminders, payment_plans, case_audit
 """
 import os
 import fcntl
+import json
 import shutil
 import sqlite3
 import sys
@@ -23,6 +25,7 @@ from .config import DATA_DIR
 from .extensions import db
 from .models import (Firm, User, Task, Matter, Invoice, InvoiceEvent, Engagement, IntakeLead, AuditLog, audit, now)
 from .helpers import cents_to_str
+from .backup_manifest import MANIFEST_NAME, build_manifest, known_schema
 from .services.mail import send_email
 from .blueprints.webhooks_out import run_webhooks
 
@@ -485,6 +488,14 @@ def backup():
         else:
             print("  no SQLite database found; backing up files only")
 
+        # Which code made this archive and which tables and columns its database holds,
+        # so ops/restore.sh can refuse to put it under older code (#115). Read from the
+        # snapshot, not the live file, so it describes exactly what is archived.
+        manifest = workspace / MANIFEST_NAME
+        with manifest.open("x", encoding="utf-8") as f:
+            json.dump(build_manifest(snapshot, "cli", current_app.config.get("COIL_VERSION"),
+                                     current_app.config.get("COIL_COMMIT")), f, indent=2, sort_keys=True)
+
         # Each invocation owns its snapshot and private output. Publish only after tar
         # closes successfully, without replacing any earlier or concurrent archive.
         temp_archive = workspace / 'archive.partial'
@@ -493,6 +504,7 @@ def backup():
         backup_file = backup_dir / f'coil-backup-{stamp}-{suffix}.tar.gz'
         print(f"Creating backup: {backup_file.name}")
         with tarfile.open(temp_archive, "w:gz") as tar:
+            tar.add(manifest, arcname=MANIFEST_NAME)
             if snapshot:
                 tar.add(snapshot, arcname="data/practice.db")
             for name in ("uploads", "pdf"):
@@ -531,7 +543,21 @@ def backup():
 # reminders branch: a typo like `app.cli backupp` would then email every client with an
 # open invoice instead of printing usage.
 COMMANDS = ("agenda", "reminders", "interest", "emailin", "sequences", "webhooks",
-            "monthly_invoicing", "backup", "case_audit", "payment_plans", "voice_reminders")
+            "monthly_invoicing", "backup", "case_audit", "payment_plans", "voice_reminders",
+            "known_schema")
+
+
+def print_known_schema():
+    """Print this code's version and the tables and columns its models define, as JSON.
+
+    ops/restore.sh runs this against the code it is restoring under, to refuse a backup
+    whose database holds anything that code does not know (#115). It must not build the
+    app: create_app creates the data directory and a database, and the restore target has
+    to stay untouched until every check has passed.
+    """
+    from .config import Config
+    print(json.dumps({"format": 1, "coil_version": Config.COIL_VERSION, "coil_commit": Config.COIL_COMMIT,
+                      "schema": known_schema()}, sort_keys=True))
 
 
 def main(argv=None):
@@ -544,6 +570,9 @@ def main(argv=None):
         return 2
 
     cmd = argv[0]
+    if cmd == "known_schema":
+        print_known_schema()
+        return 0
     from . import create_app
     app = create_app()
     with app.app_context():

@@ -18,7 +18,19 @@ def run_backup(tmp_path, mode, real_tar=False):
     commands.mkdir(exist_ok=True)
     stubs = {
         'date': "print('20260926T200000Z' if '+%Y%m%dT%H%M%SZ' in sys.argv else '6')",
-        'docker': "\nif sys.argv[1] == 'compose': print('synthetic-container')\nelse: pathlib.Path(sys.argv[-1].replace('/app/data', os.environ['FIXTURE_FIRM'] + '/data')).write_bytes(b'snapshot')",
+        # The container also writes the archive manifest beside its snapshot (#115).
+        'docker': """
+if sys.argv[1] == 'compose': print('synthetic-container')
+else:
+    import hashlib, json
+    snap = pathlib.Path(sys.argv[-1].replace('/app/data', os.environ['FIXTURE_FIRM'] + '/data'))
+    snap.write_bytes(b'snapshot')
+    schema = {'fixture': ['cents']}
+    canonical = json.dumps(schema, sort_keys=True, separators=(',', ':'))
+    (snap.parent / 'coil-backup.json').write_text(json.dumps({
+        'format': 1, 'producer': 'nightly', 'coil_version': 'dev', 'coil_commit': 'unknown',
+        'created_at': '2026-09-26T20:00:00Z', 'schema': schema,
+        'schema_fingerprint': hashlib.sha256(canonical.encode()).hexdigest()}))""",
         'tar': "\np=pathlib.Path(sys.argv[sys.argv.index('-czf')+1]); p.write_bytes(b'partial' if os.environ['FAIL_ARCHIVE']=='1' else b'complete synthetic archive'); sys.exit(int(os.environ['FAIL_ARCHIVE']))",
         'rclone': "\nwith open(os.environ['FIXTURE_CALLS'],'a') as f: f.write(sys.argv[1]+'\\n')",
     }
@@ -68,5 +80,5 @@ def test_archive_without_optional_environment_on_gnu_tar(tmp_path):
     archives = list((tmp_path / 'backups').glob('*/*.tar.gz'))
     assert len(archives) == 1
     with tarfile.open(archives[0]) as archive:
-        assert archive.getnames() == ['practice.db']
+        assert archive.getnames() == ['practice.db', 'coil-backup.json']
         assert archive.extractfile('practice.db').read() == b'snapshot'

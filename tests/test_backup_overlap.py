@@ -91,7 +91,8 @@ with tarfile.open(args[args.index('-czf') + 1], 'w:gz') as out:
     amounts = []
     for index, path in enumerate(archives):
         with tarfile.open(path) as archive:
-            assert archive.getnames() == ['practice.db']
+            # The stub tar copies only the database; real GNU tar also carries the manifest (#115).
+            assert [n for n in archive.getnames() if n != 'coil-backup.json'] == ['practice.db']
             restored = tmp_path / f'restored-{index}.db'
             restored.write_bytes(archive.extractfile('practice.db').read())
         with sqlite3.connect(restored) as db:

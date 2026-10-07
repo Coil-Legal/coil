@@ -123,12 +123,27 @@ The `backup` command creates a dated `.tar.gz` file in `backups/`. Keep at least
 To restore, stop the application and use `ops/restore.sh <archive.tar.gz> <empty-install-dir>`.
 Keep the original archive and restore the original `.env` separately when it is not included.
 Use the same application commit that created the backup first, then upgrade after checking the restored records.
-Keep that commit or image identifier alongside every archive: current archives do not contain a version manifest,
-and the restore utility checks SQLite integrity, not application-version compatibility. It does not refuse a downgrade.
-A healthy `/health` response is not a financial reconciliation. For example, code from before credit notes can open
-a newer database but ignore its credits and show an incorrect invoice balance. Check invoice totals, payments,
-credits, trust balances and file downloads before using the restored installation. Python 3 is the preferred
-integrity validator; a native SQLite CLI alone may reject a fresh WAL-mode snapshot even when it is intact.
+
+Every archive carries a small `coil-backup.json` at its root: the Coil version and commit that made it,
+when it was made, whether it came from the `backup` command or the nightly host script, and the tables and
+columns in its database. The restore script prints that before it restores anything. Archives made before
+the manifest existed still restore, with a warning that their version cannot be checked.
+
+Older code can open a newer database and look healthy while it ignores data it does not understand. Code
+from before credit notes, for example, shows an incorrect invoice balance. So when the target directory
+already holds Coil code (an `app/` checkout or a compose file), the restore script asks that code which
+tables and columns it knows, and refuses the restore if the backup's database has any it does not. The
+message names the backup's version and the unknown tables and columns. Restore with that Coil version or
+newer. If you are sure, `ops/restore.sh --allow-downgrade <archive.tar.gz> <dir>` restores anyway with a
+warning. The script also refuses when the target holds code but cannot report what it knows, unless you pass
+`--allow-downgrade`. A target with no code yet is restored without the check, so use the version the
+manifest names when you add the code. Coil also logs a warning at startup when its database has tables
+or columns the running code does not know.
+
+The check covers the schema only. A healthy `/health` response is not a financial reconciliation. Check
+invoice totals, payments, credits, trust balances and file downloads before using the restored installation.
+Python 3 is the preferred integrity validator, and the version check needs it; a native SQLite CLI alone may
+reject a fresh WAL-mode snapshot even when it is intact.
 
 Manual backup: `docker compose exec coil python -m app.cli backup`
 
@@ -254,7 +269,7 @@ Before extraction, the restore script checks that the archive has one nonempty d
 
 The optional environment is linked into place without overwriting an existing file. The complete data directory is then published by a same-filesystem rename, avoiding a partial final copy. Handled errors or SIGTERM before that rename remove this invocation's environment link and staging files. If the rename completed, cleanup preserves the complete data and environment, including when a signal arrives immediately afterward. Existing application files are preserved; unexpected install-root archive entries are refused. The target database is checked again after publication.
 
-This is not a durable transaction across the environment and data paths. SIGKILL or power loss can leave staging files or an environment link before data publication; automatic interrupted-job recovery is not implemented. Stop the application and other writers, use trusted archives, retain the original backup, and inspect an interrupted target before restarting or retrying. Archive member security, concurrent writers and version compatibility remain separate review gates.
+This is not a durable transaction across the environment and data paths. SIGKILL or power loss can leave staging files or an environment link before data publication; automatic interrupted-job recovery is not implemented. Stop the application and other writers, use trusted archives, retain the original backup, and inspect an interrupted target before restarting or retrying. Archive member security, concurrent writers and version differences that do not change the schema remain separate review gates.
 
 
 After a forced kill, preserve the interrupted directory and the original archive. The script cannot clean up after SIGKILL. Checks on the installed script found these states:

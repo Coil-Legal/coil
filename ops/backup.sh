@@ -11,7 +11,9 @@
 # Requires Python 3 on the host for cross-process workspace ownership.
 # This uses SQLite's own online backup API through the container's python, which takes
 # a consistent snapshot of a live database, then archives that snapshot alongside the
-# firm's uploads, generated PDFs and .env.
+# firm's uploads, generated PDFs and .env. Every archive also carries coil-backup.json at
+# its root: the Coil version and commit of the running container, and the tables and
+# columns of the snapshot, so ops/restore.sh can refuse to put it under older code.
 #
 #   ops/backup.sh              back up every instance found
 #   ops/backup.sh --dry-run    list what would happen, touch nothing
@@ -106,7 +108,7 @@ for dir in "$APPS_DIR"/*/; do
   log "backing up $firm"
 
   if [ "$DRY_RUN" = 1 ]; then
-    echo "  would: snapshot $db, archive with uploads/ pdf/ .env into $archive"
+    echo "  would: snapshot $db, archive with coil-backup.json uploads/ pdf/ .env into $archive"
     continue
   fi
   mkdir -p "$dest"
@@ -126,7 +128,7 @@ for dir in "$APPS_DIR"/*/; do
       failures=$((failures + 1)); continue
     fi
     if ! docker exec "$container" python -c "
-import fcntl, pathlib, sqlite3, sys
+import fcntl, hashlib, json, os, pathlib, sqlite3, sys, time
 workspace = pathlib.Path(sys.argv[1]).parent
 # A child delayed until after its launcher died must not recreate a reclaimed
 # workspace. Open the existing lease under the same registry lock as cleanup.
@@ -139,12 +141,49 @@ dst = sqlite3.connect(sys.argv[1])
 with dst:
     src.backup(dst)          # SQLite online backup: safe against concurrent writers
 dst.close(); src.close()
+# The manifest names the code that made this archive and the tables and columns its
+# database holds, read from the snapshot itself, so restore.sh can refuse to put it under
+# code that does not know them. Same definition as app/backup_manifest.py; keep in step.
+snap = sqlite3.connect(pathlib.Path(sys.argv[1]).resolve().as_uri() + '?mode=ro', uri=True)
+schema = {}
+for table, column in snap.execute('SELECT m.name, p.name FROM sqlite_master AS m, '
+                                  'pragma_table_info(m.name) AS p WHERE m.type = ?', ('table',)):
+    if not table.startswith('sqlite_'):
+        schema.setdefault(table, []).append(column)
+snap.close()
+schema = {table: sorted(columns) for table, columns in schema.items()}
+canonical = json.dumps(schema, sort_keys=True, separators=(',', ':'))
+manifest = {'format': 1, 'producer': 'nightly',
+            'coil_version': os.environ.get('COIL_VERSION') or 'dev',
+            'coil_commit': os.environ.get('COIL_COMMIT') or 'unknown',
+            'created_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
+            'schema': schema, 'schema_fingerprint': hashlib.sha256(canonical.encode('utf-8')).hexdigest()}
+with open(workspace / 'coil-backup.json', 'x', encoding='utf-8') as out:
+    json.dump(manifest, out, indent=2, sort_keys=True)
 " "/app/data/${COIL_NIGHTLY_WORKSPACE##*/}/${snap##*/}" 2>/dev/null; then
       log "  ERROR: snapshot failed for $firm, skipping (database NOT backed up)"
       failures=$((failures + 1)); continue
     fi
   else
     log "  ERROR: no running container for $firm, skipping (a file copy could be torn)"
+    failures=$((failures + 1)); continue
+  fi
+
+  # An archive without its manifest cannot be checked against the code it is restored
+  # under, so a missing or damaged one fails this firm exactly like a failed snapshot.
+  manifest="$COIL_NIGHTLY_WORKSPACE/coil-backup.json"
+  if [ -L "$manifest" ] || [ ! -f "$manifest" ] || ! python3 - "$manifest" <<'PYMANIFEST' 2>/dev/null; then
+import hashlib, json, sys
+with open(sys.argv[1], encoding='utf-8') as f:
+    m = json.load(f)
+schema = m.get('schema')
+ok = (m.get('format') == 1 and m.get('producer') == 'nightly' and isinstance(schema, dict) and schema
+      and all(isinstance(columns, list) for columns in schema.values())
+      and m.get('schema_fingerprint') == hashlib.sha256(json.dumps(
+          schema, sort_keys=True, separators=(',', ':')).encode('utf-8')).hexdigest())
+sys.exit(0 if ok else 1)
+PYMANIFEST
+    log "  ERROR: backup manifest missing or unreadable for $firm, skipping (database NOT backed up)"
     failures=$((failures + 1)); continue
   fi
 
@@ -156,7 +195,7 @@ dst.close(); src.close()
     failures=$((failures + 1)); continue
   fi
   archive="$dest/$firm-$STAMP-${COIL_NIGHTLY_WORKSPACE##*job-}.tar.gz"
-  archive_args=(-C "$COIL_NIGHTLY_WORKSPACE" --transform 's|^[.]backup-snapshot[.][[:alnum:]]*$|practice.db|' "${snap##*/}")
+  archive_args=(-C "$COIL_NIGHTLY_WORKSPACE" --transform 's|^[.]backup-snapshot[.][[:alnum:]]*$|practice.db|' "${snap##*/}" coil-backup.json)
   [ ! -d "$dir/data/uploads" ] || archive_args+=(-C "$dir/data" uploads)
   [ ! -d "$dir/data/pdf" ] || archive_args+=(-C "$dir/data" pdf)
   [ ! -f "$dir/.env" ] || archive_args+=(-C "$dir" .env)
