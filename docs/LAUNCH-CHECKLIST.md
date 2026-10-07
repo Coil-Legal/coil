@@ -290,7 +290,7 @@ The demo documents contain deliberate traps. These matter more than the happy pa
 - [x] All five steps render, each saying what it does, whether you need it, and the cost.
 - [x] Skip a step. It records as skipped and moves on without changing anything.
 - [x] Come back and complete a skipped step.
-- [x] Save a value, then save again with the box blank. The stored value survives.
+- [ ] Save a value, then save again with the box blank. The stored value survives. (#167)
 - [x] Type `none` to clear one.
 
 ## Settings `/settings`
