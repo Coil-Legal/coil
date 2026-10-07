@@ -136,6 +136,11 @@ def build_statement(client, d_from=None, d_to=None, matter_id=None, today=None):
     totals = {"invoiced": sum(g["invoiced"] for g in groups.values()),
               "paid": sum(g["paid"] for g in groups.values()),
               "balance": open_balance,
+              # Period-scoped balance: the sum of the By-matter table's own subtotal rows, for
+              # that table's "All matters" footer (#177: that footer used the account-wide
+              # `balance` above next to period-scoped Total/Paid columns, so it didn't add up to
+              # the rows shown). The stat card keeps the account-wide figure, with its own note.
+              "period_balance": sum(g["balance"] for g in groups.values()),
               "overdue": sum(g["overdue"] for g in groups.values()),
               "payments": sum(e["credit"] for e in entries if e["kind"] in ("payment", "trust")),
               "credits": sum(e["credit"] for e in entries if e["kind"] == "credit_note"),
@@ -144,12 +149,15 @@ def build_statement(client, d_from=None, d_to=None, matter_id=None, today=None):
     # instead of summing cents across currencies under one symbol (same bug class as #60/#61,
     # never applied here). `totals` above stays a blended int for the PDF and reminder email,
     # which this issue's repro didn't cover.
-    totals_cur = {"invoiced": {}, "paid": {}, "balance": dict(open_balance_cur), "overdue": {}, "credited": {},
-                  "payments": {}, "credits": {}, "payments_and_credits": {}}
+    totals_cur = {"invoiced": {}, "paid": {}, "balance": dict(open_balance_cur), "period_balance": {},
+                  "overdue": {}, "credited": {}, "payments": {}, "credits": {}, "payments_and_credits": {}}
     for k in ("invoiced", "paid", "overdue", "credited"):
         for g in groups.values():
             for code, cents in g[k + "_cur"].items():
                 _bump(totals_cur[k], code, cents)
+    for g in groups.values():
+        for code, cents in g["balance_cur"].items():
+            _bump(totals_cur["period_balance"], code, cents)
     # Seed at zero for every invoice currency on the statement, same as the totals above, so a
     # client with no payments yet (or none in a currency that is unpaid) shows "€0.00 + £0.00"
     # instead of falling through curmix's single-currency empty case ("$0.00" in the firm's own

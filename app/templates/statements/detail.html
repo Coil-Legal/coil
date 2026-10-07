@@ -67,7 +67,7 @@
   {% endfor %}
   <tr><td colspan="4" class="right muted">Subtotal {{ g.matter.number if g.matter else '' }}</td><td class="num"><strong>{{ g.invoiced_cur|curmix }}</strong></td><td class="num"><strong>{{ g.paid_cur|curmix }}</strong></td><td class="num"><strong>{{ g.balance_cur|curmix }}</strong></td></tr>
   {% endfor %}
-  <tr><th colspan="4">All matters</th><th class="num">{{ st.totals_cur.invoiced|curmix }}</th><th class="num">{{ st.totals_cur.paid|curmix }}</th><th class="num">{{ st.totals_cur.balance|curmix }}</th></tr>
+  <tr><th colspan="4">All matters</th><th class="num">{{ st.totals_cur.invoiced|curmix }}</th><th class="num">{{ st.totals_cur.paid|curmix }}</th><th class="num">{{ st.totals_cur.period_balance|curmix }}</th></tr>
   </table>
   {% else %}<div class="empty">No invoices{% if st.d_from or st.d_to %} in this period{% endif %}.</div>{% endif %}
 </div>
