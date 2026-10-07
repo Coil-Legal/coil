@@ -15,7 +15,7 @@
   </div>
   <div class="card"><h2>History</h2>
     {% if history %}<table><tr><th>When</th><th>Names</th><th>Matter</th><th>Hits</th><th>Outcome</th></tr>
-    {% for h in history %}<tr><td class="nowrap"><a href="/conflicts/{{ h.id }}">{{ h.created_at|dt }}</a></td><td style="white-space:pre-line">{{ h.query }}</td><td>{% if h.matter %}<a href="/matters/{{ h.matter_id }}">{{ h.matter.number }}</a>{% endif %}</td><td class="num">{{ h.results|length }}</td><td><span class="badge {{ h.outcome }}">{{ h.outcome }}</span></td></tr>{% endfor %}</table>
+    {% for h in history %}<tr><td class="nowrap"><a href="/conflicts/{{ h.id }}">{{ h.created_at|dtlocal }}</a></td><td style="white-space:pre-line">{{ h.query }}</td><td>{% if h.matter %}<a href="/matters/{{ h.matter_id }}">{{ h.matter.number }}</a>{% endif %}</td><td class="num">{{ h.results|length }}</td><td><span class="badge {{ h.outcome }}">{{ h.outcome }}</span></td></tr>{% endfor %}</table>
     {% else %}<div class="empty">No checks run yet.</div>{% endif %}
   </div>
 </div>
