@@ -15,12 +15,16 @@ IntakeLead.score with the factors in score_json. `score_pi_case(pi)` does the sa
 case_score_json). Both are plain arithmetic; the model may add an adjustment of at most 15 points either way when
 asked to, and that adjustment is recorded with its reason. Nothing here is legal advice.
 """
+import fcntl
 import json
 import re
+from contextlib import contextmanager
 from datetime import date, datetime, timedelta
+from pathlib import Path
 from flask import (Blueprint, render_template, request, redirect, url_for, flash, abort, current_app,
                    has_request_context)
 from markupsafe import escape
+from ..config import DATA_DIR
 from ..extensions import db
 from ..models import (Firm, User, Matter, PiCase, MedicalProvider, ChronologyEntry, Lien, Task, TimeEntry, Note,
                       Message, Document, IntakeLead, CaseAuditFinding, AuditLog, audit, now)
@@ -30,6 +34,31 @@ from .. import llm
 from ..llm import LLMUnavailable
 
 bp = Blueprint("caseaudit", __name__, url_prefix="/audit")
+
+_LOCK_PATH = Path(DATA_DIR) / ".coil-case-audit.lock"
+
+
+class AuditAlreadyRunning(Exception):
+    """A case audit (this worker, another worker, or the nightly cron) is already in progress."""
+
+
+@contextmanager
+def _audit_lock():
+    """A run takes tens of seconds to minutes over every open matter, with an LLM call per PI matter, so a
+    second run started before the first finishes (a double click, or the nightly cron landing on top of a
+    manual one) was racing the first one's writes: both hold open SQLite transactions across the same long
+    loop, and one of them loses with "database is locked" (reproduced via two overlapping /audit/run posts).
+    One process-wide flock serializes runs across workers instead."""
+    _LOCK_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with _LOCK_PATH.open("a+b") as lock_file:
+        try:
+            fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise AuditAlreadyRunning("A case audit is already running. Try again in a minute.")
+        try:
+            yield
+        finally:
+            fcntl.flock(lock_file, fcntl.LOCK_UN)
 
 SEVERITIES = ("high", "medium", "low")
 RULE_KINDS = [
@@ -312,7 +341,13 @@ def _upsert(m, origin, rows, today, existing, stats):
 
 
 def run_case_audit(today=None, with_ai=True):
-    """Audit every open matter. Returns dict(matters, new=[findings], seen, resolved, ai, emailed, pi_matters)."""
+    """Audit every open matter. Returns dict(matters, new=[findings], seen, resolved, ai, emailed, pi_matters).
+    Raises AuditAlreadyRunning if another run (this process, another worker, or the nightly cron) holds the lock."""
+    with _audit_lock():
+        return _run_case_audit(today, with_ai)
+
+
+def _run_case_audit(today, with_ai):
     today = today or date.today()
     stats = {"matters": 0, "pi_matters": 0, "new": [], "seen": 0, "resolved": 0, "ai": 0, "emailed": False}
     ai_on = with_ai and _ai_available()
@@ -644,11 +679,15 @@ def reopen(id):
 @bp.route("/run", methods=["POST"])
 @owner_required
 def run_now():
-    r = run_case_audit()
+    nxt = request.form.get("next") or ""
+    try:
+        r = run_case_audit()
+    except AuditAlreadyRunning as exc:
+        flash(str(exc), "error")
+        return redirect(nxt if nxt.startswith("/") else url_for("caseaudit.index"))
     flash(f"Audit ran over {r['matters']} open matter{'s' if r['matters'] != 1 else ''}: {len(r['new'])} new, "
           f"{r['seen']} still open, {r['resolved']} resolved, {r['ai']} AI flag{'s' if r['ai'] != 1 else ''}"
           f"{', summary emailed' if r['emailed'] else ''}.", "ok")
-    nxt = request.form.get("next") or ""
     return redirect(nxt if nxt.startswith("/") else url_for("caseaudit.index"))
 
 

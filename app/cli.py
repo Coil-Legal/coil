@@ -579,10 +579,15 @@ def main(argv=None):
         if cmd == "backup":
             backup()
         elif cmd == "case_audit":
-            r = run_case_audit()
-            print(f"case_audit: {r['matters']} open matters ({r['pi_matters']} PI), {len(r['new'])} new, "
-                  f"{r['seen']} still open, {r['resolved']} resolved, {r['ai']} AI flags"
-                  f"{', summary emailed' if r['emailed'] else ''}")
+            from .blueprints.caseaudit import AuditAlreadyRunning
+            try:
+                r = run_case_audit()
+            except AuditAlreadyRunning:
+                print("case_audit: skipped, another run is already in progress")
+            else:
+                print(f"case_audit: {r['matters']} open matters ({r['pi_matters']} PI), {len(r['new'])} new, "
+                      f"{r['seen']} still open, {r['resolved']} resolved, {r['ai']} AI flags"
+                      f"{', summary emailed' if r['emailed'] else ''}")
         elif cmd == "monthly_invoicing":
             r = run_monthly_invoicing(force="--force" in argv[1:])
             if not r["ran"]:
