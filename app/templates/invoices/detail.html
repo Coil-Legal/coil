@@ -202,10 +202,10 @@
 {% if inv.events %}
 <ul class="timeline">
 {% for e in inv.events|reverse %}
-<li><span class="muted small nowrap">{{ e.created_at|dt }}</span> &nbsp; <strong>{{ e.event }}</strong>{% if e.detail %} <span class="small">{{ e.detail }}</span>{% endif %}{% if e.ip %} <span class="small muted">from {{ e.ip }}</span>{% endif %}</li>
+<li><span class="muted small nowrap">{{ e.created_at|dtlocal }}</span> &nbsp; <strong>{{ e.event }}</strong>{% if e.detail %} <span class="small">{{ e.detail }}</span>{% endif %}{% if e.ip %} <span class="small muted">from {{ e.ip }}</span>{% endif %}</li>
 {% endfor %}
 </ul>
-{% if viewed_events %}<p class="small muted" style="margin-top:8px">Viewed {{ viewed_events|length }} time{{ '' if viewed_events|length == 1 else 's' }}, first on {{ inv.first_viewed_at|dt }}.</p>{% endif %}
+{% if viewed_events %}<p class="small muted" style="margin-top:8px">Viewed {{ viewed_events|length }} time{{ '' if viewed_events|length == 1 else 's' }}, first on {{ inv.first_viewed_at|dtlocal }}.</p>{% endif %}
 {% else %}<div class="empty">Nothing yet. Send the invoice to start tracking.</div>{% endif %}
 </div>
 </div>

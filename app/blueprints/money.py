@@ -16,7 +16,7 @@ from ..extensions import db
 from ..models import (Matter, MatterFeeSplit, User, Contact, Invoice, InvoiceEvent, Payment, PaymentPlan,
                       PlanInstallmentReceipt, PortalToken, AuditLog, Firm, audit, now)
 from ..helpers import (login_required, portal_required, current_user, portal_contact, parse_money, parse_date,
-                       cents_to_str, fmt_money)
+                       cents_to_str, fmt_money, firm_today)
 from ..services.mail import send_email
 from . import _stripe
 
@@ -687,7 +687,7 @@ def plans():
         q = q.filter(PaymentPlan.status == status)
     rows = q.order_by(PaymentPlan.next_charge_on.asc().nulls_last(), PaymentPlan.id.desc()).all()
     counts = {s: PaymentPlan.query.filter_by(status=s).count() for s in PLAN_STATUSES}
-    return render_template("money/plans.html", plans=rows, status=status, counts=counts, today=date.today(),
+    return render_template("money/plans.html", plans=rows, status=status, counts=counts, today=firm_today(),
                            next_cents=next_installment_cents, labels=FREQUENCY_LABELS)
 
 
@@ -696,7 +696,7 @@ def plans():
 def plan_detail(plan_id):
     plan = db.session.get(PaymentPlan, plan_id) or abort(404)
     return render_template("money/plan_detail.html", plan=plan, schedule=plan_schedule(plan),
-                           payments=plan_payments(plan), today=date.today(), has_card=has_card(plan.contact),
+                           payments=plan_payments(plan), today=firm_today(), has_card=has_card(plan.contact),
                            card=card_label(plan.contact), next_cents=next_installment_cents(plan),
                            surcharge=surcharge_cents(next_installment_cents(plan)), labels=FREQUENCY_LABELS,
                            stripe_ok=_stripe.configured(), dollars=_dollars)
@@ -715,8 +715,8 @@ def _plan_action(plan_id, allowed, new_status, action, msg):
     plan.status = new_status
     if new_status == "active":
         plan.last_error = ""
-        if plan.next_charge_on and plan.next_charge_on < date.today():
-            plan.next_charge_on = date.today()
+        if plan.next_charge_on and plan.next_charge_on < firm_today():
+            plan.next_charge_on = firm_today()
     audit(action, "payment_plan", plan.id, f"{plan.invoice.number if plan.invoice else ''}", current_user().id)
     db.session.commit()
     flash(msg, "ok")
@@ -790,7 +790,7 @@ def plan_remind_now(plan_id):
 def charge_installment(plan, user_id=None, force=False, today=None):
     """Charge the next installment to the card on file. Returns (ok, error). Writes nothing on failure except,
     when called by the scheduler, the failure state itself (handled by the caller). Caller commits."""
-    today = today or date.today()
+    today = today or firm_today()
     inv = plan.invoice
     if not inv:
         return False, "The plan's invoice is missing."

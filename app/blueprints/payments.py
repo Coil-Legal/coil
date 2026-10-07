@@ -7,7 +7,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from sqlalchemy import func
 from ..extensions import db
 from ..models import Invoice, InvoiceEvent, Payment, TrustTransaction, Contact, Firm, audit
-from ..helpers import login_required, current_user, parse_money, parse_date, cents_to_str, fmt_money, client_ip
+from ..helpers import login_required, current_user, parse_money, parse_date, cents_to_str, fmt_money, client_ip, firm_today
 from . import _stripe
 
 bp = Blueprint("payments", __name__)
@@ -77,7 +77,7 @@ def record():
     back = redirect(f"/invoices/{inv.id}")
     amount = parse_money(request.form.get("amount"))
     method = (request.form.get("method") or "check").strip().lower()
-    received = parse_date(request.form.get("received_on"), date.today())
+    received = parse_date(request.form.get("received_on"), firm_today())
     if inv.status == "void":
         flash("This invoice is void. Payments cannot be recorded against it.", "error")
         return back

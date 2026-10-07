@@ -18,7 +18,7 @@
     <dt>Client</dt><dd><a href="/contacts/{{ plan.contact_id }}">{{ plan.contact.display_name }}</a></dd>
     <dt>Invoice</dt><dd><a href="/invoices/{{ plan.invoice_id }}">{{ inv.number }}</a> <span class="small muted">{{ inv.matter.label if inv.matter else '' }}</span></dd>
     <dt>Balance now</dt><dd><strong>{{ inv.balance_cents|cur(inv.currency) }}</strong></dd>
-    <dt>Created</dt><dd>{{ plan.created_at|d }}{% if plan.created_by_id %} <span class="small muted">by user {{ plan.created_by_id }}</span>{% endif %}</dd>
+    <dt>Created</dt><dd>{{ plan.created_at|dlocal }}{% if plan.created_by_id %} <span class="small muted">by user {{ plan.created_by_id }}</span>{% endif %}</dd>
   </dl></div>
   <div class="card"><dl class="kv">
     <dt>Schedule</dt><dd>{{ plan.installments }} installments of {{ plan.installment_cents|cur(inv.currency) }}, {{ labels[plan.frequency] }}</dd>

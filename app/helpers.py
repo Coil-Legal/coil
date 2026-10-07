@@ -319,6 +319,16 @@ def _dt_local(v):
     return v.replace(tzinfo=timezone.utc).astimezone(firm_tz()).strftime("%b %-d, %Y %-I:%M %p")
 
 
+def _d_local(v):
+    """Like the `d` filter, but converts a naive-UTC timestamp to the firm's timezone first and
+    drops the time of day. For a naive-UTC *_at column displayed as a bare date (e.g. a payment
+    plan's "Created" date), the plain `d` filter reads the server's UTC day, a day ahead of the
+    firm's own evening the same way date.today() was (#153)."""
+    if not v:
+        return ""
+    return v.replace(tzinfo=timezone.utc).astimezone(firm_tz()).strftime("%b %-d, %Y")
+
+
 def register_template_globals(app):
     app.jinja_env.globals.update(
         money=cents_to_str, csrf=csrf_field, current_user=current_user, portal_contact=portal_contact,
@@ -334,4 +344,5 @@ def register_template_globals(app):
     app.jinja_env.filters["d"] = lambda v: v.strftime("%b %-d, %Y") if v else ""
     app.jinja_env.filters["dt"] = lambda v: v.strftime("%b %-d, %Y %-I:%M %p") if v else ""
     app.jinja_env.filters["dtlocal"] = _dt_local
+    app.jinja_env.filters["dlocal"] = _d_local
     app.jinja_env.filters["iso"] = lambda v: v.isoformat() if v else ""

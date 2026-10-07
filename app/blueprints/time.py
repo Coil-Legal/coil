@@ -9,7 +9,7 @@ from werkzeug.utils import secure_filename
 from sqlalchemy import func
 from ..extensions import db
 from ..models import Matter, TimeEntry, Timer, Expense, User, Firm, audit, now
-from ..helpers import login_required, current_user, parse_money, parse_date, UNUSUAL_MINUTES, parse_minutes
+from ..helpers import login_required, current_user, parse_money, parse_date, UNUSUAL_MINUTES, parse_minutes, firm_today
 from .ledes import choices as utbms_choices, valid_code
 
 bp = Blueprint("time", __name__, url_prefix="/time")
@@ -129,7 +129,7 @@ def _entry_from_form(entry, form):
         return (f"That is {minutes / 60:,.1f} hours on a single entry, longer than a day. "
                 f"If it is right, tick the box below and save again.")
     entry.matter_id = matter.id
-    entry.date = parse_date(form.get("date"), date.today())
+    entry.date = parse_date(form.get("date"), firm_today())
     entry.minutes = minutes
     entry.description = (form.get("description") or "").strip()
     entry.rate_cents = parse_money(form.get("rate"))
@@ -163,7 +163,7 @@ def new():
         if nxt.startswith("/"):
             return redirect(nxt)
         return redirect(url_for("time.index", matter_id=entry.matter_id))
-    entry = TimeEntry(date=date.today(), billable=True, user_id=u.id)
+    entry = TimeEntry(date=firm_today(), billable=True, user_id=u.id)
     if matter_id:
         entry.matter_id = matter_id
         entry.rate_cents = rates.get(matter_id, 0)
@@ -282,7 +282,7 @@ def timer_stop():
     seconds = t.elapsed_seconds()
     minutes = round_up_minutes(seconds)
     description = (request.form.get("description") or t.description or "").strip()
-    entry = TimeEntry(matter_id=matter.id, user_id=u.id, date=date.today(), minutes=minutes,
+    entry = TimeEntry(matter_id=matter.id, user_id=u.id, date=firm_today(), minutes=minutes,
                       description=description, rate_cents=matter.effective_rate_cents(u), billable=True)
     db.session.add(entry)
     db.session.delete(t)
@@ -333,7 +333,7 @@ def _expense_from_form(exp, form, files):
     if amount == 0 and not has_receipt:
         return "Enter an amount, or attach a receipt to fill the amount in later."
     exp.matter_id = matter.id
-    exp.date = parse_date(form.get("date"), date.today())
+    exp.date = parse_date(form.get("date"), firm_today())
     exp.description = (form.get("description") or "").strip()
     cat = form.get("category") or "Other"
     exp.category = cat if cat in EXPENSE_CATEGORIES else "Other"
@@ -368,7 +368,7 @@ def expense_new():
         if nxt.startswith("/"):
             return redirect(nxt)
         return redirect(url_for("time.expenses", matter_id=exp.matter_id))
-    exp = Expense(date=date.today(), billable=True, matter_id=matter_id, category="Other")
+    exp = Expense(date=firm_today(), billable=True, matter_id=matter_id, category="Other")
     return render_template("time/expense_form.html", expense=exp, matters=matters, categories=EXPENSE_CATEGORIES, expense_codes=EXPENSE_CODES,
                            form=None, next=request.args.get("next", ""))
 

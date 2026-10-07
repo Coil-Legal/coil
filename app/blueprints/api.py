@@ -599,7 +599,6 @@ def invoice_create():
     for field in ("issued_on", "due_on"):
         value = b.get(field)
         if value is None:
-            dates[field] = dates.get("issued_on", firm_today())
             continue
         try:
             parsed = date.fromisoformat(value) if isinstance(value, str) else None
@@ -608,7 +607,10 @@ def invoice_create():
         if parsed is None or parsed.isoformat() != value:
             return _error(400, f"{field} must be a valid date in YYYY-MM-DD format.")
         dates[field] = parsed
-    issued_on, due_on = dates["issued_on"], dates["due_on"]
+    issued_on = dates.get("issued_on", firm_today())
+    # Same default the builder uses (invoices.py new()/bulk()): due_on, when omitted, is
+    # issued_on plus the firm's terms, not the issue date itself (#157).
+    due_on = dates.get("due_on", issued_on + timedelta(days=Firm.get().invoice_terms_days or 30))
     # Two simultaneous POSTs for the same matter can both read Firm.next_invoice_number before
     # either commits, same race already retried on the builder screen (#51). The number collision
     # can surface either at commit or, since build_for_matter() flushes to get the new invoice's

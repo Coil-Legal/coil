@@ -10,7 +10,8 @@ from sqlalchemy.orm import selectinload
 from ..extensions import db
 from ..models import (Contact, Matter, Invoice, InvoiceEvent, Payment, TrustTransaction,
                       TrustReconciliation, Firm, audit)
-from ..helpers import login_required, current_user, parse_money, parse_date, cents_to_str, LOCK_RETRIES, is_lock_error
+from ..helpers import (login_required, current_user, parse_money, parse_date, cents_to_str, LOCK_RETRIES,
+                      is_lock_error, firm_today)
 from ..services.mail import send_email
 from ..aggregates import matter_money, MatterMoney
 import uuid
@@ -158,7 +159,7 @@ def ledger(client_id):
 def clear(txn_id):
     t = db.session.get(TrustTransaction, txn_id) or abort(404)
     t.cleared = not t.cleared
-    t.cleared_on = date.today() if t.cleared else None
+    t.cleared_on = firm_today() if t.cleared else None
     db.session.commit()
     nxt = request.form.get("next") or ""
     if nxt.startswith("/"):
@@ -244,7 +245,7 @@ def new():
     clients.sort(key=lambda c: c.sort_name.lower())
     matters = Matter.query.order_by(Matter.number).all()
     form = {"type": request.args.get("type", "deposit"), "client_id": request.args.get("client_id", ""),
-            "matter_id": request.args.get("matter_id", ""), "date": date.today().isoformat(), "amount": "",
+            "matter_id": request.args.get("matter_id", ""), "date": firm_today().isoformat(), "amount": "",
             "description": "", "payee": "", "reference": "", "fee_reason": ""}
     if request.method == "POST":
         form.update({k: (request.form.get(k) or "").strip() for k in form})
@@ -404,7 +405,7 @@ def transfer():
     clients = Contact.query.filter_by(is_client=True).all()
     clients.sort(key=lambda c: c.sort_name.lower())
     form = {"client_id": request.args.get("client_id", ""), "from_matter_id": "", "to_matter_id": "",
-            "date": date.today().isoformat(), "amount": "", "authorized_by": "", "description": ""}
+            "date": firm_today().isoformat(), "amount": "", "authorized_by": "", "description": ""}
     client = db.session.get(Contact, int(form["client_id"])) if form["client_id"].isdigit() else None
 
     if request.method == "POST":
@@ -496,7 +497,7 @@ def apply():
     # unallocated balance. Another matter's money is never available, whatever the pooled client
     # balance says.
     # Only money on hand today. A deposit dated in the future counted as spendable until now.
-    own, unallocated, available = available_for_matter(inv.client, inv.matter, as_of=date.today())
+    own, unallocated, available = available_for_matter(inv.client, inv.matter, as_of=firm_today())
     if amount > available:
         mlabel = inv.matter.label if inv.matter else inv.client.display_name
         _, _, available_all = available_for_matter(inv.client, inv.matter)
@@ -518,8 +519,8 @@ def apply():
     from_matter = min(amount, own) if inv.matter_id else 0
     from_unallocated = amount - from_matter
     parts = [(inv.matter_id, from_matter), (None, from_unallocated)]
-    problem = _closes_a_reconciled_period(date.today()) or validate_running_balances(
-        inv.client_id, date.today(), [(mid, -part) for mid, part in parts if part > 0])
+    problem = _closes_a_reconciled_period(firm_today()) or validate_running_balances(
+        inv.client_id, firm_today(), [(mid, -part) for mid, part in parts if part > 0])
     if problem:
         flash(problem, "error")
         return back
@@ -528,7 +529,7 @@ def apply():
         source = f"{inv.matter.label} {cents_to_str(from_matter)} + unallocated {cents_to_str(from_unallocated)}"
     elif not from_matter:
         source = f"{inv.client.display_name} (unallocated)"
-    today = date.today()
+    today = firm_today()
     uid = current_user().id
     pay = Payment(invoice_id=inv.id, matter_id=inv.matter_id, client_id=inv.client_id, amount_cents=amount,
                   # method is where the money came from; account is where it landed. An application
@@ -598,7 +599,7 @@ def reconcile():
         return redirect(url_for("trust.reconcile_report", recon_id=r.id))
     past = TrustReconciliation.query.order_by(TrustReconciliation.period_end.desc(),
                                               TrustReconciliation.id.desc()).all()
-    return render_template("trust/reconcile.html", past=past, today=date.today(), book=book_total())
+    return render_template("trust/reconcile.html", past=past, today=firm_today(), book=book_total())
 
 
 @bp.route("/reconcile/<int:recon_id>")

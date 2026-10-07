@@ -35,5 +35,5 @@
   </div>
 </div>
 {% if r.notes %}<div class="card"><h2>Notes</h2><p>{{ r.notes }}</p></div>{% endif %}
-<p class="small muted">Prepared by {{ r.created_by.name if r.created_by else 'unknown' }} on {{ r.created_at|dt }}.</p>
+<p class="small muted">Prepared by {{ r.created_by.name if r.created_by else 'unknown' }} on {{ r.created_at|dtlocal }}.</p>
 {% endblock %}

@@ -6,7 +6,7 @@ from ..extensions import db
 from ..models import (Matter, MatterParty, MatterPayer, FlatFeeMilestone, Contact, User, Firm, Note, TimeEntry, Expense,
                       Invoice, TrustTransaction, Task, Document, Engagement, AuditLog, Office, MatterTemplate, audit)
 from ..aggregates import money_for
-from ..helpers import login_required, current_user, parse_money, parse_date
+from ..helpers import login_required, current_user, parse_money, parse_date, firm_today
 
 bp = Blueprint("matters", __name__, url_prefix="/matters")
 PAGE_SIZE = 100
@@ -57,7 +57,7 @@ def _fill(m, form):
         m.contingency_pct = float(form.get("contingency_pct") or 0) if m.billing_type in ("contingency", "hybrid") else 0.0
     except ValueError:
         m.contingency_pct = 0.0
-    m.opened_on = parse_date(form.get("opened_on"), m.opened_on or date.today())
+    m.opened_on = parse_date(form.get("opened_on"), m.opened_on or firm_today())
     m.sol_date = parse_date(form.get("sol_date"))
     m.sol_basis = form.get("sol_basis", "").strip()
     m.court = form.get("court", "").strip()
@@ -269,7 +269,7 @@ def index():
 @bp.route("/new", methods=["GET", "POST"])
 @login_required
 def new():
-    m = Matter(status="open", billing_type="flat", opened_on=date.today())
+    m = Matter(status="open", billing_type="flat", opened_on=firm_today())
     if request.method == "POST":
         _fill(m, request.form)
         if not m.client_id or not db.session.get(Contact, m.client_id):
@@ -328,7 +328,7 @@ def edit(id):
                 flash(blocked, "error")
                 return redirect(url_for("matters.edit", id=m.id))
             if not m.closed_on:
-                m.closed_on = date.today()
+                m.closed_on = firm_today()
         if m.status != "closed":
             m.closed_on = None
         _save_milestones(m, request.form)
@@ -400,7 +400,7 @@ def close(id):
         flash(blocked, "error")
         return redirect(url_for("matters.detail", id=m.id))
     m.status = "closed"
-    m.closed_on = date.today()
+    m.closed_on = firm_today()
     audit("close", "matter", m.id, "", current_user().id)
     db.session.commit()
     flash(f"{m.number} closed.", "ok")
