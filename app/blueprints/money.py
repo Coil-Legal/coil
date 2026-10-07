@@ -849,7 +849,8 @@ def send_plan_reminder(plan):
             f"{pay_html}"
             f"<p style='font-size:13px;color:#666'>{escape(firm.name or '')}<br>{escape(firm.phone or '')}</p></div>")
     send_email(to, f"Payment of {amount_str} due on invoice {inv.number}", html,
-               text=f"Installment {k} of {plan.installments} on invoice {inv.number} is {amount_str}. "
+               text=f"Installment {k} of {plan.installments} on invoice {inv.number} is {amount_str}"
+                    f"{', due ' + due.strftime('%B %-d, %Y') if due else ''}. "
                     f"{pay_text}", reply_to=firm.email or None)
     db.session.add(InvoiceEvent(invoice_id=inv.id, event="reminder",
                                 detail=f"payment plan installment {k} of {plan.installments}, to {to}"))
