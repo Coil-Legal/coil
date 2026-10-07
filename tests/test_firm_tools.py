@@ -180,6 +180,20 @@ def test_the_money_heading_goes_when_every_money_tool_is_off(owner):
     assert '<div class="sec">Money</div>' not in menu(owner)
 
 
+def test_a_tool_re_ticked_in_the_same_save_its_dependency_holds_off_is_named_as_held(owner):
+    """Coil QA #148: start with Payments already off (a prior save). In one later save, the owner
+    ticks Payments back on and unticks Invoices at the same time. Payments never actually turns
+    on (Invoices, which it requires, just went off), so it belongs in the held list exactly like
+    Plans and splits, which the held list already named. The old code only counted a tool as held
+    if it was on before this save and went off in it, so a tool that was off before and is only
+    now being re-ticked was left out, silently dropping the one box the owner just acted on."""
+    switch(owner, off=["payments"])
+    r = switch(owner, off=["invoices"])
+    body = r.data.decode()
+    assert "Switched off: Invoices." in body
+    assert "Still off because a tool they rely on is off: Payments, Plans and splits." in body
+
+
 def test_core_tools_cannot_be_switched_off(owner):
     """Contacts, matters, settings and exports are what a firm needs to run and to leave."""
     r = owner.post("/settings/tools", data={"_csrf": owner._csrf, "tool_contacts": ""}, follow_redirects=True)

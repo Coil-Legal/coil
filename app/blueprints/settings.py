@@ -1032,6 +1032,11 @@ def tools():
     from ..tools import TOOLS, CORE, by_section, enabled_map, overrides_for, overrides_from_choices
     firm = Firm.get()
     if request.method == "POST":
+        # The owner's raw ticks going into this save, before this save's cascade is applied, so a
+        # re-ticked box can be told apart from one that was already ticked (and already held off)
+        # last time the page was saved.
+        prev_ov = overrides_for(firm)
+        prev_choice = {k: prev_ov.get(k, t.default_on) for k, t in TOOLS.items()}
         before = enabled_map(firm)
         chosen = {k for k in TOOLS if request.form.get(f"tool_{k}")}
         firm.tool_overrides = json.dumps(overrides_from_choices(chosen), sort_keys=True)
@@ -1048,10 +1053,13 @@ def tools():
             audit("tools_changed", "firm", firm.id, detail, current_user().id)
         db.session.commit()
         # A tool the firm asked to keep can still be off because something it depends on just went
-        # off in this same save. A tool already held off before this save is not news; saying so on
+        # off in this same save, or because the owner just re-ticked it in this same save and its
+        # dependency already held it off. Either is news. A tool that was off before this save,
+        # already held off, and the owner's own tick on it hasn't changed, is not news: saying so on
         # every unrelated change after that (e.g. toggling Time suggestions while Invoices is still
         # off from an earlier save) reads as a new problem when nothing changed.
-        held = [TOOLS[k].label for k in chosen if before[k] and not after[k]]
+        held = [TOOLS[k].label for k in TOOLS
+                if k in chosen and not after[k] and (before[k] or not prev_choice[k])]
         parts = []
         if turned_off:
             parts.append("Switched off: " + ", ".join(turned_off) + ". Everything in them is kept.")
