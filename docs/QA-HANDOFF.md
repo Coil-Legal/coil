@@ -23,8 +23,9 @@ Batching took the loop from 2 cases an hour to 13.5. Two things now limit it:
    record with `QA` and the date, for example `QA Calendar 20261001`, so it reads as test
    data. Give the expected flash, count or state, not "check it works".
 4. **Push on the edges.** In every batch, include at least two of: an empty or overlong
-   input, non-Latin text, a duplicate submission, a date on a month end or leap day, a
-   second user or role, an action undone and redone.
+   input, a duplicate submission, a date on a month end or leap day, a second user or role,
+   an action undone and redone. English and US dollars only: non-USD currencies and other
+   languages (including non-Latin text) are parked until the last phase (Ian, 2026-10-06).
 5. **Put the next handoff up as soon as the result is recorded.** Record and queue in the
    same post. Grok should never be waiting on a "recorded" post with nothing after it.
 6. **Unchanged:** pin `/health` to one commit and stop if it moves; no Stripe, no SMS, no
