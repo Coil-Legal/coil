@@ -1,17 +1,39 @@
 #!/usr/bin/env bash
 # Restore one Coil backup into a directory.
 #
-#   ops/restore.sh <archive.tar.gz> <target-dir>
+#   ops/restore.sh [--allow-downgrade] <archive.tar.gz> <target-dir>
 #
 # Restores practice.db, uploads/, pdf/ and .env when included. It refuses to write into a directory
 # that already holds a database, because the one time you run this is the one time you
 # cannot afford to overwrite the wrong firm. Move the old data aside first.
+#
+# It also refuses to restore a backup under older code. Older Coil starts fine on a newer
+# database and then shows wrong balances, because it ignores rows it does not understand.
+# When the target already holds Coil code, the backup's tables and columns are compared
+# with what that code knows, and anything unknown stops the restore before the target is
+# touched. --allow-downgrade restores anyway, with a warning.
 set -euo pipefail
 
-ARCHIVE="${1:-}"
-TARGET="${2:-}"
-[ -f "$ARCHIVE" ] || { echo "usage: restore.sh <archive.tar.gz> <target-dir>"; exit 2; }
-[ -n "$TARGET" ] || { echo "usage: restore.sh <archive.tar.gz> <target-dir>"; exit 2; }
+USAGE="usage: restore.sh [--allow-downgrade] <archive.tar.gz> <target-dir>"
+ARCHIVE=''
+TARGET=''
+POSITIONAL=0
+ALLOW_DOWNGRADE=0
+for arg in "$@"; do
+  case "$arg" in
+    --allow-downgrade) ALLOW_DOWNGRADE=1 ;;
+    --*) echo "unknown option: $arg"; echo "$USAGE"; exit 2 ;;
+    *)
+      POSITIONAL=$((POSITIONAL + 1))
+      case "$POSITIONAL" in
+        1) ARCHIVE="$arg" ;;
+        2) TARGET="$arg" ;;
+        *) echo "$USAGE"; exit 2 ;;
+      esac ;;
+  esac
+done
+[ -f "$ARCHIVE" ] || { echo "$USAGE"; exit 2; }
+[ -n "$TARGET" ] || { echo "$USAGE"; exit 2; }
 
 if [ -e "$TARGET/data/practice.db" ] || [ -L "$TARGET/data/practice.db" ]; then
   echo "refusing: $TARGET/data/practice.db already exists. Move it aside first." >&2
@@ -46,6 +68,12 @@ grep -Fxq 'practice.db' <<< "$NORMALIZED" && NIGHTLY_LAYOUT=1
 grep -Fxq '.env' <<< "$NORMALIZED" && HAS_ENV=1
 if [ "$((CLI_LAYOUT + NIGHTLY_LAYOUT))" != 1 ]; then
   echo "FAILED: archive must contain exactly one database layout (data/practice.db or practice.db)." >&2
+  exit 1
+fi
+# coil-backup.json names the code that made the archive. Older archives have none.
+MANIFEST_COUNT=$(grep -Fxc 'coil-backup.json' <<< "$NORMALIZED" || true)
+if [ "$MANIFEST_COUNT" -gt 1 ]; then
+  echo "FAILED: archive must contain at most one coil-backup.json, without duplicates." >&2
   exit 1
 fi
 if [ "$HAS_ENV" = 1 ] && { [ -e "$TARGET/.env" ] || [ -L "$TARGET/.env" ]; }; then
@@ -133,6 +161,219 @@ if [ ! -s "$RESTORE_STAGE/practice.db" ]; then
 fi
 check_database "$RESTORE_STAGE/practice.db"
 
+# Version check, still before anything is written into the target. The gate is the
+# archived database itself: any table or column the target code does not know means the
+# backup came from newer code. Versions are shown but never compared, because names like
+# demo-20261006 do not sort.
+MANIFEST_FILE=''
+if [ "$MANIFEST_COUNT" = 1 ]; then
+  MANIFEST_MEMBER='coil-backup.json'
+  grep -Fxq "$MANIFEST_MEMBER" <<< "$MEMBERS" || MANIFEST_MEMBER="./$MANIFEST_MEMBER"
+  MANIFEST_FILE="$RESTORE_STAGE/coil-backup.json"
+  tar -xOzf "$ARCHIVE" "$MANIFEST_MEMBER" > "$MANIFEST_FILE"
+fi
+COMPOSE_FILE=''
+for name in compose.yaml compose.yml docker-compose.yaml docker-compose.yml; do
+  if [ -f "$TARGET/$name" ]; then COMPOSE_FILE="$name"; break; fi
+done
+TARGET_CODE=none
+KNOWN_FILE="$RESTORE_STAGE/known-schema.json"
+KNOWN_ERRORS="$RESTORE_STAGE/known-schema.err"
+KNOWN_ERROR=''
+if [ -f "$TARGET/app/models.py" ] || [ -n "$COMPOSE_FILE" ]; then
+  TARGET_CODE=unavailable
+  # A source checkout first. No bytecode: nothing may be written into the target yet.
+  if [ -f "$TARGET/app/models.py" ]; then
+    if ! command -v python3 >/dev/null 2>&1; then
+      KNOWN_ERROR="python3 is not installed"
+    elif (cd "$TARGET" && PYTHONDONTWRITEBYTECODE=1 python3 -m app.cli known_schema) \
+        < /dev/null > "$KNOWN_FILE" 2> "$KNOWN_ERRORS"; then
+      TARGET_CODE=ok
+    elif grep -Fq 'unknown command: known_schema' "$KNOWN_FILE"; then
+      KNOWN_ERROR="the code in $TARGET has no known_schema command, so it predates this check and is older than any backup that has a manifest"
+    else
+      KNOWN_ERROR="python3 -m app.cli known_schema failed: $(tail -n 1 "$KNOWN_ERRORS")"
+    fi
+  fi
+  # Otherwise ask the image the compose file runs, which is the code that will start.
+  if [ "$TARGET_CODE" != ok ] && [ -n "$COMPOSE_FILE" ]; then
+    if ! command -v docker >/dev/null 2>&1; then
+      KNOWN_ERROR="${KNOWN_ERROR:+$KNOWN_ERROR; }docker is not installed"
+    else
+      SERVICES=$(cd "$TARGET" && docker compose config --services 2> "$KNOWN_ERRORS") || SERVICES=''
+      SERVICE=''
+      for name in web coil; do
+        if grep -Fxq "$name" <<< "$SERVICES"; then SERVICE="$name"; break; fi
+      done
+      if [ -z "$SERVICE" ] && [ "$(grep -c . <<< "$SERVICES" || true)" = 1 ]; then SERVICE="$SERVICES"; fi
+      # Docker creates a missing bind-mount source, so remember whether data/ existed.
+      DATA_EXISTED=0
+      if [ -e "$TARGET/data" ] || [ -L "$TARGET/data" ]; then DATA_EXISTED=1; fi
+      if [ -z "$SERVICE" ]; then
+        KNOWN_ERROR="${KNOWN_ERROR:+$KNOWN_ERROR; }docker compose found no Coil service: $(tail -n 1 "$KNOWN_ERRORS")"
+      elif (cd "$TARGET" && docker compose run --rm --no-deps -T "$SERVICE" python -m app.cli known_schema) \
+          < /dev/null > "$KNOWN_FILE" 2> "$KNOWN_ERRORS"; then
+        TARGET_CODE=ok
+      elif grep -Fq 'unknown command: known_schema' "$KNOWN_FILE"; then
+        KNOWN_ERROR="${KNOWN_ERROR:+$KNOWN_ERROR; }the image $SERVICE runs has no known_schema command, so it predates this check and is older than any backup that has a manifest"
+      else
+        KNOWN_ERROR="${KNOWN_ERROR:+$KNOWN_ERROR; }docker compose run $SERVICE python -m app.cli known_schema failed: $(tail -n 1 "$KNOWN_ERRORS")"
+      fi
+      if [ "$DATA_EXISTED" = 0 ] && [ -d "$TARGET/data" ] && [ ! -L "$TARGET/data" ]; then
+        rmdir "$TARGET/data" 2>/dev/null || true
+      fi
+    fi
+  fi
+fi
+if [ "$VALIDATOR" != python3 ]; then
+  # Reading the manifest and comparing schemas needs Python. Fail closed when there is
+  # code to compare against; otherwise say what was skipped.
+  if [ "$TARGET_CODE" = none ]; then
+    echo "Version check skipped: python3 is not installed, so the backup manifest was not read."
+  elif [ "$ALLOW_DOWNGRADE" = 1 ]; then
+    echo "WARNING: --allow-downgrade given. python3 is not installed, so this backup was NOT checked against the code in $TARGET." >&2
+  else
+    echo "refusing: python3 is not installed, so this backup cannot be checked against the code in $TARGET." >&2
+    echo "Install Python 3, or pass --allow-downgrade once you are sure that code is the version that made the backup or newer." >&2
+    exit 1
+  fi
+elif ! python3 - "$RESTORE_STAGE/practice.db" "$MANIFEST_FILE" "$TARGET_CODE" "$KNOWN_FILE" "$KNOWN_ERROR" "$TARGET" "$ALLOW_DOWNGRADE" <<'PY'
+import hashlib
+import json
+import sqlite3
+import sys
+from pathlib import Path
+
+db, manifest_path, code, known_path, known_error, target, allow = sys.argv[1:8]
+allow = allow == '1'
+
+
+def say(*lines):
+    print('\n'.join(lines), file=sys.stderr)
+
+
+def short(items, limit=8):
+    items = list(items)
+    if len(items) <= limit:
+        return ', '.join(items)
+    return ', '.join(items[:limit]) + f' and {len(items) - limit} more'
+
+
+# Same definition as app/backup_manifest.py and ops/backup.sh; keep all three in step.
+def schema_of(path):
+    uri = Path(path).resolve().as_uri() + '?mode=ro'
+    conn = sqlite3.connect(uri, uri=True)
+    try:
+        rows = conn.execute('SELECT m.name, p.name FROM sqlite_master AS m, '
+                            'pragma_table_info(m.name) AS p WHERE m.type = ?', ('table',)).fetchall()
+    finally:
+        conn.close()
+    schema = {}
+    for table, column in rows:
+        if not table.startswith('sqlite_'):
+            schema.setdefault(table, []).append(column)
+    return {table: sorted(columns) for table, columns in schema.items()}
+
+
+def fingerprint(schema):
+    canonical = json.dumps(schema, sort_keys=True, separators=(',', ':'))
+    return hashlib.sha256(canonical.encode('utf-8')).hexdigest()
+
+
+archive_schema = schema_of(db)
+manifest = None
+if manifest_path:
+    try:
+        manifest = json.loads(Path(manifest_path).read_text(encoding='utf-8'))
+        if not isinstance(manifest, dict):
+            raise ValueError('not a JSON object')
+    except (OSError, ValueError) as exc:
+        manifest = None
+        say(f'WARNING: the backup manifest could not be read ({exc}), so the Coil version that made this backup is unknown.')
+else:
+    say('WARNING: this backup has no coil-backup.json manifest, so the Coil version that made it cannot be checked.',
+        'Backups made before Coil started writing one look like this.')
+if manifest:
+    version = str(manifest.get('coil_version') or 'unknown')
+    commit = str(manifest.get('coil_commit') or 'unknown')
+    producer = {'cli': 'the Coil backup command', 'nightly': 'the nightly host backup'}.get(
+        manifest.get('producer'), str(manifest.get('producer') or 'unknown'))
+    print('Backup manifest:')
+    print(f'  Coil version: {version}')
+    print(f'  commit:       {commit}')
+    print(f'  created:      {manifest.get("created_at") or "unknown"} (UTC)')
+    print(f'  made by:      {producer}')
+    if manifest.get('schema_fingerprint') != fingerprint(archive_schema):
+        say('WARNING: the manifest does not describe the database in this archive. Checking the database itself.')
+    backup_label = f'Coil {version} (commit {commit})'
+    newer = f'Coil {version} or newer'
+else:
+    backup_label = 'an unknown Coil version (no manifest)'
+    newer = 'the Coil version that made this backup, or newer'
+
+if code == 'none':
+    print(f'Version check skipped: {target} holds no Coil code yet, so there is nothing to compare this backup against.')
+    print(f'When you add the code, use {newer}.')
+    sys.exit(0)
+
+known = None
+if code == 'ok':
+    # docker compose can print its own lines around the command's, so take the JSON line.
+    try:
+        for line in reversed(Path(known_path).read_text(encoding='utf-8').splitlines()):
+            try:
+                candidate = json.loads(line)
+            except ValueError:
+                continue
+            if isinstance(candidate, dict) and isinstance(candidate.get('schema'), dict) and candidate['schema']:
+                known = candidate
+                break
+        else:
+            known_error = 'the known_schema output held no schema'
+    except (OSError, UnicodeDecodeError) as exc:
+        known_error = f'the known_schema output could not be read ({exc})'
+
+if known is None:
+    details = [f'  backup: {backup_label}', f'  error:  {known_error or "unknown"}']
+    if allow:
+        say(f'WARNING: --allow-downgrade given. The tables and columns the code in {target} knows could not be read,',
+            'so this backup was NOT checked against it.', *details)
+        sys.exit(0)
+    say(f'refusing: {target} holds Coil code, but the tables and columns that code knows could not be read,',
+        'so this restore cannot check that the code is as new as the backup.', *details,
+        f'Fix that, or put {newer} there, and run the restore again.',
+        f'Pass --allow-downgrade only once you are sure the code is {newer}.')
+    sys.exit(3)
+
+target_label = f'Coil {known.get("coil_version") or "unknown"} (commit {known.get("coil_commit") or "unknown"})'
+known_schema = known['schema']
+tables = sorted(t for t in archive_schema if t not in known_schema)
+columns = sorted(f'{t}.{c}' for t, cols in archive_schema.items() if t in known_schema
+                 for c in cols if c not in set(known_schema[t]))
+if not tables and not columns:
+    print(f'Version check passed: the code in {target} knows every table and column in this backup.')
+    print(f'  target: {target_label}')
+    sys.exit(0)
+
+details = [f'  backup: {backup_label}', f'  target: {target_label}']
+if tables:
+    details.append(f'  tables the target code does not know: {short(tables)}')
+if columns:
+    details.append(f'  columns the target code does not know: {short(columns)}')
+if allow:
+    say('WARNING: --allow-downgrade given. Restoring a backup from newer Coil code into older code.', *details,
+        'Older code ignores data it does not understand, so balances and totals can be wrong without any error.',
+        f'Check them before anyone relies on this install, and move to {newer} as soon as you can.')
+    sys.exit(0)
+say(f'refusing: this backup came from newer Coil code than the code in {target}.', *details,
+    'Older code ignores data it does not understand, so balances and totals can be wrong without any error.',
+    f'Restore with {newer}, or pass --allow-downgrade to restore anyway.')
+sys.exit(3)
+PY
+then
+  exit 1
+fi
+
 # Extract privately on the destination filesystem. A recursive final copy can
 # fail halfway through; a same-filesystem directory rename publishes all data.
 if [ ! -d "$TARGET" ]; then
@@ -155,6 +396,18 @@ else
 fi
 
 check_database "$RESTORE_PAYLOAD/data/practice.db"
+
+# The manifest describes the archive and is not part of the install. Drop it before the
+# install-root check below, which refuses anything unexpected.
+if [ "$MANIFEST_COUNT" = 1 ]; then
+  EXTRACTED_MANIFEST="$RESTORE_PAYLOAD/coil-backup.json"
+  [ "$CLI_LAYOUT" = 1 ] || EXTRACTED_MANIFEST="$RESTORE_PAYLOAD/data/coil-backup.json"
+  if [ -L "$EXTRACTED_MANIFEST" ] || [ ! -f "$EXTRACTED_MANIFEST" ]; then
+    echo "FAILED: archived coil-backup.json must be a regular file." >&2
+    exit 1
+  fi
+  rm -f "$EXTRACTED_MANIFEST"
+fi
 
 # Only data and the optional environment belong in a restore. Do not publish
 # unexpected top-level archive entries over existing application files.

@@ -80,6 +80,10 @@ def create_app(config=None):
         db.create_all()
         from .migrate import add_missing_columns
         add_missing_columns()
+        # A backup from newer code restored under this code starts fine and then shows
+        # wrong totals (#115). Say so in the log; never stop startup over it.
+        from .backup_manifest import warn_if_newer_database
+        warn_if_newer_database(db.engine)
 
     @app.errorhandler(404)
     def nf(e):
