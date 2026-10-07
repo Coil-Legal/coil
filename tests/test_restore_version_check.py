@@ -248,20 +248,26 @@ def compose_install(lab):
     """A target holding only a compose file, answered by a docker stub that runs the app's CLI."""
     target = lab['root'] / 'install'
     target.mkdir()
-    (target / 'docker-compose.yml').write_text('services:\n  web:\n    image: synthetic\n')
+    # Built by compose, no image key, and an env_file the target does not have yet: the
+    # shape of the VPS installs, where the backup itself carries the .env.
+    (target / 'docker-compose.yml').write_text('services:\n  web:\n    build: .\n    env_file: .env\n')
     docker = lab['commands'] / 'docker'
     docker.write_text('#!' + sys.executable + f'''
-import os, pathlib, subprocess, sys
+import json, os, pathlib, subprocess, sys
 args = sys.argv[1:]
 with open({str(lab['root'] / 'docker-calls')!r}, 'a') as f:
-    f.write(' '.join(args) + '\\n')
-if args[:3] == ['compose', 'config', '--services']:
-    print('web')
-elif args[:2] == ['compose', 'run']:
-    # Docker creates a missing bind-mount source on the host.
-    pathlib.Path('data').mkdir(exist_ok=True)
-    print('Creating network synthetic_default')
-    sys.exit(subprocess.run([{sys.executable!r}, *args[args.index('web') + 2:]], cwd={str(ROOT)!r},
+    f.write(os.getcwd() + ' | ' + ' '.join(args) + '\\n')
+if args[:1] == ['compose'] and 'config' in args:
+    # Real compose refuses to load a file whose env_file is missing.
+    if not pathlib.Path('.env').exists():
+        sys.exit('env file .env not found')
+    text = pathlib.Path(args[args.index('-f') + 1]).read_text()
+    names = [line.split(':', 1)[1].strip() for line in text.splitlines() if line.startswith('name:')]
+    print(json.dumps({{'name': (names or [pathlib.Path.cwd().name])[0], 'services': {{'web': {{'build': {{}}}}}}}}))
+elif args[:2] == ['image', 'inspect']:
+    sys.exit(0 if args[2] == 'install-web' else 1)
+elif args[:1] == ['run']:
+    sys.exit(subprocess.run([{sys.executable!r}, *args[args.index('install-web') + 1:]], cwd={str(ROOT)!r},
                             env=dict(os.environ, PYTHONDONTWRITEBYTECODE='1', COIL_VERSION='qa-old-20261001',
                                      COIL_COMMIT='e007fa9')).returncode)
 else:
@@ -278,8 +284,23 @@ def test_compose_target_is_checked_through_docker(lab, seeded_db):
     assert out.returncode != 0
     assert 'target: Coil qa-old-20261001 (commit e007fa9)' in out.stderr
     assert 'invoices.newer_credit_kind' in out.stderr
-    assert 'compose run --rm --no-deps -T web python -m app.cli known_schema' in (lab['root'] / 'docker-calls').read_text()
-    assert listing(target) == ['docker-compose.yml'], 'the data dir docker created must not be left behind'
+    calls = (lab['root'] / 'docker-calls').read_text()
+    # The image runs alone: no network to pick up the live site's traffic, no mounts.
+    assert 'run --rm --network none --entrypoint python install-web -m app.cli known_schema' in calls
+    assert 'compose run' not in calls
+    # Compose read a private copy, never the target, and nothing landed in the target.
+    assert f'{target} |' not in calls
+    assert listing(target) == ['docker-compose.yml']
+
+
+def test_compose_target_image_missing_refuses(lab, seeded_db):
+    target = compose_install(lab)
+    (target / 'docker-compose.yml').write_text('name: other\nservices:\n  web:\n    build: .\n')
+    path = archive(lab['root'], database(lab['root'], seeded_db))
+    out = restore(lab, path, target)
+    assert out.returncode != 0
+    assert 'is not on this host. Build or pull it first' in out.stderr
+    assert listing(target) == ['docker-compose.yml']
 
 
 def test_compose_target_with_same_schema_restores(lab, seeded_db):

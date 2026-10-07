@@ -196,31 +196,52 @@ if [ -f "$TARGET/app/models.py" ] || [ -n "$COMPOSE_FILE" ]; then
     fi
   fi
   # Otherwise ask the image the compose file runs, which is the code that will start.
+  # Compose reads a private copy of the compose file next to an empty .env: the target's
+  # own .env usually cannot exist yet (a nightly archive carries it, and this script refuses
+  # to overwrite one), and compose will not load a file whose env_file is missing. The copy
+  # sits in a directory with the target's name, so compose derives the same project and
+  # image names. The image then runs on its own with no network and no mounts, rather than
+  # through `compose run`, which would join the proxy network carrying the live site's
+  # routing labels and could be sent real traffic for as long as it runs.
   if [ "$TARGET_CODE" != ok ] && [ -n "$COMPOSE_FILE" ]; then
     if ! command -v docker >/dev/null 2>&1; then
       KNOWN_ERROR="${KNOWN_ERROR:+$KNOWN_ERROR; }docker is not installed"
+    elif ! command -v python3 >/dev/null 2>&1; then
+      KNOWN_ERROR="${KNOWN_ERROR:+$KNOWN_ERROR; }python3 is not installed, so the compose file could not be read"
     else
-      SERVICES=$(cd "$TARGET" && docker compose config --services 2> "$KNOWN_ERRORS") || SERVICES=''
-      SERVICE=''
-      for name in web coil; do
-        if grep -Fxq "$name" <<< "$SERVICES"; then SERVICE="$name"; break; fi
-      done
-      if [ -z "$SERVICE" ] && [ "$(grep -c . <<< "$SERVICES" || true)" = 1 ]; then SERVICE="$SERVICES"; fi
-      # Docker creates a missing bind-mount source, so remember whether data/ existed.
-      DATA_EXISTED=0
-      if [ -e "$TARGET/data" ] || [ -L "$TARGET/data" ]; then DATA_EXISTED=1; fi
-      if [ -z "$SERVICE" ]; then
-        KNOWN_ERROR="${KNOWN_ERROR:+$KNOWN_ERROR; }docker compose found no Coil service: $(tail -n 1 "$KNOWN_ERRORS")"
-      elif (cd "$TARGET" && docker compose run --rm --no-deps -T "$SERVICE" python -m app.cli known_schema) \
-          < /dev/null > "$KNOWN_FILE" 2> "$KNOWN_ERRORS"; then
-        TARGET_CODE=ok
-      elif grep -Fq 'unknown command: known_schema' "$KNOWN_FILE"; then
-        KNOWN_ERROR="${KNOWN_ERROR:+$KNOWN_ERROR; }the image $SERVICE runs has no known_schema command, so it predates this check and is older than any backup that has a manifest"
+      PROJECT_COPY="$RESTORE_STAGE/project/$(basename "$(cd "$TARGET" && pwd)")"
+      mkdir -p "$PROJECT_COPY"
+      cp "$TARGET/$COMPOSE_FILE" "$PROJECT_COPY/$COMPOSE_FILE"
+      : > "$PROJECT_COPY/.env"
+      # Prints the service, then its image: an explicit image, or compose's own
+      # <project>-<service> name for one it builds.
+      if ! SERVICE_IMAGE=$( (cd "$PROJECT_COPY" && docker compose -f "$COMPOSE_FILE" config --format json) \
+          2> "$KNOWN_ERRORS" | python3 -c '
+import json, sys
+config = json.load(sys.stdin)
+services = config.get("services") or {}
+name = next((s for s in ("web", "coil") if s in services), None)
+if name is None and len(services) == 1:
+    name = next(iter(services))
+if name is None:
+    sys.exit("no web or coil service in the compose file")
+print(name)
+print(services[name].get("image") or "%s-%s" % (config.get("name"), name))
+' 2>> "$KNOWN_ERRORS"); then
+        KNOWN_ERROR="${KNOWN_ERROR:+$KNOWN_ERROR; }docker compose could not read $COMPOSE_FILE: $(tail -n 1 "$KNOWN_ERRORS")"
       else
-        KNOWN_ERROR="${KNOWN_ERROR:+$KNOWN_ERROR; }docker compose run $SERVICE python -m app.cli known_schema failed: $(tail -n 1 "$KNOWN_ERRORS")"
-      fi
-      if [ "$DATA_EXISTED" = 0 ] && [ -d "$TARGET/data" ] && [ ! -L "$TARGET/data" ]; then
-        rmdir "$TARGET/data" 2>/dev/null || true
+        SERVICE=$(sed -n 1p <<< "$SERVICE_IMAGE")
+        IMAGE=$(sed -n 2p <<< "$SERVICE_IMAGE")
+        if ! docker image inspect "$IMAGE" > /dev/null 2> "$KNOWN_ERRORS"; then
+          KNOWN_ERROR="${KNOWN_ERROR:+$KNOWN_ERROR; }the image $SERVICE runs ($IMAGE) is not on this host. Build or pull it first"
+        elif docker run --rm --network none --entrypoint python "$IMAGE" -m app.cli known_schema \
+            < /dev/null > "$KNOWN_FILE" 2> "$KNOWN_ERRORS"; then
+          TARGET_CODE=ok
+        elif grep -Fq 'unknown command: known_schema' "$KNOWN_FILE"; then
+          KNOWN_ERROR="${KNOWN_ERROR:+$KNOWN_ERROR; }the image $SERVICE runs ($IMAGE) has no known_schema command, so it predates this check and is older than any backup that has a manifest"
+        else
+          KNOWN_ERROR="${KNOWN_ERROR:+$KNOWN_ERROR; }docker run $IMAGE python -m app.cli known_schema failed: $(tail -n 1 "$KNOWN_ERRORS")"
+        fi
       fi
     fi
   fi

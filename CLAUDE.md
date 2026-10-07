@@ -23,8 +23,10 @@ Whoever holds the Grok seat writes handoffs by [docs/QA-HANDOFF.md](docs/QA-HAND
 send to the QA inbox) and then check the result, with every test record named `QA` plus
 the date, and the next handoff posted in the same comment that records the last result.
 Reads of pages that are empty because nothing was created do not count as cases.
-Since 2026-10-04 (Ian: "let's do Phase 2") invoicing, manual payments, plans, multi-currency
-and trust are back in scope on QA records. The AI assistant (P1-AI) stays parked until the very end (Ian, 2026-10-04: "almost a
+Since 2026-10-04 (Ian: "let's do Phase 2") invoicing, manual payments, plans and trust are
+back in scope on QA records, in US dollars only. Since 2026-10-06 (Ian) every non-USD currency
+and every language other than English (translations and non-Latin scripts in text and PDFs)
+is parked until the last phase: no batches, no fixes, issues labelled `last-phase`. The AI assistant (P1-AI) stays parked until the very end (Ian, 2026-10-04: "almost a
 separate product"), and since
 2026-10-04 testfirm runs on Stripe test keys, so card flows there use Stripe test cards only.
 They moved to Phase 2 on 2026-10-03, so Phase 1 is 21 tools. Open Phase 1 tools now get
