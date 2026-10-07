@@ -33,7 +33,7 @@
 <div class="card"><h2>Recent deliveries</h2>
   {% if deliveries %}<table><tr><th>When</th><th>Event</th><th>Webhook</th><th>Status</th><th class="num">Attempts</th><th>Response</th><th></th></tr>
   {% for d in deliveries %}<tr>
-    <td class="nowrap small">{{ (d.last_at or d.created_at)|dt }}</td><td><code>{{ d.event }}</code></td>
+    <td class="nowrap small">{{ (d.last_at or d.created_at)|dtlocal }}</td><td><code>{{ d.event }}</code></td>
     <td class="small" style="word-break:break-all">{{ d.webhook.url if d.webhook else '' }}</td>
     <td>{% if d.status == 'ok' %}<span class="badge paid">ok</span>{% elif d.status == 'failed' %}<span class="badge overdue">failed</span>{% else %}<span class="badge draft">{{ d.status }}</span>{% endif %}</td>
     <td class="num">{{ d.attempts }}</td>

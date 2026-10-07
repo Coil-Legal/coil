@@ -5,7 +5,7 @@
     {% if current_user().role == 'owner' %}<form method="post" action="/audit/run" class="inline">{{ csrf() }}<button class="btn small" title="Runs the same checks the nightly job runs (python -m app.cli case_audit)">Run audit now</button></form>{% endif %}
     <a class="btn small secondary" href="/pi">PI board</a>
   </div></div>
-<p class="small muted">Every open matter is checked nightly: records and bills outstanding, treatment gaps, imaging mentioned but not obtained, limitations dates without a deadline task, quiet files, liens without a contact, unanswered demands, unknown policy limits. Findings marked <span class="badge new">AI</span> came from the model reading the file and are suggestions to check, not facts.{% if run %} Last run {{ run.created_at|dt }} ({{ run.detail }}).{% else %} The audit has not run yet.{% endif %}{% if not ai_on %} AI flags are off: turn AI on in Settings and set a key to get them.{% endif %}</p>
+<p class="small muted">Every open matter is checked nightly: records and bills outstanding, treatment gaps, imaging mentioned but not obtained, limitations dates without a deadline task, quiet files, liens without a contact, unanswered demands, unknown policy limits. Findings marked <span class="badge new">AI</span> came from the model reading the file and are suggestions to check, not facts.{% if run %} Last run {{ run.created_at|dtlocal }} ({{ run.detail }}).{% else %} The audit has not run yet.{% endif %}{% if not ai_on %} AI flags are off: turn AI on in Settings and set a key to get them.{% endif %}</p>
 
 <div class="grid c4">
   <div class="card stat"><div class="label">Open findings</div><div class="value">{{ counts.total }}</div></div>

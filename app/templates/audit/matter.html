@@ -5,7 +5,7 @@
   <div class="actions" style="margin:0">
     {% if current_user().role == 'owner' %}<form method="post" action="/audit/run" class="inline">{{ csrf() }}<input type="hidden" name="next" value="/audit/{{ m.id }}"><button class="btn small">Run audit now</button></form>{% endif %}
   </div></div>
-<p class="small muted">{{ open_n }} open finding{{ '' if open_n == 1 else 's' }}.{% if run %} Last run {{ run.created_at|dt }}.{% else %} The audit has not run yet.{% endif %}{% if not pi %} This matter has no PI case, so only the limitations and activity checks apply.{% endif %} Findings marked <span class="badge new">AI</span> are model suggestions from the file text, not facts.</p>
+<p class="small muted">{{ open_n }} open finding{{ '' if open_n == 1 else 's' }}.{% if run %} Last run {{ run.created_at|dtlocal }}.{% else %} The audit has not run yet.{% endif %}{% if not pi %} This matter has no PI case, so only the limitations and activity checks apply.{% endif %} Findings marked <span class="badge new">AI</span> are model suggestions from the file text, not facts.</p>
 <div class="card">
 {% if rows %}
 <table><tr><th>Status</th><th>Severity</th><th>Kind</th><th>Finding</th><th>First seen</th><th>Last seen</th><th></th></tr>
