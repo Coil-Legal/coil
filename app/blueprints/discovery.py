@@ -798,9 +798,9 @@ def export(id):
         return redirect(url_for("discovery.detail", id=ds.id))
     db.session.flush()
     ds.output_document_id = doc.id
-    audit("generate", "document", doc.id, f"{name} for {ds.matter.number}", _uid())
+    audit("generate", "document", doc.id, f"{doc.name} for {ds.matter.number}", _uid())
     db.session.commit()
-    flash(f"PDF filed under Documents in the Discovery folder: {name}", "ok")
+    flash(f"PDF filed under Documents in the Discovery folder: {doc.name}", "ok")
     return redirect(url_for("discovery.detail", id=ds.id))
 
 
@@ -1305,9 +1305,9 @@ def deposition_export(id):
         flash(err, "error")
         return redirect(url_for("discovery.deposition_detail", id=dep.id))
     db.session.flush()
-    audit("generate", "document", doc.id, f"{name} for {dep.matter.number}", _uid())
+    audit("generate", "document", doc.id, f"{doc.name} for {dep.matter.number}", _uid())
     db.session.commit()
-    flash(f"PDF filed under Documents in the Depositions folder: {name}", "ok")
+    flash(f"PDF filed under Documents in the Depositions folder: {doc.name}", "ok")
     return redirect(url_for("discovery.deposition_detail", id=dep.id))
 
 

@@ -37,6 +37,19 @@ def _fit_filesystem_limit(safe):
     return safe[:MAX_SAFE_NAME_BYTES]
 
 
+def _fit_stored_name(name, limit=300):
+    """Shorten a document's display name to fit the `documents.name` column, keeping its
+    extension (#180: a tail cut on a long discovery/deposition export title dropped the date
+    and the .pdf extension off the name actually stored, while the flash and the set's own
+    "Last export" line kept showing the untruncated name the file was never saved as)."""
+    if len(name) <= limit:
+        return name
+    base, dot, ext = name.rpartition(".")
+    if dot and 0 < len(ext) < limit:
+        return base[:limit - len(ext) - 1] + "." + ext
+    return name[:limit]
+
+
 def _int(v):
     try:
         return int(v)
@@ -267,7 +280,7 @@ def store_bytes(matter_id, name, data, mime="", user_id=None, shared=False, by_c
     with open(full, "wb") as f:
         f.write(data)
     mime = mime or mimetypes.guess_type(name)[0] or "application/octet-stream"
-    doc = Document(matter_id=matter_id, name=name[:300], path=f"{rel_dir}/{fname}", size=size, mime=mime,
+    doc = Document(matter_id=matter_id, name=_fit_stored_name(name), path=f"{rel_dir}/{fname}", size=size, mime=mime,
                    uploaded_by_id=user_id, shared_to_portal=shared, uploaded_by_client=by_client,
                    extracted_text=extract_text(full, ext), folder=clean_folder(folder), tags=tags_str(parse_tags(tags)),
                    version=version, version_of_id=version_of_id, is_current=is_current)
