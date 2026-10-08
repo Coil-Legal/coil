@@ -79,7 +79,7 @@ def _overflow_months(d, n):
     return date(y, m, last) + timedelta(days=d.day - last) if d.day > last else None
 
 
-def construction_note(trigger_date, rule):
+def construction_note(trigger_date, rule, holidays=()):
     """Say so when month arithmetic had to make a choice, and name the date we did not use.
 
     Silent for trigger days 1 through 28, where nothing is ambiguous. That is the point:
@@ -94,20 +94,33 @@ def construction_note(trigger_date, rule):
     "wrong" against that regulation.
 
     We take the earlier date in both cases. Filing early is survivable; filing late is not.
+
+    The clamped date can itself land on a weekend or holiday, which compute_deadline then
+    rolls to the next (or previous) court day when the rule has roll on (#179: the note named
+    the pre-roll clamped date as the date shown, when the task's actual due date, and the
+    identical copy saved into its notes, was the rolled one).
     """
     day_type = getattr(rule, "day_type", "calendar") or "calendar"
     if day_type not in MONTH_UNITS:
         return ""
+    direction = getattr(rule, "direction", "after") or "after"
     n = int(getattr(rule, "offset_days", 0) or 0) * MONTH_UNITS[day_type]
-    if getattr(rule, "direction", "after") == "before":
+    if direction == "before":
         n = -n
     if not n:
         return ""
     ours = add_months(trigger_date, n)
     spill = _overflow_months(trigger_date, n)
+    rolled = None
+    if bool(getattr(rule, "roll", True)):
+        hol = _holiday_set(holidays)
+        if not is_court_day(ours, hol):
+            rolled = _roll(ours, -1 if direction == "before" else 1, hol)
+    roll_clause = (f" {ours.isoformat()} falls on a {ours.strftime('%A')}, so it rolls to "
+                   f"{rolled.isoformat()}, the date actually shown and saved." if rolled else "")
     if spill:
         return (f"{trigger_date.isoformat()} has no matching day in that month, so this date is the "
-                f"last day of the month ({ours.isoformat()}). Read the other way it would be "
+                f"last day of the month ({ours.isoformat()}).{roll_clause} Read the other way it would be "
                 f"{spill.isoformat()}. Coil takes the earlier date. Check the rule.")
     if trigger_date.day == calendar.monthrange(trigger_date.year, trigger_date.month)[1]:
         y, m = divmod((trigger_date.year * 12 + trigger_date.month - 1) + n, 12)
@@ -115,7 +128,7 @@ def construction_note(trigger_date, rule):
         last = date(y, m, calendar.monthrange(y, m)[1])
         if last != ours:
             return (f"{trigger_date.isoformat()} is the last day of its month. This date keeps the same "
-                    f"day number ({ours.isoformat()}). A last-day-to-last-day reading gives "
+                    f"day number ({ours.isoformat()}).{roll_clause} A last-day-to-last-day reading gives "
                     f"{last.isoformat()}. Coil takes the earlier date. Check the rule.")
     return ""
 
@@ -557,7 +570,7 @@ def apply_rules(matter, ruleset, trigger, trigger_date, user=None):
             skipped.append(r)
             continue
         # A construction warning belongs on the task, not only on the preview the user already left.
-        note = "\n\n".join(x for x in ((r.notes or "").strip(), construction_note(trigger_date, r)) if x)
+        note = "\n\n".join(x for x in ((r.notes or "").strip(), construction_note(trigger_date, r, hol)) if x)
         t = Task(matter_id=matter.id, title=r.title, kind=r.kind if r.kind in ("task", "deadline", "court_date")
                  else "deadline", due_on=compute_deadline(trigger_date, r, hol), priority="normal",
                  assignee_id=matter.responsible_user_id, notes=note, rule_id=r.id,
@@ -607,7 +620,7 @@ def apply(id):
             if r.trigger == trigger:
                 exists = Task.query.filter_by(matter_id=m.id, rule_id=r.id, trigger_date=trigger_date).first()
                 preview.append((r, compute_deadline(trigger_date, r, hol), exists,
-                                construction_note(trigger_date, r)))
+                                construction_note(trigger_date, r, hol)))
     existing = Task.query.filter(Task.matter_id == m.id, Task.rule_id.isnot(None)).order_by(Task.due_on).all()
     return render_template("rules/apply.html", m=m, sets=sets, rs=rs, triggers=triggers, trigger=trigger,
                            trigger_date=trigger_date, preview=preview, existing=existing,
