@@ -41,7 +41,7 @@
   <td><input type="checkbox" name="doc_id" value="{{ d.id }}" aria-label="Select {{ d.name }}"></td>
   <td><a href="/documents/{{ d.id }}/download">{{ d.name }}</a>{% if d.version and d.version > 1 %} <a class="badge new" href="/documents/{{ d.id }}/versions" title="See version history">v{{ d.version }}</a>{% endif %}<br><span class="small muted">{{ d.mime }}</span>{% if d.tags %} {% for t in d.tags.split(',') %}<a class="badge" href="/documents?tag={{ t.strip()|urlencode }}{% if matter_id %}&amp;matter_id={{ matter_id }}{% endif %}" style="text-transform:none">{{ t.strip() }}</a> {% endfor %}{% endif %}</td>
   <td><a href="/matters/{{ d.matter_id }}">{{ d.matter.label }}</a></td>
-  <td class="nowrap">{{ d.created_at|dt }}</td>
+  <td class="nowrap">{{ d.created_at|dtlocal }}</td>
   <td>{% if d.uploaded_by_client %}<span class="badge pending">client</span>{% else %}{{ d.uploaded_by.name if d.uploaded_by else '' }}{% endif %}</td>
   <td class="num">{% if d.size >= 1048576 %}{{ (d.size / 1048576)|round(1) }} MB{% else %}{{ (d.size / 1024)|round(1) }} KB{% endif %}</td>
   <td><button class="btn small {{ 'ok' if d.shared_to_portal else 'secondary' }}" formaction="/documents/{{ d.id }}/share">{{ 'Shared' if d.shared_to_portal else 'Not shared' }}</button></td>

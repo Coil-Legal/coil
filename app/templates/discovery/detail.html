@@ -12,7 +12,7 @@
 </div>
 <p class="small muted">AI output on this page is a draft for attorney review. {% if not ai.available %}AI is not available right now: {{ ai.reason }}{% endif %}</p>
 {% if task %}<div class="flash ok">Deadline task <a href="/tasks/{{ task.id }}">{{ task.title }}</a> is due {{ task.due_on|d }}{% if task.done %} (done){% endif %}.</div>{% endif %}
-{% if out_doc %}<div class="flash">Last export: <a href="/documents/{{ out_doc.id }}/download">{{ out_doc.name }}</a> ({{ out_doc.created_at|dt }}) in the Discovery folder.</div>{% endif %}
+{% if out_doc %}<div class="flash">Last export: <a href="/documents/{{ out_doc.id }}/download">{{ out_doc.name }}</a> ({{ out_doc.created_at|dtlocal }}) in the Discovery folder.</div>{% endif %}
 
 <form method="post" action="/discovery/{{ ds.id }}/save" id="editor">{{ csrf() }}
 <div class="card">
