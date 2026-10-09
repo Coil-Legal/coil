@@ -846,6 +846,208 @@ send, an empty-message refusal, a label-click focus test, keyboard-only logout, 
 client account with no matter to check empty-state text is real text, cleanup, and a
 findings table that checks against #97 before filing anything new.
 
+### R116. Card payments in Stripe test mode (testfirm): the invoice Pay-now flow, the card
+### surcharge, ACH with no fee, and a declined card (P2-B1-0)
+status: queued
+
+From the Bot 1 backlog's `P2-B1-0`, next in Ian's Phase 2 order. R113 already covered
+"Request card on file" and a plan installment auto-charged to a saved card; this batch is
+the other half of P2-B1-0 that R113 never touched: paying an invoice directly through
+`/pay/<token>` (the public "Pay this invoice" buttons), the card surcharge shown before the
+Stripe redirect, ACH with no surcharge, and a declined card. Reading `app/blueprints/
+payments.py` fresh: `surcharge_for()` only ever applies to `method == "card"` and only when
+`Firm.surcharge_enabled` is true (default off, `surcharge_bps` defaults to 300 i.e. 3%,
+confirmed still off by R113); `pay()` computes it before building the Stripe Checkout line
+items, and `record_from_session()` (called from both `/pay/<token>/success` and the
+`/webhooks/stripe` route) is the one idempotent helper keyed on the Checkout Session id, so
+whichever of the two fires first records the payment and the other is a no-op. Create only
+records named `QA Pay ... 20261008`. Case numbers continue from R115's last case (2892), so
+this batch starts at 2893. Enabling the card surcharge is a firm-wide `/settings` change,
+normally Bot 2's territory, but qa2 carries no Stripe keys at all so Bot 2 can never reach
+a Stripe-backed confirm page to see a surcharge on it; this is the one firm-wide toggle
+Ian's own P2-B1-0 wording ("the surcharge shown before redirect if the firm has one") puts
+on Bot 1 instead, the same exception already used for the invoice-template editor
+(`P2-B1-2`). Toggle it on only for this batch and put it back off at cleanup, same as that
+item's "put it back as found" rule.
+
+1. Setup: as owner, create contact `QA Pay Client 20261008` (person, client) with email
+   `qa-pay-20261008@coil.test`. Expect `Contact created.` Create matter `QA Pay Matter
+   20261008` on it (Hourly, no template, open). Expect `Matter M-.... opened.` Record its
+   number as M-NN.
+2. Act and check, ACH online payment with no surcharge: log 1.00 hour on M-NN, description
+   `QA Pay ACH 20261008`. Expect `Logged 1.00 hours on M-NN.` Draft an invoice from it.
+   Expect `Invoice INV-.... created as a draft.` (approval is off on testfirm, per R113).
+   Record its number as INV-ACH. Send it to the contact's email. Expect `Invoice INV-ACH
+   sent to qa-pay-20261008@coil.test.` In `/dev/outbox`, open that email's link (do not
+   paste it) to the public invoice page. Confirm the "Pay this invoice" card shows two
+   buttons, "Pay by bank transfer (ACH), no fee" and "Pay by card", with no surcharge note
+   under either (the firm's surcharge is still off). Click "Pay by bank transfer (ACH), no
+   fee"; the confirm page's small text should read exactly "Bank transfer (ACH). You will
+   be taken to a secure Stripe page to connect or enter your bank account. Bank payments
+   usually settle in a few business days; no surcharge applies." Continue, and complete
+   Stripe's own hosted test bank connection however its Checkout page offers it (a test
+   institution is fine), to finish the ACH payment.
+3. Check: on the redirect back, report exactly what the "Thank you" page shows: either the
+   payment already received ("Your payment of $X.XX on invoice INV-ACH has been received.")
+   or the pending-settlement text ("Your payment on invoice INV-ACH is on its way...."),
+   Stripe test-mode ACH can settle either instantly or as pending; either is fine, just
+   report which. Reload the invoice detail page: expect status "paid", balance $0.00, and
+   exactly one payment row (not two, confirming the webhook and the success page did not
+   double-record the same Checkout Session). Open that payment's own detail page: method
+   "ach", no Surcharge row, a Stripe session and payment intent both present.
+4. Act and check, turning the card surcharge on: open `/settings`, confirm the "Card
+   surcharge" box is unticked (matching R113's note that it is off). Tick "Add a surcharge
+   to card payments", leave the percent field at its prefilled value (expect 3, from the
+   stored 300 basis points), save. Expect `Settings saved.`
+5. Act and check, the card surcharge shown before the Stripe redirect: log a second 1.00
+   hour on M-NN, description `QA Pay Card 20261008`. Draft and send a second invoice the
+   same way as case 2; record its number as INV-CARD. On its public page, confirm the "Pay
+   by card" button now shows the small note "A 3% card surcharge applies." underneath it,
+   and the ACH button is still labelled "no fee". Click "Pay by card"; the confirm page
+   should show a "Card processing surcharge 3%" row, a "Total to pay" row equal to the
+   balance plus that surcharge, and the small text "The surcharge covers the card
+   processor's fee and is not charged for bank payments. Pay by bank transfer instead to
+   avoid it." Continue to Stripe and complete it with the test card `4242 4242 4242 4242`,
+   any future expiry, any CVC and ZIP.
+6. Check: the "Thank you" page reports the payment received and names a card surcharge
+   amount matching case 5's 3% figure. The invoice is paid, balance $0.00. Its one payment
+   row shows method "card" and a Surcharge line for that same amount; the invoice detail
+   page's own payment-history row also shows the "+$X.XX surcharge" note next to the amount.
+7. Edge, a declined card: log a third 1.00 hour on M-NN, description `QA Pay Decline
+   20261008`. Draft and send a third invoice; record its number as INV-DECLINE. On its
+   public page click "Pay by card" and continue to Stripe. Enter the decline test card
+   `4000 0000 0000 0002`, any future expiry, any CVC and ZIP, and submit. Report Stripe's
+   own inline decline message (shown on the Checkout page itself, no redirect). Then leave
+   the Checkout page using its own back/cancel link rather than submitting again. Expect
+   this lands on Coil's own cancel page, "No payment was made": "You left the payment page
+   before finishing, so nothing was charged. Invoice INV-DECLINE still shows $X.XX due. You
+   can come back any time." Confirm INV-DECLINE is still unpaid with its full balance due
+   and holds no payment row.
+8. Act and check, turning the surcharge back off: on `/settings`, untick "Add a surcharge to
+   card payments", save. Expect `Settings saved.` Reload INV-DECLINE's still-open public
+   page: confirm the "Pay by card" button's surcharge note is gone again and the small text
+   on its confirm page reads the no-surcharge version, "You will be taken to a secure
+   Stripe page to enter your card."
+9. Edge, a pay link that does not exist: open `/pay/not-a-real-token-20261008`. Expect HTTP
+   404.
+10. Edge, a pay link for an invoice already paid in full: reopen the original ACH email
+    link from case 2 (now case 3's paid invoice). Expect Coil's own closed-invoice page, not
+    Stripe: "Invoice INV-ACH is paid" / "Nothing is owed on this invoice. Thank you."
+11. Clean up: void INV-DECLINE (the only one of the three left unpaid). Expect `Invoice
+    INV-DECLINE voided. Its time, expenses and milestones can be billed again.` Leave
+    INV-ACH and INV-CARD in place, paid; they are harmless and worth keeping as regression
+    fixtures for the surcharge and ACH paths. Confirm the firm's card surcharge is off
+    again (case 8).
+12. What remains: the surviving fixtures are contact `QA Pay Client 20261008` and matter
+    `QA Pay Matter 20261008` (M-NN, open, holding INV-ACH and INV-CARD both paid, and
+    INV-DECLINE void). State plainly whether the public page's button labels and surcharge
+    note (cases 2, 5, 8), the ACH no-surcharge path and its idempotent single payment row
+    (cases 2-3), the card surcharge's confirm-page row and total (case 5), the surcharge
+    noted on the payment record (case 6), the decline's own Stripe-side message and Coil's
+    cancel page (case 7), the already-paid closed page (case 10), and the bad-token 404
+    (case 9) all held exactly as described, or name the one that did not.
+
+### R117. Invoicing core (testfirm): draft from time and an expense, the approval workflow
+### gated by a non-approver role, send/resend/remind, void returning items to unbilled, and
+### the client statement (P2-B1-1)
+status: queued
+
+From the Bot 1 backlog's `P2-B1-1`, next after `P2-B1-0` (R113, R116) in Ian's Phase 2
+order. The backlog note's own wording ("the PDF with Greek names") predates Ian's
+2026-10-06 ruling that every non-Latin script is parked until the last phase, so this batch
+drops that half and tests the PDF in English only; everything else in the note stays.
+Reading `app/blueprints/invoices.py` fresh: `_initial_approval()` only queues an invoice as
+`pending` when `Firm.require_invoice_approval` is on (confirmed off, per R113/R116) and the
+drafting user is outside `APPROVER_ROLES = ("owner", "billing")`, so proving the approval
+path needs a non-owner, non-billing user, an attorney; `send_blocked_reason()` is the gate
+that refuses a pending or rejected invoice to anyone but an approver, with its own worded
+flash; `send()` lets an approver's own send double as approval ("Owners and billing users
+approve as they send"), so this batch routes case 7 through the explicit `/approve` button
+instead, to exercise that flash on its own. `app/permissions.py`'s `_ATTORNEY` set holds
+`billing` but not `trust`, and `/statements` maps to `trust`, so an attorney hitting it gets
+the worded `_deny()` 403 ("Your role (attorney) cannot open trust accounting..."), not the
+bare one R115 found on the self-edit id-mismatch guard; this is the batch's one role-matrix
+edge, surfacing naturally out of the statement step rather than a separate sign-off pass.
+Void (`void()`) only refuses when `paid_cents` is set on the invoice or a split sibling, so
+voiding any of this batch's never-paid invoices returns their time and expense to unbilled
+regardless of draft/sent status. Create only records named `QA Invoice ... 20261008`. Case
+numbers continue from R116's last case (2904), so this batch starts at 2905. Turning
+`require_invoice_approval` on is the same kind of firm-wide exception R116 used for the
+surcharge: it is a `/settings` change that normally belongs to Bot 2, but Ian's own
+P2-B1-1 wording puts "approval" on this backlog item, so it stays here; toggle it on only
+for this batch and put it back off at cleanup, same as R116's rule.
+
+1. Setup: as owner, create contact `QA Invoice Client 20261008` (person, client) with email
+   `qa-invoice-20261008@coil.test`. Expect `Contact created.` Create matter `QA Invoice
+   Matter 20261008` on it (Hourly, no template, open). Expect `Matter M-.... opened.`
+   Record its number as M-NN.
+2. Act and check: log 2.00 hours on M-NN, description `QA Invoice Time A 20261008`. Expect
+   `Logged 2.00 hours on M-NN.` Add an expense on M-NN, amount $45.00, description `QA
+   Invoice Expense 20261008`, with a small receipt file attached. Expect `Expense saved.`
+   Confirm both appear as unbilled on M-NN's Time and Expenses tabs.
+3. Edge, nothing picked: open the invoice builder for M-NN and submit it with every line
+   item unticked (no `time_ids`, `expense_ids` or `milestone_ids`). Expect `Pick at least
+   one item to invoice, or enter an amount.`, no invoice created, both items still unbilled.
+4. Act and check: draft an invoice from the time and the expense together (approval still
+   off). Expect `Invoice INV-.... created as a draft.` (no "submitted for approval" clause).
+   Record its number as INV-A. Confirm its total is $85.00 (2.00 h + $45.00, at this
+   matter's hourly rate) and its two lines match cases 2's time and expense.
+5. Act and check: create user `QA Invoice Attorney 20261008` (role attorney), password
+   `QaInvoice2026Pass`. Expect `Added QA Invoice Attorney 20261008.` On `/settings`, tick
+   "Invoices built by anyone other than the owner or billing staff need approval before
+   sending", save. Expect `Settings saved.` Signed in as the new attorney, log 1.00 hour on
+   M-NN, description `QA Invoice Time B 20261008`. Draft a second invoice from just that
+   hour. Expect `Invoice INV-.... created as a draft and submitted for approval.` Record its
+   number as INV-B; confirm its approval status is pending (shown on its detail page).
+6. Act and check, the two refusals a pending invoice draws: still as the attorney, attempt
+   to send INV-B. Expect `This invoice is waiting for approval by the owner or a billing
+   user before it can be sent.`, INV-B still unsent. Then open `/statements/<QA Invoice
+   Client 20261008's contact id>`. Expect HTTP 403, "Your role (attorney) cannot open trust
+   accounting. Ask the firm owner if you need that access."
+7. Act and check: signed back in as owner, open INV-B and approve it with note `QA Invoice
+   Approve 20261008`. Expect `Invoice INV-.... approved. It can be sent now.`
+8. Act and check: send INV-A and INV-B to the client, each from their own detail page.
+   Expect `Invoice INV-.... sent to qa-invoice-20261008@coil.test.` twice, once per number.
+   In `/dev/outbox`, confirm two new invoice emails, one per number, without opening either
+   link.
+9. Act and check, resend: send INV-A again. Expect the identical `Invoice INV-.... sent to
+   qa-invoice-20261008@coil.test.` flash. On INV-A's detail page, confirm its event list now
+   shows two separate "sent" events, not one overwritten.
+10. Act and check, reminder: remind on INV-B. Expect `Reminder sent to
+    qa-invoice-20261008@coil.test.` Confirm `/dev/outbox` now shows a third email, marked as
+    a reminder, addressed to the same client.
+11. Edge, reject then resubmit (approval's undo and redo): as the attorney, log one more
+    hour on M-NN, description `QA Invoice Time C 20261008`, and draft a third invoice from
+    it. Expect pending, as in case 5. Record its number as INV-C. Signed in as owner, reject
+    it with note `QA Invoice Reject 20261008`. Expect `Invoice INV-.... sent back. It stays
+    a draft and can be edited and resubmitted.` Signed back in as the attorney, open INV-C's
+    edit page, add the word `Resubmitted` to its notes, save; expect `Invoice updated.`
+    Submit it again. Expect `Invoice INV-.... submitted for approval.` Signed in as owner,
+    approve it a second time with note `QA Invoice Approve 2 20261008`; expect the same
+    approved flash as case 7.
+12. Act and check, the PDF and the statement: download INV-A's PDF (`/invoices/<id>/pdf`).
+    Confirm it opens and shows INV-A's number, the client's name and its $85.00 total, in
+    English. Open `/statements/<the client's contact id>` as owner. Confirm it lists INV-A
+    and INV-B (both sent) with a running balance of $85.00 + INV-B's one-hour total, INV-C
+    included too since approval alone does not exclude it from the statement. Download the
+    statement PDF, then send the statement to the client. Expect `Statement sent to
+    qa-invoice-20261008@coil.test.`
+13. Act and check, void returning items to unbilled: void INV-C (approved, never sent, never
+    paid). Expect `Invoice INV-.... voided. Its time, expenses and milestones can be billed
+    again.` Open the invoice builder for M-NN again; confirm case 11's one hour (`QA Invoice
+    Time C 20261008`) is back in the unbilled time list, available to pick.
+14. Clean up: on `/settings`, untick the approval checkbox from case 5, save; expect
+    `Settings saved.` again. Deactivate `QA Invoice Attorney 20261008`; expect `User saved.`
+15. What remains: the surviving fixtures are contact `QA Invoice Client 20261008`, matter
+    `QA Invoice Matter 20261008` (M-NN, open, holding case 11's now-unbilled hour), INV-A
+    (sent, twice), INV-B (sent, approved, once) and INV-C (void), and the now-inactive
+    attorney user. State plainly whether the empty-pick refusal (case 3), the plain draft
+    (case 4), the approval-gated draft and its two refusals (cases 5-6), the explicit
+    approve flash (case 7), send and resend (cases 8-9), the reminder (case 10), the
+    reject-then-resubmit round trip (case 11), the PDF and the statement including its
+    running balance (case 12), and void returning time to unbilled (case 13) all held
+    exactly as described, or name the one that did not.
+
 ## Bot 2 (#89, QA Bot 2, qa2.coil.legal)
 
 ### S1. Security sweep: clients cannot reach each other, roles cannot climb
@@ -1877,6 +2079,199 @@ signable end to end, the same way testfirm's already work.
     Reconfirm user 42 is inactive and that the full retained list above this batch is
     untouched.
 
+### S124. Evergreen trust minimum/replenish-to and the auto-invoice-monthly flag on a matter (qa2): the dashboard card's math, and two role-matrix edges that cross the matters/trust/billing boundary
+status: queued
+
+Not a backlog item (the coordinator's S123 note already established the backlog and the
+Phase 2 register are both fully done, and `git log 155fad8..HEAD -- app` is empty, so there
+is no regression ground either). These two `Matter` fields are set on the ordinary
+`/matters/<id>/edit` form but were explicitly left alone by the original Matters-hub deep
+pass ("Money- and trust-adjacent fields on the matter... are left alone this batch") and
+have never been exercised directly since: `trust_minimum_cents`/`trust_replenish_to_cents`
+only ever showed up as the "evergreen" dashboard card's name in the Dashboard batch's role
+gating (S42, cards present/absent, never a real shortfall), and `auto_invoice_monthly` has
+never been touched at all. Read `app/blueprints/matters.py`'s `_fill()` (the clamp: a
+replenish-to under the minimum is bumped up to the minimum, blank = 0 = off) and `edit()`'s
+flash; `app/blueprints/trust.py`'s `evergreen_shortfalls()` (filters `trust_minimum_cents >
+0`, shortfall = replenish_to-or-minimum minus the matter's own earmarked-plus-unallocated
+balance) and its rendering on `app/templates/dashboard.html`'s evergreen card
+(`trust_view`-gated); `app/blueprints/invoices.py`'s `bulk()`/`bulk_monthly()` (the
+`monthly_count` line, the exact flash `Monthly invoicing: {n} matter(s) opted in. Drafts are
+built {on day N of each month|when a billing day is set under Settings, Invoice template}.`)
+and `app/templates/invoices/bulk.html`'s help sentence; and `app/permissions.py` (`/matters`
+needs the `matters` write permission regardless of money content, `/invoices` needs
+`billing`, so a paralegal who holds full `matters` but no `trust`/`billing` at all can set
+these very fields while never being able to see their own dashboard effect, and a billing
+user who holds `matters_view` but not `matters` can read but never write the matter form,
+yet can still flip `auto_invoice_monthly` through the separate `/invoices/bulk/monthly`
+route). Every flash and 403 below is quoted from these files at this pin. The actual
+monthly invoicing run itself is a CLI command (`python -m app.cli monthly_invoicing`), not a
+web route, so building a draft from it is out of reach for a browser bot and is not a case
+here. Firm-wide `monthly_billing_day` under Settings, Invoice template is read, not changed
+(leave it exactly as found). No money moves: no deposit, invoice or payment is created, only
+a matter's own trust-target fields and its monthly flag. Create only records named `QA2
+Evergreen ... 20261008`. Case numbers continue from S123's last case (6674), so this batch
+starts at 6675.
+
+Pin: `155fad8` / `demo-20261007`. qa2, testfirm and demo all report healthy on this commit
+as of this post.
+
+You are bot 2. Stay on https://qa2.coil.legal only. Do not sign in to testfirm.coil.legal or
+demo.coil.legal. Do not post on issue #12. Start every ACK, result and finding with `[QA
+Bot 2]`; title any filed issue `QA2:`.
+
+If `/health` changes during the batch, check https://qa2.coil.legal/health,
+https://testfirm.coil.legal/health and https://demo.coil.legal/health. If all three are
+healthy and name the same commit, adopt it, write the old and new pin in the result, and
+carry on. Stop and wait only if they disagree, one is unhealthy, or a newer comment here
+says Stop.
+
+Standing exclusions: no AI buttons or keys, no Send text, no provider settings; card
+payments are never tested on qa2 (it holds no Stripe keys); invoices, payments and plans
+only on records this batch creates (this batch creates none); never paste a password, token,
+sign-in link or feed URL; create only records named with the `QA2` prefix and today's date;
+everything the last result listed as retained stays as it is.
+
+1. Setup (act and check): create contact `QA2 Evergreen Client 20261008` (person, client).
+   Expect `Contact created.` New matter `QA2 Evergreen Matter 20261008` on it (Hourly, rate
+   $100.00, office none, no template, open). Expect a flash matching `Matter M-.... opened.`
+   Record its id/number as M-ID/M-NN. Open its edit form: confirm "Evergreen retainer
+   minimum" and "Replenish to" are both blank and "Invoice this matter automatically each
+   month" is unticked.
+2. Act and check: edit M-ID, set "Evergreen retainer minimum" to $500.00, leave "Replenish
+   to" blank, save. Expect flash exactly `Matter saved.` Re-open the edit form: confirm the
+   minimum reads $500.00 and "Replenish to" is still blank.
+3. Act and check, the dashboard card picks up a real shortfall: as owner, open `/dashboard`
+   with the evergreen card ticked (enable it under `/dashboard/customize` first if it is not
+   already). Expect M-NN listed with "In trust" $0.00 and "Short by" $500.00 (no replenish
+   target set, so the shortfall falls back to the minimum). Confirm the row links to M-ID.
+4. Act and check, replenish-to under the minimum is clamped up: edit M-ID again, set
+   "Replenish to" to $300.00 (below the $500 minimum), save. Expect `Matter saved.` Re-open
+   the edit form and confirm "Replenish to" now reads $500.00, not $300.00. Confirm the
+   dashboard card's "Short by" is still $500.00.
+5. Act and check, a replenish-to above the minimum takes as entered: edit again, set
+   "Replenish to" to $750.00 (above the $500 minimum), save. Expect `Matter saved.` Confirm
+   the dashboard card now reads "Short by" $750.00, "In trust" still $0.00.
+6. Edge, blanking the minimum turns evergreen off even with a replenish target still set:
+   edit M-ID, clear "Evergreen retainer minimum" only (leave "Replenish to" at $750.00),
+   save. Expect `Matter saved.` Confirm the dashboard evergreen card no longer lists M-NN at
+   all (`evergreen_shortfalls()` filters on `trust_minimum_cents > 0`). Restore the minimum
+   to $600.00 (a new value, not the original $500, so case 7 does not read as a no-op).
+7. Edge, a second role that can write the field but never see its effect: create a
+   paralegal user `QA2 Evergreen Paralegal 20261008` if none exists this batch (expect
+   `Added QA2 Evergreen Paralegal 20261008.`). Signed in as it, `POST /matters/<M-ID>/edit`
+   changing nothing but confirming the minimum still reads $600.00 from case 6 (paralegal
+   holds the full `matters` permission, so this plain save succeeds with `Matter saved.`,
+   even though paralegal holds no `trust` permission at all). Still as paralegal, open
+   `/dashboard`: confirm the evergreen card itself does not render (gated on `trust_view`).
+   Sign back in as owner and confirm the card now reads $600.00 minimum, $750.00 short.
+8. Edge, the mirror case on the billing side, read access but not write: create a billing
+   user `QA2 Evergreen Billing 20261008` if none exists this batch (expect `Added QA2
+   Evergreen Billing 20261008.`). Signed in as it, `GET /matters/<M-ID>/edit`: expect 200
+   (billing holds `matters_view`) showing the $600.00 minimum. Submit that same form
+   unchanged (a POST): expect the worded 403 "Your role (billing) cannot change matters and
+   contacts. Ask the firm owner if you need that access." Confirm the minimum is still
+   $600.00 afterward. Still as billing, open `/invoices/bulk`: expect 200, with M-NN listed
+   among the monthly opt-in rows even though billing cannot edit the matter directly.
+   Record the current `monthly_count` and which of the two help sentences it shows ("On day
+   N of each month, ..." or "The monthly run is off. Set a billing day under Settings,
+   Invoice template...").
+9. Act and check, billing can still flip the monthly flag it cannot reach through the
+   matter form: still as billing, tick M-NN's row in the "Monthly invoicing" table (leaving
+   every other row as found) and submit. Expect a flash matching `Monthly invoicing: `,
+   naming the count of currently-ticked matters including M-NN, and ending either `Drafts
+   are built on day N of each month.` or `Drafts are built when a billing day is set under
+   Settings, Invoice template.`, whichever the firm's actual `monthly_billing_day` gives
+   (name which one). Confirm a reload of `/invoices/bulk` shows M-NN's row ticked, and
+   `/matters/<M-ID>/edit` (as owner now) shows "Invoice this matter automatically each
+   month" ticked too.
+10. Act and check, the same toggle from the other direction: as owner, untick "Invoice this
+    matter automatically each month" on M-ID's own edit form instead, save. Expect `Matter
+    saved.` Reload `/invoices/bulk` and confirm M-NN's monthly row is now unticked and
+    `monthly_count` dropped by exactly one from case 9's figure.
+11. Edge, a third role that cannot reach this side at all: still signed in as the
+    paralegal from case 7 (sign back in as it if needed), `GET /invoices/bulk`. Expect the
+    worded 403 "Your role (paralegal) cannot open invoicing. Ask the firm owner if you need
+    that access." — confirming the very checkbox paralegal can tick on the matter's own edit
+    form is unreachable from this side.
+12. Clean up: deactivate `QA2 Evergreen Paralegal 20261008` and `QA2 Evergreen Billing
+    20261008` (expect `User saved.` each). Leave M-ID/M-NN as a retained evergreen fixture;
+    do not change its trust fields again.
+13. What remains: confirm the surviving fixture is matter `QA2 Evergreen Matter 20261008`
+    (M-NN, open, $0.00 in trust, evergreen minimum $600.00, replenish-to $750.00,
+    auto-invoice-monthly off per case 10), and that it still shows on the owner's evergreen
+    dashboard card with "Short by" $750.00. State plainly whether the minimum/replenish-to
+    save and clamp (cases 2, 4-6), the dashboard card's own math (cases 3, 5), the
+    paralegal-can-write/cannot-see split (case 7), the billing-can-read-not-write-the-matter
+    split and its separate write path through `/invoices/bulk/monthly` (cases 8-9), the
+    cross-direction toggle (case 10), and paralegal's own refusal from `/invoices/bulk`
+    (case 11) all held exactly as described, or name the one that did not.
+
+### S125. Captured mail and signing: document request and engagement letter (qa2)
+status: queued
+
+From P2-B2-1. Run after S124. Source checked: `app/blueprints/signatures.py`,
+`app/blueprints/engagements.py`, their new/sign forms, and `app/permissions.py`.
+Use only qa2's capture inbox at `/qa-mail/`; do not change mail or provider settings.
+The no-mail-server configuration edge remains open for an operator test. This batch
+checks English mail and signing only. No invoice, payment, trust entry or card action.
+At posting, replace DATE with that day's YYYYMMDD in every record name and email.
+Use a fresh suffix if any name already exists. All earlier retained fixtures stay untouched.
+The coordinator adds the live pin, standard exclusions and continuing case numbers.
+
+1. As owner, create client contact `QA2 Mail Client DATE`, English, email
+   `qa2-mail-DATE@coil.test`. Create matter `QA2 Mail Matter DATE`, hourly in USD,
+   rate $100.00, no template and no office. Report the flashes and both IDs. Confirm
+   the matter names this contact and remains open.
+2. Upload `QA2 Mail Document DATE.txt` with exactly `QA2 Mail Document DATE` as its
+   contents to that matter. Report the flash and document ID. Download it and confirm
+   the bytes match. Use only this document in the signature cases below.
+3. Create a document signature request using that document, the new client as
+   `contact_id`, title `QA2 Mail Signature DATE`, and message `QA2 Mail Review DATE`.
+   Choose `action=draft`. Expect `Signature request saved as a draft.` Record S-ID;
+   confirm draft status. No delivery is expected at this step.
+4. Send S-ID from its detail page. Expect `Sent to qa2-mail-DATE@coil.test.`
+   As owner, find its message in `/qa-mail/` by recipient and title. Confirm the message
+   is in English and names this document. Open its signing link privately without
+   copying it into any report. Confirm the correct document and signing form appear.
+5. From the staff detail page, remind S-ID. Expect `Reminder sent.` Find the new
+   reminder in the capture inbox and confirm its recipient and document title. Report
+   only the message ID, never its link or token.
+6. On the public signing form, submit an empty `signer_name`, the client's email as
+   `signer_email`, and consent `agree=1`. Expect refusal with no signature recorded;
+   report the validation text. If native validation stops submission, record that
+   separately and use a direct form submission to verify the server returns HTTP 400.
+7. Submit `QA2 Mail Client DATE` as signer_name, the same email, and `agree=1`.
+   Expect signed status. In the staff view confirm signer name and a signed event.
+   Download `/signatures/<S-ID>/certificate`; expect a PDF naming the document and signer.
+8. Submit the same signed form once more. Expect the signed-status page, no new signature
+   and the original signed timestamp unchanged. Confirm the staff event list contains
+   only one signed event. Report any extra view events separately.
+9. On `/engagements/new` choose the new matter. Set subject `QA2 Mail Letter DATE`,
+   scope `QA2 Mail Scope DATE`, and body_html to `<p>QA2 Mail Letter DATE. Review of
+   the QA2 Mail Matter DATE file only. No payment is requested.</p>`. Choose
+   `action=draft`. Expect `Draft saved.` Record E-ID and confirm its saved subject/body.
+10. Send E-ID from its detail page. Expect `Sent to qa2-mail-DATE@coil.test.`
+    Find the new engagement email in `/qa-mail/`. Confirm English text, correct recipient
+    and subject. Open the captured link privately; confirm it shows the exact body saved
+    in case 9 and refers to the batch's matter.
+11. Sign E-ID with `signer_name=QA2 Mail Client DATE`, the client's email and `agree=1`.
+    Expect signed status. Download `/engagements/<E-ID>/pdf`; confirm the PDF opens,
+    includes the saved body and names the signer. Any courtesy emails must remain in
+    qa2's capture inbox; report their count and recipients without private links.
+12. As owner, attempt to void each signed record. S-ID must refuse with
+    `A signed document cannot be voided.` E-ID must refuse with
+    `A signed letter cannot be voided.` Confirm both remain signed, with their original
+    signed timestamps and downloadable certificate/PDF.
+13. Clean up: close only the new matter using its edit form, reporting the flash.
+    Retain the new contact, closed matter, document, signed request and signed letter as
+    evidence. Do not delete captured messages belonging to other batches.
+14. What remains: list the contact, matter, document, S-ID and E-ID, with final statuses.
+    State whether request delivery, reminder delivery, blank-name refusal, signing,
+    duplicate protection and signed-record void refusals passed. Confirm earlier retained
+    fixtures and all firm/provider settings remain unchanged. Report counts and one
+    verdict per case; no passwords, tokens, feed URLs or signing links in the result.
+
 ## Backlog
 
 Areas for the coordinator to turn into batches when a bot's queue is empty, in priority
@@ -1953,6 +2348,8 @@ Phase 1 leftovers after that:
   previously tested), closing out every Phase 1 tool either bot has found open to date.
 
 ### Bot 2 backlog (qa2)
+
+P2-B2-1 has S125 queued for English capture-mail and signing checks. Leave the area open: the no-mail-server configuration edge needs a separate operator test.
 
 Phase 2 first (Ian, 2026-10-04), in this order. qa2 has its own capture inbox at
 https://qa2.coil.legal/qa-mail/ since 2026-10-04 and no Stripe keys.
