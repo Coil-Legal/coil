@@ -368,7 +368,7 @@ def statement_pdf_bytes(st):
 
 def _filename(client):
     safe = "".join(ch if ch.isalnum() else "-" for ch in client.display_name).strip("-") or str(client.id)
-    return f"statement-{safe}-{date.today().isoformat()}.pdf"
+    return f"statement-{safe}-{firm_today().isoformat()}.pdf"
 
 
 @bp.route("/<int:client_id>/pdf")
