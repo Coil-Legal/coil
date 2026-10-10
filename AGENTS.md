@@ -1,5 +1,10 @@
 # Coil
 
+## Current QA policy, October 9, 2026
+
+Ian authorized a finite two-firm acceptance process. Read [docs/QA-ACCEPTANCE.md](docs/QA-ACCEPTANCE.md) first for QA work. It supersedes conflicting historical rules below: no automatic batches, reserve quota or fixed case quota. Both firms must demonstrate distinct UIs/workflows on one release and preserve them through an actual upgrade. Each bot may configure only its own firm under an explicit serialized profile assignment. The old launchd coordinator and fix loop remain stopped; this Codex chat holds both seats. Missing capabilities and unavailable upgrade prerequisites must be recorded, never replaced with filler tests. Ian now also authorizes Codex to implement confirmed customization gaps and defects with regression tests in one shared codebase, followed by independent bot retesting after release. Bots remain QA-only.
+
+
 Open-source practice management for solo and small law firms. Flask 3, SQLAlchemy, SQLite.
 
 **Build rules live in [docs/CONVENTIONS.md](docs/CONVENTIONS.md). Read that before writing code.** It is the authority on the schema, money handling, CSRF, templates, the URL contract and copy style. Nothing here replaces it.

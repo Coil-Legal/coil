@@ -1946,3 +1946,20 @@ def _api_token_label():
     if tok is None:
         return ""
     return f"API token \"{(tok.name or 'unnamed')[:80]}\" ({tok.prefix or ''})"
+
+
+class FirmCustomization(db.Model):
+    """One firm's published configuration; included in ordinary database backups."""
+    __tablename__ = "firm_customization"
+    id = db.Column(db.Integer, primary_key=True)
+    revision = db.Column(db.Integer, nullable=False, default=0)
+    config_json = db.Column(db.Text, nullable=False, default="{}")
+
+
+class CustomizationRevision(db.Model):
+    __tablename__ = "customization_revisions"
+    id = db.Column(db.Integer, primary_key=True)
+    config_json = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=now)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    note = db.Column(db.String(120), nullable=False, default="Published")

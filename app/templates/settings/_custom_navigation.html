@@ -1,0 +1,50 @@
+    {% for nav_key in custom_nav_order(['dashboard'], firm_ui) %}
+    {% if nav_key == 'dashboard' %}<a class="nav {{ 'active' if _path == '/' }}" href="{{ url_for('dashboard.index') }}">{{ firm_ui.nav_labels.get('dashboard', 'Dashboard') }}</a>{% endif %}
+    {% endfor %}
+    <div class="sec">Clients</div>
+    {% for nav_key in custom_nav_order(['intake', 'intake_pipeline', 'contacts', 'matters', 'conflicts', 'engagements', 'messages', 'signatures', 'voice'], firm_ui) %}
+    {% if nav_key == 'intake' %}{% if tool_on('intake') %}<a class="nav {{ 'active' if _path.startswith('/intake') and not _path.startswith('/intake/pipeline') }}" href="/intake">{{ firm_ui.nav_labels.get('intake', 'Intake') }}</a>{% endif %}{% endif %}
+    {% if nav_key == 'intake_pipeline' %}{% if tool_on('intake') %}<a class="nav {{ 'active' if _path.startswith('/intake/pipeline') }}" href="/intake/pipeline">{{ firm_ui.nav_labels.get('intake_pipeline', 'Pipeline') }}</a>{% endif %}{% endif %}
+    {% if nav_key == 'contacts' %}<a class="nav {{ 'active' if _path.startswith('/contacts') }}" href="/contacts">{{ firm_ui.nav_labels.get('contacts', 'Contacts') }}</a>{% endif %}
+    {% if nav_key == 'matters' %}<a class="nav {{ 'active' if _path.startswith('/matters') }}" href="/matters">{{ firm_ui.nav_labels.get('matters', 'Matters') }}</a>{% endif %}
+    {% if nav_key == 'conflicts' %}{% if tool_on('conflicts') %}<a class="nav {{ 'active' if _path.startswith('/conflicts') }}" href="/conflicts">{{ firm_ui.nav_labels.get('conflicts', 'Conflict check') }}</a>{% endif %}{% endif %}
+    {% if nav_key == 'engagements' %}{% if tool_on('engagements') %}<a class="nav {{ 'active' if _path.startswith('/engagements') }}" href="/engagements">{{ firm_ui.nav_labels.get('engagements', 'Engagement letters') }}</a>{% endif %}{% endif %}
+    {% if nav_key == 'messages' %}{% if tool_on('messages') %}<a class="nav {{ 'active' if _path.startswith('/messages') }}" href="/messages">{{ firm_ui.nav_labels.get('messages', 'Messages') }}</a>{% endif %}{% endif %}
+    {% if nav_key == 'signatures' %}{% if tool_on('signatures') %}<a class="nav {{ 'active' if _path.startswith('/signatures') }}" href="/signatures">{{ firm_ui.nav_labels.get('signatures', 'Signatures') }}</a>{% endif %}{% endif %}
+    {% if nav_key == 'voice' %}{% if tool_on('voice') %}<a class="nav {{ 'active' if _path.startswith('/voice') }}" href="/voice">{{ firm_ui.nav_labels.get('voice', 'Voice line') }}</a>{% endif %}{% endif %}
+    {% endfor %}
+    <div class="sec">Work</div>
+    {% for nav_key in custom_nav_order(['time', 'time_suggestions', 'tasks', 'calendar', 'documents', 'doctemplates', 'ai_search', 'research', 'pi', 'criminal'], firm_ui) %}
+    {% if nav_key == 'time' %}{% if tool_on('time') %}<a class="nav {{ 'active' if _path.startswith('/time') and not _path.startswith('/time/suggestions') }}" href="/time">{{ firm_ui.nav_labels.get('time', 'Time & expenses') }}</a>{% endif %}{% endif %}
+    {% if nav_key == 'time_suggestions' %}{% if tool_on('time_suggestions') %}<a class="nav {{ 'active' if _path.startswith('/time/suggestions') }}" href="/time/suggestions">{{ firm_ui.nav_labels.get('time_suggestions', 'Time suggestions') }}</a>{% endif %}{% endif %}
+    {% if nav_key == 'tasks' %}{% if tool_on('tasks') %}<a class="nav {{ 'active' if _path.startswith('/tasks') }}" href="/tasks">{{ firm_ui.nav_labels.get('tasks', 'Tasks & deadlines') }}</a>{% endif %}{% endif %}
+    {% if nav_key == 'calendar' %}{% if tool_on('calendar') %}<a class="nav {{ 'active' if _path.startswith('/calendar') }}" href="/calendar">{{ firm_ui.nav_labels.get('calendar', 'Calendar') }}</a>{% endif %}{% endif %}
+    {% if nav_key == 'documents' %}{% if tool_on('documents') %}<a class="nav {{ 'active' if _path.startswith('/documents') }}" href="/documents">{{ firm_ui.nav_labels.get('documents', 'Documents') }}</a>{% endif %}{% endif %}
+    {% if nav_key == 'doctemplates' %}{% if tool_on('doctemplates') %}<a class="nav {{ 'active' if _path.startswith('/doctemplates') }}" href="/doctemplates">{{ firm_ui.nav_labels.get('doctemplates', 'Document templates') }}</a>{% endif %}{% endif %}
+    {% if nav_key == 'ai_search' %}{% if tool_on('ai') %}<a class="nav {{ 'active' if _path.startswith('/ai') }}" href="/ai/search">{{ firm_ui.nav_labels.get('ai_search', 'Ask Coil') }}</a>{% endif %}{% endif %}
+    {% if nav_key == 'ai_search' %}{% if mike_url() %}<a class="nav" href="{{ mike_url() }}" target="_blank" rel="noopener" title="Mike, the optional AI workbench connected to this Coil">AI workbench ↗</a>{% endif %}{% endif %}
+    {% if nav_key == 'research' %}{% if tool_on('research') %}<a class="nav {{ 'active' if _path.startswith('/research') }}" href="/research">{{ firm_ui.nav_labels.get('research', 'Research') }}</a>{% endif %}{% endif %}
+    {% if nav_key == 'pi' %}{% if tool_on('pi') %}<a class="nav {{ 'active' if _path.startswith('/pi') }}" href="/pi">{{ firm_ui.nav_labels.get('pi', 'Personal injury') }}</a>{% endif %}{% endif %}
+    {% if nav_key == 'criminal' %}{% if tool_on('criminal') %}<a class="nav {{ 'active' if _path.startswith('/criminal') }}" href="/criminal">{{ firm_ui.nav_labels.get('criminal', 'Criminal defense') }}</a>{% endif %}{% endif %}
+    {% endfor %}
+    {% if tool_on('invoices') or tool_on('statements') or tool_on('trust') or tool_on('accounting') or tool_on('reports') %}<div class="sec">Money</div>{% endif %}
+    {% for nav_key in custom_nav_order(['invoices', 'statements', 'payments', 'money_plans', 'trust', 'accounting', 'reports'], firm_ui) %}
+    {% if nav_key == 'invoices' %}{% if tool_on('invoices') %}<a class="nav {{ 'active' if _path.startswith('/invoices') }}" href="/invoices">{{ firm_ui.nav_labels.get('invoices', 'Invoices') }}</a>{% endif %}{% endif %}
+    {% if nav_key == 'statements' %}{% if tool_on('statements') %}<a class="nav {{ 'active' if _path.startswith('/statements') }}" href="/statements">{{ firm_ui.nav_labels.get('statements', 'Client statements') }}</a>{% endif %}{% endif %}
+    {% if nav_key == 'payments' %}{% if tool_on('payments') %}<a class="nav {{ 'active' if _path.startswith('/payments') }}" href="/payments">{{ firm_ui.nav_labels.get('payments', 'Payments') }}</a>{% endif %}{% endif %}
+    {% if nav_key == 'money_plans' %}{% if tool_on('plans') %}<a class="nav {{ 'active' if _path.startswith('/money') }}" href="/money/plans">{{ firm_ui.nav_labels.get('money_plans', 'Plans & splits') }}</a>{% endif %}{% endif %}
+    {% if nav_key == 'trust' %}{% if tool_on('trust') %}<a class="nav {{ 'active' if _path.startswith('/trust') }}" href="/trust">{{ firm_ui.nav_labels.get('trust', 'Trust accounting') }}</a>{% endif %}{% endif %}
+    {% if nav_key == 'accounting' %}{% if tool_on('accounting') %}<a class="nav {{ 'active' if _path.startswith('/accounting') }}" href="/accounting">{{ firm_ui.nav_labels.get('accounting', 'Accounting') }}</a>{% endif %}{% endif %}
+    {% if nav_key == 'reports' %}{% if tool_on('reports') %}<a class="nav {{ 'active' if _path.startswith('/reports') }}" href="/reports">{{ firm_ui.nav_labels.get('reports', 'Reports') }}</a>{% endif %}{% endif %}
+    {% endfor %}
+    <div class="sec">Firm</div>
+    {% for nav_key in custom_nav_order(['settings', 'settings_templates', 'settings_audit', 'settings_rules', 'import', 'exports', 'setup-guide', 'features'], firm_ui) %}
+    {% if nav_key == 'settings' %}<a class="nav {{ 'active' if _path.startswith('/settings') and not _path.startswith('/settings/templates') and not _path.startswith('/settings/audit') and not _path.startswith('/settings/rules') and not _path.startswith('/settings/holidays') }}" href="/settings">{{ firm_ui.nav_labels.get('settings', 'Settings') }}</a>{% endif %}
+    {% if nav_key == 'settings_templates' %}<a class="nav {{ 'active' if _path.startswith('/settings/templates') }}" href="/settings/templates">{{ firm_ui.nav_labels.get('settings_templates', 'Matter templates') }}</a>{% endif %}
+    {% if nav_key == 'settings_audit' %}<a class="nav {{ 'active' if _path.startswith('/settings/audit') }}" href="/settings/audit">{{ firm_ui.nav_labels.get('settings_audit', 'Audit log') }}</a>{% endif %}
+    {% if nav_key == 'settings_rules' %}{% if tool_on('court_rules') %}<a class="nav {{ 'active' if _path.startswith('/settings/rules') or _path.startswith('/settings/holidays') }}" href="/settings/rules">{{ firm_ui.nav_labels.get('settings_rules', 'Court rules') }}</a>{% endif %}{% endif %}
+    {% if nav_key == 'import' %}<a class="nav {{ 'active' if _path.startswith('/import') }}" href="/import">{{ firm_ui.nav_labels.get('import', 'Import from another system') }}</a>{% endif %}
+    {% if nav_key == 'exports' %}<a class="nav {{ 'active' if _path.startswith('/exports') }}" href="/exports">{{ firm_ui.nav_labels.get('exports', 'Exports') }}</a>{% endif %}
+    {% if nav_key == 'setup-guide' %}<a class="nav {{ 'active' if _path.startswith('/setup-guide') }}" href="/setup-guide">{{ firm_ui.nav_labels.get('setup-guide', 'Setup guide') }}</a>{% endif %}
+    {% if nav_key == 'features' %}<a class="nav {{ 'active' if _path.startswith('/features') }}" href="/features">{{ firm_ui.nav_labels.get('features', 'Feature map') }}</a>{% endif %}
+    {% endfor %}

@@ -9,52 +9,13 @@
 <script>if ('serviceWorker' in navigator) { window.addEventListener('load', function () { navigator.serviceWorker.register('/sw.js').catch(function () {}); }); }</script>
 {% block head %}{% endblock %}
 </head>
-<body>
+<body class="firm-theme-{{ firm_ui.theme }} firm-density-{{ firm_ui.density }} firm-width-{{ firm_ui.width }}">
 {% set _me = current_user() %}
 <div class="layout">
   <nav class="sidebar">
-    <a class="brand" href="{{ url_for('dashboard.index') }}">{{ firm().name }}</a>
+    <a class="brand" href="{{ url_for('dashboard.index') }}">{{ firm_ui.brand_name or firm().name }}</a>
     {% set _path = request.path %}
-    <a class="nav {{ 'active' if _path == '/' }}" href="{{ url_for('dashboard.index') }}">Dashboard</a>
-    <div class="sec">Clients</div>
-    {% if tool_on('intake') %}<a class="nav {{ 'active' if _path.startswith('/intake') and not _path.startswith('/intake/pipeline') }}" href="/intake">Intake</a>{% endif %}
-    {% if tool_on('intake') %}<a class="nav {{ 'active' if _path.startswith('/intake/pipeline') }}" href="/intake/pipeline">Pipeline</a>{% endif %}
-    <a class="nav {{ 'active' if _path.startswith('/contacts') }}" href="/contacts">Contacts</a>
-    <a class="nav {{ 'active' if _path.startswith('/matters') }}" href="/matters">Matters</a>
-    {% if tool_on('conflicts') %}<a class="nav {{ 'active' if _path.startswith('/conflicts') }}" href="/conflicts">Conflict check</a>{% endif %}
-    {% if tool_on('engagements') %}<a class="nav {{ 'active' if _path.startswith('/engagements') }}" href="/engagements">Engagement letters</a>{% endif %}
-    {% if tool_on('messages') %}<a class="nav {{ 'active' if _path.startswith('/messages') }}" href="/messages">Messages</a>{% endif %}
-    {% if tool_on('signatures') %}<a class="nav {{ 'active' if _path.startswith('/signatures') }}" href="/signatures">Signatures</a>{% endif %}
-    {% if tool_on('voice') %}<a class="nav {{ 'active' if _path.startswith('/voice') }}" href="/voice">Voice line</a>{% endif %}
-    <div class="sec">Work</div>
-    {% if tool_on('time') %}<a class="nav {{ 'active' if _path.startswith('/time') and not _path.startswith('/time/suggestions') }}" href="/time">Time &amp; expenses</a>{% endif %}
-    {% if tool_on('time_suggestions') %}<a class="nav {{ 'active' if _path.startswith('/time/suggestions') }}" href="/time/suggestions">Time suggestions</a>{% endif %}
-    {% if tool_on('tasks') %}<a class="nav {{ 'active' if _path.startswith('/tasks') }}" href="/tasks">Tasks &amp; deadlines</a>{% endif %}
-    {% if tool_on('calendar') %}<a class="nav {{ 'active' if _path.startswith('/calendar') }}" href="/calendar">Calendar</a>{% endif %}
-    {% if tool_on('documents') %}<a class="nav {{ 'active' if _path.startswith('/documents') }}" href="/documents">Documents</a>{% endif %}
-    {% if tool_on('doctemplates') %}<a class="nav {{ 'active' if _path.startswith('/doctemplates') }}" href="/doctemplates">Document templates</a>{% endif %}
-    {% if tool_on('ai') %}<a class="nav {{ 'active' if _path.startswith('/ai') }}" href="/ai/search">Ask Coil</a>{% endif %}
-    {% if mike_url() %}<a class="nav" href="{{ mike_url() }}" target="_blank" rel="noopener" title="Mike, the optional AI workbench connected to this Coil">AI workbench ↗</a>{% endif %}
-    {% if tool_on('research') %}<a class="nav {{ 'active' if _path.startswith('/research') }}" href="/research">Research</a>{% endif %}
-    {% if tool_on('pi') %}<a class="nav {{ 'active' if _path.startswith('/pi') }}" href="/pi">Personal injury</a>{% endif %}
-    {% if tool_on('criminal') %}<a class="nav {{ 'active' if _path.startswith('/criminal') }}" href="/criminal">Criminal defense</a>{% endif %}
-    {% if tool_on('invoices') or tool_on('statements') or tool_on('trust') or tool_on('accounting') or tool_on('reports') %}<div class="sec">Money</div>{% endif %}
-    {% if tool_on('invoices') %}<a class="nav {{ 'active' if _path.startswith('/invoices') }}" href="/invoices">Invoices</a>{% endif %}
-    {% if tool_on('statements') %}<a class="nav {{ 'active' if _path.startswith('/statements') }}" href="/statements">Client statements</a>{% endif %}
-    {% if tool_on('payments') %}<a class="nav {{ 'active' if _path.startswith('/payments') }}" href="/payments">Payments</a>{% endif %}
-    {% if tool_on('plans') %}<a class="nav {{ 'active' if _path.startswith('/money') }}" href="/money/plans">Plans &amp; splits</a>{% endif %}
-    {% if tool_on('trust') %}<a class="nav {{ 'active' if _path.startswith('/trust') }}" href="/trust">Trust accounting</a>{% endif %}
-    {% if tool_on('accounting') %}<a class="nav {{ 'active' if _path.startswith('/accounting') }}" href="/accounting">Accounting</a>{% endif %}
-    {% if tool_on('reports') %}<a class="nav {{ 'active' if _path.startswith('/reports') }}" href="/reports">Reports</a>{% endif %}
-    <div class="sec">Firm</div>
-    <a class="nav {{ 'active' if _path.startswith('/settings') and not _path.startswith('/settings/templates') and not _path.startswith('/settings/audit') and not _path.startswith('/settings/rules') and not _path.startswith('/settings/holidays') }}" href="/settings">Settings</a>
-    <a class="nav {{ 'active' if _path.startswith('/settings/templates') }}" href="/settings/templates">Matter templates</a>
-    <a class="nav {{ 'active' if _path.startswith('/settings/audit') }}" href="/settings/audit">Audit log</a>
-    {% if tool_on('court_rules') %}<a class="nav {{ 'active' if _path.startswith('/settings/rules') or _path.startswith('/settings/holidays') }}" href="/settings/rules">Court rules</a>{% endif %}
-    <a class="nav {{ 'active' if _path.startswith('/import') }}" href="/import">Import from another system</a>
-    <a class="nav {{ 'active' if _path.startswith('/exports') }}" href="/exports">Exports</a>
-    <a class="nav {{ 'active' if _path.startswith('/setup-guide') }}" href="/setup-guide">Setup guide</a>
-    <a class="nav {{ 'active' if _path.startswith('/features') }}" href="/features">Feature map</a>
+    {% include 'settings/_custom_navigation.html' %}
     {% if _me and config.FEEDBACK_ENABLED not in ('0', 'false', 'no') %}
     <a class="nav feedback-link {{ 'active' if _path.startswith('/feedback') }}"
        href="{{ url_for('feedback.index') }}?from={{ _path|urlencode }}">Send feedback</a>

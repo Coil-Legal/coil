@@ -54,3 +54,35 @@ both halves of that true.
 
 Never fork the code for one firm. A private version stops receiving updates and breaks the
 "one update away" promise every self-hosted firm relies on.
+
+## Appearance and workflows (local implementation, awaiting release)
+
+Owners can open Settings > Appearance & workflows at /settings/customization.
+Choose Blue, Forest or Plum, a workspace name, comfortable or compact spacing,
+and standard or wide pages. Rename navigation links and reorder them within their
+existing sections. These choices apply to staff screens; invoice branding and client
+pages keep their existing settings. Labels change navigation, not page headings.
+Permissions and tool switches still govern access.
+
+Preview renders the editor in the proposed appearance without saving. Publish creates
+a numbered revision. History offers the latest 20 revisions and can restore one as a
+new revision. A stale form cannot overwrite a newer configuration. Every publication
+is audited. Default firms keep the existing appearance and navigation.
+
+Up to eight enabled new-matter rules can match billing type and practice area. Each
+matching rule adds an ordinary task assigned to the responsible user, due zero to 365
+calendar days after the matter opening date. Blank conditions match any new matter.
+Rules run in the matter insertion transaction, including API/import creation, and do
+not rerun on edits, restores or startup. Tasks switched off means no rule tasks. These
+are workflow reminders, not legal deadline calculations. Rules never send mail or make
+payments. Restoring configuration affects future matters, not existing tasks.
+
+Configuration lives in firm_customization and customization_revisions in each firm's
+existing database. Startup creates these tables additively, without resetting data.
+Ordinary database backups include them. The config schema has an explicit version;
+unknown future versions cannot be overwritten by the editor. There are no changes to
+existing model columns. No firm identifiers or private overrides appear in shared code.
+
+This is the first slice. Arbitrary field layouts, application-wide terminology, custom
+workflow stages and additional triggers remain separate implementation work. Live
+upgrade/restore acceptance still requires the two-firm release evidence in QA-ACCEPTANCE.md.

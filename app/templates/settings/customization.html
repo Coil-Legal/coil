@@ -1,0 +1,33 @@
+{% extends "base.html" %}{% block title %}Appearance & workflows{% endblock %}{% block content %}
+<div class="topbar"><h1>Appearance &amp; workflows</h1><a class="btn secondary" href="/settings">Settings</a></div>
+<p>Choose how your firm's workspace looks and which tasks new matters create. Existing user dashboards and tool choices stay as configured.</p>
+{% if error %}<div class="flash error" role="alert">{{ error }}</div>{% endif %}
+{% if preview %}<div class="flash" role="status">Preview only. Nothing has been saved. Publish to apply these choices to your firm.</div>{% endif %}
+<form method="post">
+{{ csrf() }}<input type="hidden" name="revision" value="{{ revision }}">
+<div class="card"><h2>Appearance</h2>
+<label for="brand_name">Workspace name (blank uses firm name)</label><input id="brand_name" name="brand_name" type="text" maxlength="80" value="{{ firm_ui.brand_name }}">
+<div class="row">
+<div><label for="theme">Colour theme</label><select id="theme" name="theme">{% for key, label in themes.items() %}<option value="{{ key }}" {{ 'selected' if key == firm_ui.theme }}>{{ label }}</option>{% endfor %}</select></div>
+<div><label for="density">Spacing</label><select id="density" name="density">{% for key in ['comfortable','compact'] %}<option value="{{ key }}" {{ 'selected' if key == firm_ui.density }}>{{ key|capitalize }}</option>{% endfor %}</select></div>
+<div><label for="width">Page width</label><select id="width" name="width">{% for key in ['standard','wide'] %}<option value="{{ key }}" {{ 'selected' if key == firm_ui.width }}>{{ key|capitalize }}</option>{% endfor %}</select></div>
+</div></div>
+<div class="card"><h2>Navigation</h2><p>Rename links and order them within their section. Blank labels keep the original wording. This does not change access permissions or page headings. Use <a href="/settings/tools">Tools</a> to choose available features.</p>
+<details><summary>Edit navigation labels and order</summary><table><thead><tr><th>Section / link</th><th>Your label</th><th>Position</th></tr></thead><tbody>
+{% for key, label, section in nav_items %}<tr><td>{{ section }} / {{ label }}</td><td><label class="small" for="label_{{ key }}">Label for {{ label }}</label><input type="text" id="label_{{ key }}" name="label_{{ key }}" maxlength="40" value="{{ firm_ui.nav_labels.get(key, '') }}"></td><td><label class="small" for="order_{{ key }}">Position of {{ label }}</label><input type="number" id="order_{{ key }}" name="order_{{ key }}" min="1" max="99" value="{{ firm_ui.nav_order.get(key, '') }}"></td></tr>{% endfor %}
+</tbody></table></details></div>
+<div class="card"><h2>New-matter workflows</h2><p>Each enabled rule creates one ordinary task when a new matter matches all its conditions, including matters created through the API or import. Blank conditions match any matter. Due dates use calendar days after the matter's opening date. These are work reminders, not court deadlines.</p><p>Tasks go to the matter's responsible user, or stay unassigned. Rules do not run on existing matters, edits, or when the Tasks tool is off. Disabling or restoring rules does not remove tasks already created.</p>
+{% for i in range(max_rules) %}{% set rule = firm_ui.rules[i] if i < firm_ui.rules|length else {} %}
+<details style="margin:12px 0" {{ 'open' if rule.get('title') }}><summary>Rule {{ i + 1 }}: {{ rule.get('title') or 'Add a task rule' }}</summary><fieldset style="padding:12px;border:1px solid var(--line)"><legend>When a matter is created</legend>
+<label for="rule_{{ i }}_enabled"><input id="rule_{{ i }}_enabled" type="checkbox" name="rule_{{ i }}_enabled" value="1" {{ 'checked' if rule.get('enabled') }}> Enabled</label>
+<label for="rule_{{ i }}_title">Task to create</label><input type="text" id="rule_{{ i }}_title" name="rule_{{ i }}_title" maxlength="200" value="{{ rule.get('title', '') }}">
+<div class="row"><div><label for="rule_{{ i }}_practice_area">Practice area equals (blank means any)</label><input type="text" id="rule_{{ i }}_practice_area" name="rule_{{ i }}_practice_area" maxlength="100" value="{{ rule.get('practice_area', '') }}"></div>
+<div><label for="rule_{{ i }}_billing">Billing type</label><select id="rule_{{ i }}_billing" name="rule_{{ i }}_billing">{% for key in ['', 'flat','hourly','contingency','hybrid'] %}<option value="{{ key }}" {{ 'selected' if key == rule.get('billing', '') }}>{{ key|capitalize if key else 'Any' }}</option>{% endfor %}</select></div>
+<div><label for="rule_{{ i }}_offset">Due after opening (days)</label><input type="number" id="rule_{{ i }}_offset" name="rule_{{ i }}_offset" min="0" max="365" value="{{ rule.get('offset', 0) }}"></div></div>
+</fieldset></details>{% endfor %}</div>
+<div class="actions"><button class="btn secondary" name="action" value="preview">Preview</button><button class="btn" name="action" value="publish">Publish for firm</button></div>
+</form>
+<div class="card" style="margin-top:24px"><h2>Version history</h2><p>Current revision: {{ revision }}. Restoring creates a new revision. It changes appearance and future rules, not existing matters or tasks.</p>
+{% for item in history %}<form method="post" class="actions">{{ csrf() }}<input type="hidden" name="revision" value="{{ revision }}"><input type="hidden" name="restore_revision" value="{{ item.id }}"><span>Revision {{ item.id }}: {{ item.note }} ({{ item.created_at|dt }})</span>{% if item.id != revision %}<button class="btn small secondary" name="action" value="restore">Restore revision {{ item.id }}</button>{% endif %}</form>{% else %}<p>No published changes yet.</p>{% endfor %}
+</div>
+{% endblock %}

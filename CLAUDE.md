@@ -1,5 +1,13 @@
 # Coil
 
+## Current handoff, October 9, 2026
+
+Read AGENTS.md, COORDINATION.md, docs/QA-ACCEPTANCE.md and docs/CUSTOMIZATION-IMPLEMENTATION.md before acting. Their finite acceptance process supersedes historical batch rules below. Ian alternates Codex and Claude Code as the coding coordinator. Both use one shared codebase and these shared handoff files. Never restart the old launchd coordinator or fix loop. On a user-requested takeover, inspect current assignments and Git state, claim your own coordination entry and avoid overlapping the other coordinator. Preserve pending bot assignments, numbering and fixtures.
+
+Ian explicitly authorized committing, pushing and deploying the tested customization changes to testfirm, qa2 and demo, then real-browser QA on testfirm and qa2 and upgrade survival tests in isolated copies. This is a bounded release authorization, not permission for unrelated deployments. Record exact commits, backups, commands, results and remaining work in the implementation handoff. No live recovery/reset is authorized. Keep implemented, tested, deployed and independently verified separate. HTTP exhibits cannot replace browser screenshots.
+
+Bots: grokshaz on #12/testfirm; [QA Bot 2] on #89/qa2. Coordinator posts signed [Claude], written to a temporary body file, posted and read back. Serialize shared-settings work. No filler batches. No AI, SMS, provider changes, real email or real money. Preserve fixtures and secrets. Consult the acceptance ledger for gate dependencies.
+
 Open-source practice management for solo and small law firms. Flask 3, SQLAlchemy, SQLite.
 
 **Build rules live in [docs/CONVENTIONS.md](docs/CONVENTIONS.md). Read that before writing code.** It is the authority on the schema, money handling, CSRF, templates, the URL contract and copy style. Nothing here replaces it.

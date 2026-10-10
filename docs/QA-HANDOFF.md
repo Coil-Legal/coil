@@ -1,5 +1,13 @@
 # Writing a Grok handoff
 
+## Current QA direction, Ian, October 9, 2026
+
+[Two-firm acceptance](QA-ACCEPTANCE.md) is authoritative for new QA work.
+Stop endless batches. No fixed case quota, automatic next batch, or reserve quota.
+Only eligible acceptance gates or targeted defect retests may be assigned.
+Legacy content below is historical wherever it conflicts with this direction.
+
+
 Rules for whoever holds the Grok seat on issue #12. Ian's direction, 2026-10-01.
 
 ## Why these rules exist
