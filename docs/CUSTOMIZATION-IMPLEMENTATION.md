@@ -1,7 +1,7 @@
 # Customization implementation handoff
 
 Owner: Codex, October 9, 2026, America/Chicago. Ian authorized shared-code implementation
-and fixing confirmed QA gaps. This document describes local work, not a deployed release.
+and fixing confirmed QA gaps. Current release: ccd9572, deployed to testfirm, qa2 and demo. Earlier local-only notes below are historical.
 
 ## U01, first implementation slice
 
@@ -79,3 +79,55 @@ acceptance outcome. Maintain a fix/test/release/independent-retest cycle, withou
 ## Release authorization
 
 Ian explicitly authorized commit, push, deployment to all three apps and isolated-copy upgrade testing on October 9. Codex is executing this bounded release. CLAUDE.md points to these shared handoff files for a future user-requested coding-agent takeover. Live recovery/reset remains excluded. Release evidence will be recorded here.
+
+## Completed release and takeover checklist
+
+Final live release: ccd9572 / customization-20261009.1 on testfirm, qa2 and demo.
+All three use image sha256:0b448a6bd012c0ada5eaa286716f087d845c230081067df6bdf000b436bb58bf.
+Verified 2026-10-10T04:36Z: healthy, zero container restarts, zero startup tracebacks.
+Customization commit f84e37b and startup correction ccd9572 are pushed to origin/main.
+The correction performs schema initialization before concurrent Gunicorn workers.
+First f84e37b rollout recovered from a SQLite initialization race; the correction
+passed actual two-worker startup on both old-schema copies without that failure.
+No provider configuration, live data or compose settings were replaced. Server code
+was refreshed from the exact archive; live environment and data were excluded.
+
+Evidence directory on VPS: /home/deploy/apps/coil-u01-release-f84e37b (root-only).
+Backups: backups/testfirm, backups/qa2, backups/demo, each with SQLite-consistent DB.
+Original image IDs and backup paths: manifest.json. Rollback image tags:
+coil-u01-testfirm:rollback-f84e37b, coil-u01-qa2:rollback-f84e37b,
+coil-u01-demo:rollback-f84e37b. Do not restore live data without explicit authority.
+Build logs, deploy logs, source archives extracted in source and startup-source,
+and executable harnesses are retained there. No secrets are included in this handoff.
+
+Isolated engineering evidence:
+* 11b27da to f84e37b: both firm copies preserved every existing table digest.
+* Saved Forest/flat and Plum/hourly profiles generated matching ordinary tasks.
+* Independent SQLite restores preserved all table digests, themes and tasks.
+* f84e37b to ccd9572: both configured copies booted the new image with two workers,
+  zero tracebacks/restarts and identical table digests, themes and tasks.
+* Original non-DB file hashes preserved: testfirm 405 files, qa2 236 files.
+* startup-regression.log records four real-container startup checks passing.
+* The first harness attempt used an incorrect User.active field; corrected to
+  is_active plus session version and rerun from fresh copies. It was a harness error.
+* Python urllib health polling was rejected by Cloudflare; curl verified the release.
+
+Independent browser acceptance is pending, not implied by engineering checks.
+Bot 1 owns C02 cases 3362 to 3367 on testfirm, handoff 6093803569, final pin correction
+6093825385 at 2026-10-10T04:36:14Z. Bot 2 has C03 cases 7272 to 7277 on qa2 HOLD,
+handoff 6093803735, pin correction 6093825602 at 04:36:16Z. All bodies read back exact.
+Read streams after those IDs. Release Bot 2 with a concrete comment only after Bot 1
+returns and releases settings; never replace a pending assignment. Both must use
+real browsers and screenshots. C03 invoice approval remains a further explicit step.
+Bot 2 C01 browser baseline is comment 6093712522; full manifest is in that result.
+
+Claude Code takeover: read CLAUDE.md, AGENTS.md, COORDINATION.md, QA-ACCEPTANCE.md and
+current QA-QUEUE.md. Check Git and issue state before acting. On Ian's explicit switch,
+claim your own coordination entry, do not edit another agent's entry, and do not
+restart legacy launchd jobs. The Codex heartbeat must yield to a newer coordinator.
+The next meaningful work is review Bot 1's browser evidence, fix verified defects,
+release Bot 2, then compare profiles and complete remaining acceptance gates.
+Do not redeploy merely because documentation commits are newer than ccd9572.
+C06/C07 remain partially evidenced until full accepted profiles and browser replay
+support the ledger. Keep the stronger milestone claim separate from completed
+engineering upgrade tests. There is no requirement to run filler batches while waiting.

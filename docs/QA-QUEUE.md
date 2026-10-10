@@ -35,8 +35,8 @@ clean firm. Invoicing, payments, multi-currency, trust and the AI assistant stay
 
 ## Current acceptance assignments
 
-- Bot 1: R154 completed, reported 12 PASS/0 FAIL/0 BLOCKED at 2026-10-10T04:16:04Z, comment 6093669583. Wait for C02; next case 3362. Retain contact 2033, closed matter 3331/M-1307 and expense 36, plus all older fixtures. No R155.
-- Bot 2: S172 cancelled; C01 HTTP inventory returned, browser evidence supplement pending on the same cases. No new assignment.
+- Bot 1: R154 completed. C02/U01-A cases 3362 to 3367 assigned in comment 6093803569. Retain contact 2033, closed matter 3331/M-1307 and expense 36, plus all older fixtures. No R155.
+- Bot 2: S172 cancelled; C01 browser baseline returned. C03/U01-B cases 7272 to 7277 posted HOLD until coordinator releases settings after Bot 1.
 - C02 through C08 are controlled by docs/QA-ACCEPTANCE.md dependencies. These are not
   auto-postable batches. Read code and evidence before drafting their executable steps.
 - No legacy queued item below may restart. No reserve replenishment.
@@ -6418,7 +6418,7 @@ batches. Do not post before C01 and a release/operator handoff identifies the ac
 new build and preserved fixture/configuration baselines. Keep C02/C03 sequential.
 
 ### U01-A. Profile A appearance and conditional task rule
-status: hold, implementation local only; awaits tested release and C01
+status: posted https://github.com/Coil-Legal/coil/issues/12#issuecomment-6093803569 2026-10-10T04:33:16Z, cases 3362 to 3367, exact body verified
 Gate: C02. Bot 1, testfirm. Start numbering at 3362 only after recording R154.
 
 - As owner, open /settings/customization. Capture existing revision and all non-secret
@@ -6443,7 +6443,7 @@ Gate: C02. Bot 1, testfirm. Start numbering at 3362 only after recording R154.
   settings ownership to Bot 2. No further field-normalization cases.
 
 ### U01-B. Profile B differentiation and persistence
-status: hold, awaits U01-A and the same released build
+status: posted HOLD https://github.com/Coil-Legal/coil/issues/89#issuecomment-6093803735 2026-10-10T04:33:18Z, cases 7272 to 7277; requires coordinator release after U01-A
 Gate: C03. Bot 2, qa2. Continue after C01's 7271, accounting for any later assignment.
 
 - Snapshot original /settings/customization values/revision, preserving all existing

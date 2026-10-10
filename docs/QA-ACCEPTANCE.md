@@ -49,13 +49,13 @@ record IDs, expected outcome, actual outcome and any open defect. Do not log idl
 
 | Gate | Owner | State | Required evidence and dependency |
 |---|---|---|---|
-| C01 Baseline and capability inventory | Bot 2 | RUNNING | Browser screenshots and non-secret configuration manifest for B; identify actual controls and missing broader UI/workflow capabilities. No setting changes. |
-| C02 Configure and use profile A | Bot 1 | WAITING | After R154 ends and C01 returns; snapshot A, configure via UI, create one template/matter/task/milestone journey, reload and new session prove persistence. |
+| C01 Baseline and capability inventory | Bot 2 | VERIFIED | Browser screenshots and non-secret configuration manifest for B; identify actual controls and missing broader UI/workflow capabilities. No setting changes. |
+| C02 Configure and use profile A | Bot 1 | RUNNING | After R154 ends and C01 returns; snapshot A, configure via UI, create one template/matter/task/milestone journey, reload and new session prove persistence. |
 | C03 Configure and use profile B | Bot 2 | WAITING | After C02 releases settings/tools; snapshot B, configure via UI, hourly matter through time, draft invoice and approval with roles. Captured mail only if needed. |
 | C04 Compare firms and complete customer journeys | Coordinator + bots | WAITING | After C02/C03; same commit, side-by-side screenshots, shared steps produce intended distinct outcomes; document/portal journey with synthetic client, exact monetary reconciliation. Serialize overlapping tools. |
 | C05 Permissions and isolation | Coordinator + bots | WAITING | After profiles exist; intended role visibility and denied direct writes; separate operator harness proves cross-firm credential/session/data isolation without bots logging into another firm. |
-| C06 Upgrade both configurations | Engineering/operator, unassigned | BLOCKED | Authorized isolated copies, source and target release artifacts, different commits, baseline manifests, backup and rollback plan. Real upgrade, manifests/data comparisons and browser replay on both at same target commit. |
-| C07 Restore and rollback | Engineering/operator, unassigned | BLOCKED | Disposable recovery environment; restore backups and verify file hashes, money totals, settings, dashboards, templates and permissions. Verify rollback compatibility or explicit safe refusal. No live reset. |
+| C06 Upgrade both configurations | Codex operator | RUNNING | Authorized isolated copies, source and target release artifacts, different commits, baseline manifests, backup and rollback plan. Real upgrade, manifests/data comparisons and browser replay on both at same target commit. |
+| C07 Restore and rollback | Codex operator | RUNNING | Disposable recovery environment; restore backups and verify file hashes, money totals, settings, dashboards, templates and permissions. Verify rollback compatibility or explicit safe refusal. No live reset. |
 | C08 SaaS operating readiness | Coordinator | WAITING | After C01, source/evidence inventory of provisioning, subscription/account lifecycle, export/offboarding, monitoring and support. Record existing evidence or concrete gaps; no assumption features are missing. |
 
 C06 and C07 are release/operator handoffs, not permission to deploy or restart live containers.
@@ -90,7 +90,7 @@ Bot prefixes QA and QA2 with the current Chicago date. Demo is health-check only
 Same-tool assignments do not overlap. Each bot may configure its own profile when
 explicitly assigned, superseding the old rule that only Bot 2 can change firm settings.
 Codex implements confirmed customization gaps and defects, with meaningful regression tests.
-The QA bots do not edit code. No live deployment, container restart, commit or push is authorized by this heartbeat.
+The QA bots do not edit code. Ian separately authorized the bounded U01 release and isolated upgrade testing; unrelated deployments and live resets remain excluded.
 
 Pin each executable assignment to live health. If health changes, check all three firms.
 Continue only if all are healthy on the same commit, recording old/new pins. Otherwise
@@ -114,14 +114,14 @@ Initial source review: app/tools.py, app/models.py, app/blueprints/dashboard.py,
 app/blueprints/settings.py, app/blueprints/matters.py, dashboard_customize.html,
 settings/template_form.html, app/permissions.py and docs/CUSTOMIZING.md.
 Live baseline at transition: all three firms healthy on 11b27da, demo-20261008.
-No acceptance gate has been verified yet. This is a plan, not a completion claim.
+C01 baseline verified from Bot 2 browser report below. Remaining gates require their own evidence.
 
 Transition posts read back and verified:
 
 - 2026-10-10T03:48:59Z: https://github.com/Coil-Legal/coil/issues/12#issuecomment-6093461018
 - 2026-10-10T03:49:00Z: https://github.com/Coil-Legal/coil/issues/89#issuecomment-6093461124
 
-C01 returned an HTTP-only inventory; browser evidence is still pending, not verified. Bot 1 completed R154 and is waiting for C02; C01 browser evidence remains pending.
+C01 browser supplement returned; Bot 1 is assigned C02 and Bot 2 holds C03 pending release of settings ownership.
 
 ## Implementation loop, authorized October 9
 
@@ -175,3 +175,37 @@ $8.91, Other, E101, date 2028-02-29, description QA Code Normalize Expense 20261
 and all prior fixtures. Bot 1 waits for C02, next case 3362. C01 browser supplement
 has no reply yet; no eligible profile assignment or nudge. No acknowledgment-only
 GitHub comment posted.
+
+## Authorized release and browser handoffs
+
+Ian authorized commit, push, deployment to all three apps, and isolated upgrade tests.
+This supersedes the earlier release prohibition for U01 only. Live reset/recovery is
+still excluded. Release f84e37b / customization-20261009 was deployed to all three;
+health and image IDs matched. Backups and isolated evidence are under
+/home/deploy/apps/coil-u01-release-f84e37b on the VPS, root-only.
+
+C01: VERIFIED baseline from Bot 2's browser supplement, comment 6093712522,
+https://github.com/Coil-Legal/coil/issues/89#issuecomment-6093712522.
+Evidence is bot-reported browser screenshots plus complete card/tool manifest;
+coordinator has not independently opened the bot's filesystem screenshots.
+Missing features describe source release 11b27da, not the newly deployed release.
+
+C02/U01-A: cases 3362 to 3367 posted, exact body verified at 2026-10-10T04:33:16Z:
+https://github.com/Coil-Legal/coil/issues/12#issuecomment-6093803569.
+C03/U01-B: cases 7272 to 7277 posted HOLD, exact body verified at 04:33:18Z:
+https://github.com/Coil-Legal/coil/issues/89#issuecomment-6093803735.
+Release Bot 2 only after Bot 1 finishes and relinquishes settings ownership.
+Invoice approval journey remains unverified beyond these customization steps.
+
+Isolated engineering checks: both source 11b27da images opened copied firm DBs,
+then f84e37b opened the same copies without changing any existing table data.
+Distinct Forest/flat and Plum/hourly profiles created the expected task. Isolated
+SQLite backup/restores retained every table, profile and task. No live copy was
+modified by this harness. Actual worker startup exposed a schema-creation race
+in live release logs; all containers recovered. Dockerfile correction ccd9572
+initializes the schema once before starting the two workers. Real-container
+regression and f84e37b-to-ccd9572 configuration preservation checks passed on both copied firms.
+C06/C07 are not fully verified from HTTP or table hashes alone; browser replay,
+full acceptance profiles and recovery evidence remain explicit outstanding work.
+
+Final deployed pin ccd9572/customization-20261009.1, verified healthy with identical image IDs and no startup errors/restarts on all three apps at 04:36Z. Pin corrections body-verified: #12 comment 6093825385 (04:36:14Z), #89 comment 6093825602 (04:36:16Z). C02 active; C03 remains held. Detailed engineering upgrade/restore evidence and next coordinator steps are in CUSTOMIZATION-IMPLEMENTATION.md.
