@@ -22,4 +22,6 @@ ENV WEB_CONCURRENCY=2
 # interleave with it; at real switch-from-Clio sizes that adds up to minutes, not seconds, of wall time
 # on one request. 120s killed the worker mid-commit on a 10,000-row import, which the browser saw as the
 # tab going unresponsive even though the rows committed before the kill had already been saved.
-CMD ["gunicorn", "-b", "0.0.0.0:8000", "-w", "2", "--timeout", "600", "wsgi:app"]
+# Initialize additive schema changes once before concurrent workers open SQLite.
+# A failed initialization stops startup rather than letting workers race the migration.
+CMD ["sh", "-c", "python -c 'from app import create_app; create_app()' && exec gunicorn -b 0.0.0.0:8000 -w 2 --timeout 600 wsgi:app"]
