@@ -1,0 +1,15 @@
+# Keep git history, secrets and live firm data out of the image.
+# CI builds from a fresh checkout whose .git/config holds the workflow token;
+# an in-place build on a server sees that install's .env and data/ (SQLite,
+# uploads, backups). Secrets reach the container at runtime through env_file,
+# and data/ is a volume.
+.git
+.env
+.env.*
+!.env.example
+data
+.venv
+__pycache__
+*.pyc
+.pytest_cache
+.DS_Store
