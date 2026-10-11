@@ -35,11 +35,10 @@ clean firm. Invoicing, payments, multi-currency, trust and the AI assistant stay
 
 ## Current acceptance assignments
 
-- Bot 1: R154 completed. C02/U01-A cases 3362 to 3367 assigned in comment 6093803569. Retain contact 2033, closed matter 3331/M-1307 and expense 36, plus all older fixtures. No R155.
-- Bot 2: S172 cancelled; C01 browser baseline returned. C03/U01-B cases 7272 to 7277 posted HOLD until coordinator releases settings after Bot 1.
-- C02 through C08 are controlled by docs/QA-ACCEPTANCE.md dependencies. These are not
-  auto-postable batches. Read code and evidence before drafting their executable steps.
-- No legacy queued item below may restart. No reserve replenishment.
+- Pin: 3fe8cb2 / customization-20261011.1, healthy on all three apps. All database tables and retained files preserved through approved #184 deployment.
+- Bot 1: case 3368 READY, exclusive read-only matter headers/tasks, profile A revision 3, matters 3332/3333. https://github.com/Coil-Legal/coil/issues/12#issuecomment-6111759114 at 2026-10-11T17:34:08Z, body verified.
+- Bot 2: case 7281 READY, exclusive read-only dashboard/customization/tools, profile B revision 3. Case 7282 matter-header verification may start only after Bot 1 explicitly releases headers in its 3368 result. https://github.com/Coil-Legal/coil/issues/89#issuecomment-6111759402 at 2026-10-11T17:34:09Z, body verified.
+- Preserve every fixture/customization. No configuration changes, new records, resets or cleanup. Independent #184 verification pending; no legacy or filler batches.
 
 ### C01. Profile B baseline and customization capability inventory (qa2)
 status: posted https://github.com/Coil-Legal/coil/issues/89#issuecomment-6093461124 2026-10-10T03:49:00Z
