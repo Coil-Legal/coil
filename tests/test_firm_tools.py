@@ -340,3 +340,24 @@ def test_an_unknown_key_never_hides_anything(app):
     from app.tools import tool_enabled
     with app.test_request_context():
         assert tool_enabled("no_such_tool") is True
+
+
+@pytest.mark.parametrize("off", [("pi",), ("criminal",), ("pi", "criminal")])
+def test_matter_practice_actions_follow_switches_and_return_without_data_loss(app, owner, off):
+    from app.models import Matter, PiCase, CriminalCase
+    with app.app_context():
+        matter_id = Matter.query.first().id
+        before = (Matter.query.count(), PiCase.query.count(), CriminalCase.query.count())
+    links = {key: f'href="/{key}/{matter_id}"' for key in ("pi", "criminal")}
+    assert switch(owner, off=off).status_code == 200
+    page = owner.get(f"/matters/{matter_id}?tab=tasks")
+    assert page.status_code == 200
+    for key, link in links.items():
+        assert (link in page.text) == (key not in off)
+    for key in off:
+        assert owner.get(f"/{key}/{matter_id}").status_code == 404
+    assert switch(owner).status_code == 200
+    restored = owner.get(f"/matters/{matter_id}?tab=tasks")
+    assert all(link in restored.text for link in links.values())
+    with app.app_context():
+        assert (Matter.query.count(), PiCase.query.count(), CriminalCase.query.count()) == before

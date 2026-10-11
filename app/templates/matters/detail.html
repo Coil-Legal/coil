@@ -5,8 +5,8 @@
   <div class="actions" style="margin:0">
     <a class="btn small" href="/time/new?matter_id={{ m.id }}">Log time</a>
     <a class="btn small secondary" href="/invoices/new?matter_id={{ m.id }}">New invoice</a>
-    {# Agent K #}<a class="btn small secondary" href="/pi/{{ m.id }}" title="Providers, records, liens, demand and the settlement worksheet. Starts a PI case on this matter if there is none.">Personal injury</a>
-    {# Agent R #}<a class="btn small secondary" href="/criminal/{{ m.id }}" title="Case facts, charges, court date chain, speedy-trial check and disposition summary. Starts a criminal case on this matter if there is none.">Criminal defense</a>
+    {% if tool_on('pi') %}<a class="btn small secondary" href="/pi/{{ m.id }}" title="Providers, records, liens, demand and the settlement worksheet. Starts a PI case on this matter if there is none.">Personal injury</a>{% endif %}
+    {% if tool_on('criminal') %}<a class="btn small secondary" href="/criminal/{{ m.id }}" title="Case facts, charges, court date chain, speedy-trial check and disposition summary. Starts a criminal case on this matter if there is none.">Criminal defense</a>{% endif %}
     {# Agent M #}<a class="btn small secondary" href="/discovery?matter_id={{ m.id }}" title="Propound interrogatories, requests for production and admissions from starter sets, or respond to a served set with AI-drafted responses and objections">Discovery</a><a class="btn small secondary" href="/discovery/depositions?matter_id={{ m.id }}" title="Summarise a transcript: key testimony with page:line cites and contradictions against the chronology">Depositions</a>
     {# Voice line #}<a class="btn small secondary" href="/voice?matter_id={{ m.id }}" title="Phone calls the voice line linked to this matter">Voice calls</a>
     <a class="btn small secondary" href="/matters/{{ m.id }}/edit">Edit</a>
