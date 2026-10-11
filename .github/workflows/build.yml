@@ -19,6 +19,9 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -r requirements.txt pytest
+      # pdftotext (poppler-utils) checks statement PDF layout in
+      # tests/test_statement_pdf_activity_currency_and_overlap.py.
+      - run: sudo apt-get update -q && sudo apt-get install -y -q poppler-utils
       - run: python seed.py && python -m pytest -q
 
   image:
