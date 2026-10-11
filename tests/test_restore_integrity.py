@@ -21,7 +21,8 @@ def restore(tmp_path, content, prefix='', python=True):
         tar.addfile(item, io.BytesIO(content))
     commands = tmp_path / 'commands'
     commands.mkdir()
-    for name in ['tar', 'sed', 'grep', 'mkdir', 'du', 'cut', 'find', 'wc', 'tr', 'head', 'mktemp', 'rm', 'cp', 'ln', 'mv', 'rmdir']:
+    # GNU tar (Linux, CI) runs the external gzip for .tar.gz; bsdtar (macOS) does not need it.
+    for name in ['tar', 'gzip', 'sed', 'grep', 'mkdir', 'du', 'cut', 'find', 'wc', 'tr', 'head', 'mktemp', 'rm', 'cp', 'ln', 'mv', 'rmdir']:
         (commands / name).symlink_to(shutil.which(name))
     if python:
         (commands / 'python3').symlink_to(sys.executable)
