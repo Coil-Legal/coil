@@ -226,3 +226,27 @@ ops/remove-firm.sh rehearsal-20261012                         # stops it, keeps 
 
 Create the owner on `/setup` with test details only, and remove the kept directory by hand
 once the rehearsal is recorded.
+
+## Support
+
+**Who answers:** Ian. There is no second support person yet.
+
+**Where requests arrive:**
+
+- In-app feedback (the Feedback link, `app/blueprints/feedback.py`) posts to
+  `https://coil.legal/api/coil-feedback`, with the page, the Coil version and commit, and
+  the sender's role. The coil.legal API writes every message to `data/coil-feedback.jsonl` on
+  that site first, then forwards it through the forms relay to Ian's inbox, so a relay
+  outage never loses one. A firm that cannot reach coil.legal is told to email instead.
+- Email to `hello@coil.legal`. The app names this address in error messages and on the
+  paused and closed pages. It needs Cloudflare Email Routing on the coil.legal zone,
+  forwarding `hello@coil.legal` to `ian@iandolan.com`. Without it, mail to that address
+  bounces, because coil.legal has no MX record. Check with `dig +short MX coil.legal`.
+
+**Response targets (proposed default, Ian to confirm):** a reply within one business day;
+the same day for anything that loses data, stops a firm signing in, or takes money wrongly.
+
+**Checking delivery without sending live feedback:** `dig +short MX coil.legal` returns
+Cloudflare's route servers; the newest line in coil.legal's `data/coil-feedback.jsonl` on the
+VPS matches the newest feedback email in Ian's inbox. Send a real test message only when Ian
+asks, marked as a test.
