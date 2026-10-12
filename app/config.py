@@ -49,6 +49,10 @@ class Config:
     COIL_VERSION = os.environ.get("COIL_VERSION", "dev")
     COIL_COMMIT = os.environ.get("COIL_COMMIT", "unknown")
     COIL_CHANNEL = os.environ.get("COIL_CHANNEL", "stable")
+    # Hosted account lifecycle, set by the operator with ops/firm-state.sh: active,
+    # suspended or closed. See app/account_state.py and docs/OPERATIONS.md.
+    COIL_ACCOUNT_STATE = os.environ.get("COIL_ACCOUNT_STATE", "active")
+    COIL_ACCOUNT_CLOSED_RETAIN_UNTIL = os.environ.get("COIL_ACCOUNT_CLOSED_RETAIN_UNTIL", "")
     # In-app feedback. Set FEEDBACK_ENABLED=0 to remove the button and the route; some
     # firms will have a policy about anything leaving their server, and that is fine.
     COIL_HOSTING = os.environ.get("COIL_HOSTING", "self-hosted")

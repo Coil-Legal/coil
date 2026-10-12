@@ -20,6 +20,9 @@
 #
 # Cron (as root):
 #   20 2 * * * /home/deploy/scripts/coil-backup.sh >> /var/log/coil-backup.log 2>&1
+#
+# Each firm's last result (local archive, off-site copy) is written to
+# <backup root>/<firm>/.coil-backup-status, which ops/monitor.sh reads.
 set -euo pipefail
 
 APPS_DIR="${COIL_APPS_DIR:-/home/deploy/apps}"
@@ -37,6 +40,18 @@ found=0
 
 log() { echo "$(date -u '+%F %T') $*"; }
 run() { if [ "$DRY_RUN" = 1 ]; then echo "  would: $*"; else "$@"; fi; }
+# Per-firm result of the last nightly run, read by ops/monitor.sh to tell whether the
+# off-site copy really happened. key=value lines, replaced atomically, no firm data.
+STATUS_NAME=".coil-backup-status"
+write_status() {  # <local: ok|failed> <offsite: ok|failed|missing|skipped> [archive]
+  local tmp="$dest/$STATUS_NAME.$$"
+  if { printf 'epoch=%s\n' "$(date -u +%s)"; printf 'local=%s\n' "$1"; printf 'offsite=%s\n' "$2"
+       printf 'archive=%s\n' "${3##*/}"; } > "$tmp" 2>/dev/null; then
+    mv -f "$tmp" "$dest/$STATUS_NAME" || rm -f "$tmp"
+  else
+    rm -f "$tmp"
+  fi
+}
 # The supervisor and every host child retain a shared lease. Docker exec is
 # daemon-owned, so its Python process takes the same lease separately below.
 # Registry locks serialize initialization, acquisition and reclamation. Never
@@ -125,7 +140,7 @@ for dir in "$APPS_DIR"/*/; do
     # A concurrent backup must never replace or delete this run's database.
     if ! snap=$(mktemp "$COIL_NIGHTLY_WORKSPACE/.backup-snapshot.XXXXXX"); then
       log "  ERROR: cannot create snapshot file for $firm"
-      failures=$((failures + 1)); continue
+      failures=$((failures + 1)); write_status failed skipped; continue
     fi
     if ! docker exec "$container" python -c "
 import fcntl, hashlib, json, os, pathlib, sqlite3, sys, time
@@ -162,11 +177,11 @@ with open(workspace / 'coil-backup.json', 'x', encoding='utf-8') as out:
     json.dump(manifest, out, indent=2, sort_keys=True)
 " "/app/data/${COIL_NIGHTLY_WORKSPACE##*/}/${snap##*/}" 2>/dev/null; then
       log "  ERROR: snapshot failed for $firm, skipping (database NOT backed up)"
-      failures=$((failures + 1)); continue
+      failures=$((failures + 1)); write_status failed skipped; continue
     fi
   else
     log "  ERROR: no running container for $firm, skipping (a file copy could be torn)"
-    failures=$((failures + 1)); continue
+    failures=$((failures + 1)); write_status failed skipped; continue
   fi
 
   # An archive without its manifest cannot be checked against the code it is restored
@@ -184,7 +199,7 @@ ok = (m.get('format') == 1 and m.get('producer') == 'nightly' and isinstance(sch
 sys.exit(0 if ok else 1)
 PYMANIFEST
     log "  ERROR: backup manifest missing or unreadable for $firm, skipping (database NOT backed up)"
-    failures=$((failures + 1)); continue
+    failures=$((failures + 1)); write_status failed skipped; continue
   fi
 
   # Build privately, then publish a complete archive without replacing an older one.
@@ -192,7 +207,7 @@ PYMANIFEST
   temp_archive="$dest/${COIL_NIGHTLY_WORKSPACE##*/}.partial"
   if ! (umask 077; set -o noclobber; : > "$temp_archive"); then
     log "  ERROR: cannot create temporary archive for $firm"
-    failures=$((failures + 1)); continue
+    failures=$((failures + 1)); write_status failed skipped; continue
   fi
   archive="$dest/$firm-$STAMP-${COIL_NIGHTLY_WORKSPACE##*job-}.tar.gz"
   archive_args=(-C "$COIL_NIGHTLY_WORKSPACE" --transform 's|^[.]backup-snapshot[.][[:alnum:]]*$|practice.db|' "${snap##*/}" coil-backup.json)
@@ -206,7 +221,7 @@ PYMANIFEST
     log "  ok $archive ($size)"
   else
     log "  ERROR: archive creation or publication failed for $firm"
-    failures=$((failures + 1)); rm -f "$temp_archive"; continue
+    failures=$((failures + 1)); rm -f "$temp_archive"; write_status failed skipped; continue
   fi
 
   # Retention: keep the last N dailies, and Sunday archives for N weeks.
@@ -224,14 +239,17 @@ PYMANIFEST
   if command -v rclone >/dev/null 2>&1; then
     if rclone copy "$archive" "$REMOTE/$firm/" 2>>"$BACKUP_ROOT/rclone.log"; then
       log "  off-site: $REMOTE/$firm/"
+      write_status ok ok "$archive"
       rclone delete --min-age $((KEEP_WEEKLY * 7))d "$REMOTE/$firm/" 2>>"$BACKUP_ROOT/rclone.log" || true
     else
       log "  ERROR: off-site copy FAILED for $firm, see $BACKUP_ROOT/rclone.log"
       failures=$((failures + 1))
+      write_status ok failed "$archive"
     fi
   else
     log "  WARNING: rclone is not installed, this backup exists ONLY on the same disk as the data"
     failures=$((failures + 1))
+    write_status ok missing "$archive"
   fi
 done
 

@@ -1,0 +1,1 @@
+{% set _acct = account_banner() %}{% if _acct %}<div class="flash error account-banner" role="status" data-account-state="{{ _acct.state }}"><strong>{{ _acct.message }}</strong>{% if _acct.export_url %} <a href="{{ _acct.export_url }}">Export your data</a>{% endif %}</div>{% endif %}

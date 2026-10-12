@@ -573,9 +573,25 @@ def main(argv=None):
     if cmd == "known_schema":
         print_known_schema()
         return 0
+    # Every run records how it ended in data/job-heartbeats.json, including a failure to
+    # build the app, so /health/ready can report a cron job that stopped (app/heartbeat.py).
+    from .heartbeat import run_recorded
+    beat = {}
+    return run_recorded(cmd, lambda: _main(cmd, argv, beat), beat)
+
+
+def _main(cmd, argv, beat):
     from . import create_app
     app = create_app()
     with app.app_context():
+        # A suspended or closed account sends, charges and changes nothing (app/account_state.py).
+        from .account_state import cli_skip_reason
+        skip = cli_skip_reason(cmd, app.config)
+        if skip:
+            print(skip)
+            app.logger.warning(skip)
+            beat["note"] = skip
+            return 0
         if cmd == "backup":
             backup()
         elif cmd == "case_audit":
