@@ -7,7 +7,9 @@ instead.
 
 Everything below runs on the VPS as root. The scripts live in `ops/` in the repo. Copy the
 ones cron runs into `/home/deploy/scripts/` (the existing nightly backup is already there as
-`coil-backup.sh`), keeping `restore.sh` next to `restore-drill.sh`.
+`coil-backup.sh`), keeping `restore.sh` next to `restore-drill.sh`. `export-firm.sh` checks
+each export with the host's own Python, so copy `app/firm_export.py` and
+`app/backup_manifest.py` into the same directory as it (it imports the second).
 
 ## Account lifecycle policy
 
@@ -113,8 +115,10 @@ failed, read `data/cron.log`.
 
 ## The fleet monitor
 
-`ops/monitor.sh` checks every instance on the host (any app directory whose `data/` holds
-`practice.db`, the same rule the nightly backup uses):
+`ops/monitor.sh` checks every hosted firm on the host: app directories named `<slug>.coil.legal`
+whose `data/` holds `practice.db`. Stopped lab and recovery copies (`coil-phase1-lab` and the
+like) are skipped so they never alert; set `COIL_INSTANCE_GLOB` to widen it. The monthly
+restore drill's `--all` uses the same rule.
 
 | Check | Passes when |
 |---|---|

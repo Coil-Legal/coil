@@ -41,6 +41,10 @@ CONFIG="${COIL_MONITOR_CONFIG:-/etc/coil-monitor.env}"
 [ -f "$CONFIG" ] && . "$CONFIG"
 
 APPS_DIR="${COIL_APPS_DIR:-/home/deploy/apps}"
+# Hosted firms live at <slug>.coil.legal. Old lab and recovery copies (coil-phase1-lab and
+# the like) also hold a practice.db but are stopped on purpose; watching them would alert on
+# every run. Widen with COIL_INSTANCE_GLOB if instances are ever named differently.
+INSTANCE_GLOB="${COIL_INSTANCE_GLOB:-*.coil.legal}"
 BACKUP_ROOT="${COIL_BACKUP_ROOT:-/home/deploy/backups/coil}"
 STATE_DIR="${COIL_MONITOR_STATE_DIR:-/var/lib/coil-monitor}"
 BACKUP_MAX_HOURS="${COIL_MONITOR_BACKUP_MAX_HOURS:-26}"
@@ -84,7 +88,7 @@ age_text() {  # seconds -> "3h 20m"
 }
 
 found=0
-for dir in "$APPS_DIR"/*/; do
+for dir in "$APPS_DIR"/$INSTANCE_GLOB/; do
   [ -f "$dir/data/practice.db" ] || continue
   dir="${dir%/}"
   firm="$(basename "$dir")"

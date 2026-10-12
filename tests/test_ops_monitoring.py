@@ -108,7 +108,7 @@ def fleet(tmp_path):
         return d
 
     base_env = dict(os.environ, PATH=str(commands) + ":" + os.environ["PATH"], COIL_APPS_DIR=str(apps),
-                    COIL_BACKUP_ROOT=str(backups), COIL_MONITOR_STATE_DIR=str(tmp_path / "state"),
+                    COIL_BACKUP_ROOT=str(backups), COIL_MONITOR_STATE_DIR=str(tmp_path / "state"), COIL_INSTANCE_GLOB="*",
                     COIL_MONITOR_CONFIG=str(tmp_path / "absent.env"), FIXTURE_NOW=str(now),
                     FIXTURE_CALLS=str(calls), COIL_MONITOR_HOST="testhost",
                     COIL_ALERT_WEBHOOK="https://alerts.invalid/hook")
@@ -132,6 +132,18 @@ def fleet(tmp_path):
 
     return dict(run=run, add_firm=add_firm, calls=calls, webhooks=webhook_calls,
                 state=tmp_path / "state/state", tmp=tmp_path)
+
+
+def test_default_watches_hosted_firms_only(fleet):
+    # Stopped lab and recovery copies also hold a practice.db; by default only <slug>.coil.legal
+    # instances are watched, so those copies never alert.
+    fleet["add_firm"]("firm-a.coil.legal")
+    fleet["add_firm"]("coil-phase1-lab", archive_age_h=500, offsite="failed", drill="fail")
+    r = fleet["run"](COIL_INSTANCE_GLOB=None)
+    assert r.returncode == 0, r.stdout + r.stderr
+    state = fleet["state"].read_text()
+    assert "firm-a.coil.legal:ready ok" in state
+    assert "coil-phase1-lab" not in state + r.stdout + r.stderr
 
 
 def test_all_ok_first_run_sends_nothing_and_exits_0(fleet):
@@ -308,7 +320,7 @@ def drill(tmp_path):
     stub(commands, "docker", DOCKER_DRILL_STUB)
     calls = tmp_path / "calls"
     env = dict(os.environ, PATH=str(commands) + ":" + os.environ["PATH"], COIL_APPS_DIR=str(apps),
-               COIL_BACKUP_ROOT=str(backups), COIL_BASE_DOMAIN="coil.test", FIXTURE_CALLS=str(calls),
+               COIL_BACKUP_ROOT=str(backups), COIL_BASE_DOMAIN="coil.test", COIL_INSTANCE_GLOB="*", FIXTURE_CALLS=str(calls),
                COIL_DRILL_TMP=str(tmp_path / "drill-work"),
                FIXTURE_KNOWN=json.dumps({"matters": ["id", "name"], "contacts": ["id", "name"]}))
 

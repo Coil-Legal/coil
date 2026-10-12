@@ -31,6 +31,8 @@ set -uo pipefail
 
 BASE_DOMAIN="${COIL_BASE_DOMAIN:-coil.legal}"
 APPS_DIR="${COIL_APPS_DIR:-/home/deploy/apps}"
+# --all drills hosted firms only (<slug>.coil.legal), the same set ops/monitor.sh watches.
+INSTANCE_GLOB="${COIL_INSTANCE_GLOB:-*.coil.legal}"
 BACKUP_ROOT="${COIL_BACKUP_ROOT:-/home/deploy/backups/coil}"
 WORK_ROOT="${COIL_DRILL_TMP:-$BACKUP_ROOT/.drill-work}"
 SCHEMA_CHECK="${COIL_DRILL_SCHEMA_CHECK:-1}"
@@ -65,7 +67,7 @@ log() { echo "$(date -u '+%F %T') $*"; }
 
 FIRMS=()
 if [ "$ALL" = 1 ]; then
-  for d in "$BACKUP_ROOT"/*/; do
+  for d in "$BACKUP_ROOT"/$INSTANCE_GLOB/; do
     f="$(basename "$d")"
     case "$f" in .*) continue ;; esac
     ls "$d$f"-*.tar.gz >/dev/null 2>&1 && FIRMS+=("$f")
