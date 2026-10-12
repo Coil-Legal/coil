@@ -7,6 +7,7 @@ Available commands:
 - backup (new: creates dated backup of data/)
 - known_schema (prints the tables and columns this code knows, as JSON; used by ops/restore.sh)
 - voice_reminders, payment_plans, case_audit
+- export_firm [--out DIR] [--slug SLUG], verify_export <zip> (complete firm export; see app/firm_export.py)
 """
 import os
 import fcntl
@@ -544,7 +545,7 @@ def backup():
 # open invoice instead of printing usage.
 COMMANDS = ("agenda", "reminders", "interest", "emailin", "sequences", "webhooks",
             "monthly_invoicing", "backup", "case_audit", "payment_plans", "voice_reminders",
-            "known_schema")
+            "known_schema", "export_firm", "verify_export")
 
 
 def print_known_schema():
@@ -573,11 +574,17 @@ def main(argv=None):
     if cmd == "known_schema":
         print_known_schema()
         return 0
+    if cmd == "verify_export":  # standard library only, like the host copy in ops/export-firm.sh
+        from .firm_export import verify_main
+        return verify_main(argv[1:])
     from . import create_app
     app = create_app()
     with app.app_context():
         if cmd == "backup":
             backup()
+        elif cmd == "export_firm":
+            from .firm_export import export_firm_cli
+            return export_firm_cli(argv[1:])
         elif cmd == "case_audit":
             from .blueprints.caseaudit import AuditAlreadyRunning
             try:

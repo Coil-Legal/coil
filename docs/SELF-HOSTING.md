@@ -147,6 +147,56 @@ reject a fresh WAL-mode snapshot even when it is intact.
 
 Manual backup: `docker compose exec coil python -m app.cli backup`
 
+## Exporting all firm data
+
+A backup is for restoring Coil. An export is for handing a firm everything it has, in a form
+it can open without Coil: when a firm leaves, wants its own copy, or moves to its own server.
+
+The owner can download one from Settings, Export all firm data. From the command line:
+
+```bash
+docker compose exec -T coil python -m app.cli export_firm
+```
+
+That writes `coil-export-<firm>-<UTC time>.zip` to `data/exports/`, inside the mounted data
+folder, and never replaces an earlier export. `--out DIR` picks another folder. The zip holds:
+
+- `csv/`: one spreadsheet per database table, UTF-8 so Excel keeps accents, money in whole cents.
+- `database/practice.db`: an online-backup snapshot of the complete database.
+- `documents/`: every stored file, `index.csv` naming the record, matter and client each belongs
+  to, and `unlinked/` for files in storage that no record points to.
+- `customizations/customizations.json`: firm settings, invoice template, tool switches, templates,
+  court rules, custom field names, appearance and workflows.
+- `pdf/`, a `README.txt` written for the firm, and `manifest.json` with a sha256 for every file.
+
+The spreadsheets and the customizations file leave out password hashes, API keys and tokens,
+webhook secrets, integration credentials and the links sent to clients. `manifest.json` lists
+every column left out. The database file is kept whole so it restores, which means it holds
+hashed sign-in credentials and any keys saved in Settings. Store the export securely.
+
+Check an export with:
+
+```bash
+docker compose exec -T coil python -m app.cli verify_export data/exports/<file>.zip
+python3 -I app/firm_export.py verify <file>.zip     # anywhere, standard library only
+```
+
+It confirms every file is present and unchanged, the database passes SQLite's integrity check,
+and the row count of every table matches the manifest and its spreadsheet. It exits non-zero
+and names each problem otherwise.
+
+To restore an export into a self-hosted Coil, stop Coil and build a fresh data folder:
+`database/practice.db` becomes `data/practice.db`, the contents of `documents/files/` and
+`documents/unlinked/` go in `data/uploads/`, and the contents of `pdf/` go in `data/pdf/`. Use
+the Coil version named in `manifest.json` or newer, then make the checks described under
+"Restore into a fresh data directory" below before using it.
+
+Operators running many firms on one host use `ops/export-firm.sh <slug>`. It runs the export
+inside that firm's container, copies the zip to `/home/deploy/exports/<slug>/` (set
+`COIL_EXPORT_ROOT` to change it) with mode 0600, checks the copy with the host's python3 and
+prints its path. `--dry-run` shows what it would do. It removes nothing, and
+`ops/remove-firm.sh --purge` is still refused.
+
 ## Updating
 
 ```bash

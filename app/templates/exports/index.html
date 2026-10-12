@@ -1,5 +1,6 @@
 {% extends "base.html" %}{% block title %}Exports{% endblock %}{% block content %}
 <div class="topbar"><h1>Exports</h1></div>
+{% if current_user().role == 'owner' %}<div class="card"><p class="small" style="margin:0">Leaving Coil, or want a complete copy? <a href="/settings/export">Export all firm data</a> downloads every table, document and setting as one checked zip file.</p></div>{% endif %}
 <div class="grid c2">
 <div class="card"><h2>QuickBooks Online</h2>
   <table>

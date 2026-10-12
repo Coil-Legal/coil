@@ -64,6 +64,7 @@ def create_app(config=None):
                     "intake", "engagements", "messages", "settings", "exports", "signatures",
                     "rules", "doctemplates", "emailin", "accounting", "api", "webhooks_out", "ai",
                     "statements", "research", "pi", "features", "records", "discovery", "caseaudit",
+                    "offboarding",
                     "money", "criminal", "capture",
                     "importer", "voice", "feedback", "setupguide", "mcp_http", "oauth", "customization",):
         try:

@@ -1,0 +1,28 @@
+{% extends "base.html" %}{% block title %}Export all firm data{% endblock %}{% block content %}
+<div class="topbar"><h1>Export all firm data</h1><div class="actions" style="margin:0"><a class="btn small secondary" href="/settings">Settings</a><a class="btn small secondary" href="/exports">Spreadsheet exports</a></div></div>
+{% if error %}<div class="flash error" role="alert">{{ error }}</div>{% endif %}
+<div class="card">
+  <p style="margin-top:0">Download one zip file with everything your firm keeps in Coil. Use it to keep your own copy, to move to another system, or to run Coil yourself.</p>
+  <ul class="small">
+    <li>Every table as a spreadsheet (CSV) that opens in Excel.</li>
+    <li>The complete database, which restores into a self-hosted Coil.</li>
+    <li>Every uploaded document, with an index of which matter and client each belongs to.</li>
+    <li>Your settings and customizations: invoice template, tools, matter and letter templates, appearance and workflows.</li>
+    <li>Generated PDFs, a README that explains each folder, and a manifest with a fingerprint for every file.</li>
+  </ul>
+  <p class="small">Coil checks the file before you get it: every file present and unchanged, the database intact, and the row counts matching. A firm with many documents can take a few minutes. Keep this page open until the download starts.</p>
+  <p class="small"><strong>Store the file securely.</strong> It holds confidential client information. The spreadsheets leave out passwords, keys and client links, but the database file is kept whole, so it contains everyone's sign-in credentials in hashed form and any integration keys saved in Settings.</p>
+  <form method="post" action="/settings/export">{{ csrf() }}
+    <div class="actions"><button class="btn">Download all firm data</button></div>
+  </form>
+</div>
+<div class="card">
+  <h2 style="font-size:1rem;margin-top:0">Recent exports</h2>
+  {% if recent %}
+  <table>
+    <tr><th>When</th><th>Who</th><th>File</th></tr>
+    {% for a in recent %}<tr><td class="nowrap">{{ a.created_at|dt }}</td><td>{{ a.user.name if a.user else 'Command line' }}</td><td class="small">{{ a.detail }}</td></tr>{% endfor %}
+  </table>
+  {% else %}<p class="empty small">No full exports yet.</p>{% endif %}
+</div>
+{% endblock %}

@@ -24,6 +24,7 @@ if [ "$#" -eq 2 ]; then
     echo "unknown option: $2" >&2; exit 2
   fi
   echo "REFUSING purge: verified export, restore integrity and retention approval are required. No changes made." >&2
+  echo "ops/export-firm.sh $SLUG builds and verifies the firm's complete export; it does not remove anything." >&2
   exit 1
 fi
 DOMAIN="$SLUG.$BASE_DOMAIN"; DIR="$APPS_DIR/$DOMAIN"
