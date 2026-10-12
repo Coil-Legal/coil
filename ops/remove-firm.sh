@@ -3,10 +3,8 @@
 #
 #   ops/remove-firm.sh <slug> [--purge]
 #
-# Without --purge the app directory is KEPT, so the firm's data survives and the
-# instance can be brought back with `docker compose up -d`. --purge deletes it, and
-# takes a final backup first because deleting a law firm's file by accident is
-# unrecoverable.
+# The app directory is always retained. Purge is refused until a separately
+# reviewed process verifies a complete export, restore integrity and retention.
 set -euo pipefail
 
 BASE_DOMAIN="${COIL_BASE_DOMAIN:-coil.legal}"
@@ -14,9 +12,20 @@ ZONE_ID="${COIL_ZONE_ID:-6ba7ed6eec107adbde335ed1c299d8e6}"
 APPS_DIR="${COIL_APPS_DIR:-/home/deploy/apps}"
 CF_TOKEN_FILE="${COIL_CF_TOKEN_FILE:-/root/.cloudflare-token}"
 
-SLUG="${1:-}"; PURGE=0
-[ "${2:-}" = "--purge" ] && PURGE=1
-[ -n "$SLUG" ] || { echo "usage: remove-firm.sh <slug> [--purge]" >&2; exit 2; }
+SLUG="${1:-}"
+if [ "$#" -lt 1 ] || [ "$#" -gt 2 ]; then
+  echo "usage: remove-firm.sh <slug> [--purge]" >&2; exit 2
+fi
+case "$SLUG" in
+  ""|*[!a-z0-9-]*|-*|*-) echo "slug must be lowercase letters, digits and inner hyphens only" >&2; exit 2 ;;
+esac
+if [ "$#" -eq 2 ]; then
+  if [ "$2" != "--purge" ]; then
+    echo "unknown option: $2" >&2; exit 2
+  fi
+  echo "REFUSING purge: verified export, restore integrity and retention approval are required. No changes made." >&2
+  exit 1
+fi
 DOMAIN="$SLUG.$BASE_DOMAIN"; DIR="$APPS_DIR/$DOMAIN"
 
 echo "Removing $DOMAIN"
@@ -46,24 +55,5 @@ else
   echo "  no Cloudflare token on this host, leaving DNS alone (the wildcard needs no per-firm record)"
 fi
 
-if [ "$PURGE" = 1 ] && [ -d "$DIR" ]; then
-  # A final snapshot needs a running container, and we have just stopped it, so this
-  # usually fails and that is fine: what matters is that SOME backup exists before the
-  # data is deleted. If none does, refuse and leave the directory alone.
-  echo "  attempting a final backup"
-  if /home/deploy/scripts/coil-backup.sh >/dev/null 2>&1; then
-    echo "  final backup taken"
-  else
-    echo "  final backup not possible (the container is stopped), falling back to existing backups"
-  fi
-  COUNT="$(ls -1 "/home/deploy/backups/coil/$DOMAIN"/*.tar.gz 2>/dev/null | wc -l | tr -d ' ')"
-  if [ "${COUNT:-0}" -gt 0 ]; then
-    rm -rf "$DIR"
-    echo "  directory deleted. $COUNT backup(s) kept in /home/deploy/backups/coil/$DOMAIN"
-  else
-    echo "  REFUSING to delete $DIR: no backup of this firm exists" >&2; exit 1
-  fi
-else
-  [ -d "$DIR" ] && echo "  directory KEPT at $DIR (use --purge to delete)"
-fi
+[ -d "$DIR" ] && echo "  directory KEPT at $DIR"
 echo "Done."
