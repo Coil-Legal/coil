@@ -242,6 +242,77 @@ def test_email_channel_uses_mail(fleet):
     assert len(mail) == 1 and "ops@example.test" in mail[0] and f"FAIL {FIRM}:ready" in mail[0]
 
 
+def _fake_smtp_relay():
+    """A one-message SMTP relay on localhost, enough for smtplib without STARTTLS."""
+    import socket
+    import threading
+    srv = socket.socket()
+    srv.bind(("127.0.0.1", 0))
+    srv.listen(1)
+    got = {"lines": [], "auth": None}
+
+    def serve():
+        conn, _ = srv.accept()
+        f = conn.makefile("rwb")
+
+        def say(text):
+            f.write(text.encode() + b"\r\n")
+            f.flush()
+        say("220 fake")
+        data = False
+        while True:
+            line = f.readline()
+            if not line:
+                break
+            text = line.decode().rstrip("\r\n")
+            if data:
+                if text == ".":
+                    data = False
+                    say("250 queued")
+                else:
+                    got["lines"].append(text)
+                continue
+            cmd = text.split(" ")[0].upper()
+            if cmd == "EHLO":
+                say("250-fake")
+                say("250 AUTH PLAIN")
+            elif cmd == "AUTH":
+                got["auth"] = text
+                say("235 ok")
+            elif cmd == "DATA":
+                data = True
+                say("354 go")
+            elif cmd == "QUIT":
+                say("221 bye")
+                break
+            else:
+                say("250 ok")
+        conn.close()
+        srv.close()
+
+    threading.Thread(target=serve, daemon=True).start()
+    return srv.getsockname()[1], got
+
+
+def test_email_channel_smtp_with_subject_prefix(fleet):
+    # The VPS has no mail or sendmail, so alerts go straight to an SMTP account. The subject
+    # starts with the configured prefix, and the password never appears on a command line.
+    port, got = _fake_smtp_relay()
+    fleet["add_firm"]()
+    r = fleet["run"](COIL_ALERT_WEBHOOK=None, COIL_ALERT_EMAIL="ops@example.test",
+                     COIL_ALERT_SMTP_HOST="127.0.0.1", COIL_ALERT_SMTP_PORT=str(port),
+                     COIL_ALERT_SMTP_STARTTLS="0", COIL_ALERT_SMTP_USER="alerts@example.test",
+                     COIL_ALERT_SMTP_PASS="synthetic-not-a-secret",
+                     COIL_ALERT_SUBJECT_PREFIX="Coil Alerts Test", FIXTURE_READY_CODE="503")
+    assert r.returncode == 1, r.stdout + r.stderr
+    assert "alert mailed to ops@example.test through 127.0.0.1" in r.stdout + r.stderr
+    message = "\n".join(got["lines"])
+    assert "Subject: Coil Alerts Test on " in message
+    assert f"FAIL {FIRM}:ready" in message
+    assert got["auth"] is not None
+    assert not any(line.startswith("MAIL ") for line in fleet["calls"].read_text().splitlines())
+
+
 def test_dry_run_sends_and_remembers_nothing(fleet):
     fleet["add_firm"]()
     r = fleet["run"]("--dry-run", FIXTURE_READY_CODE="503")

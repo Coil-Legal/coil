@@ -137,8 +137,17 @@ Set the alert channel in `/etc/coil-monitor.env` (root only, `chmod 600`):
 
 ```
 COIL_ALERT_WEBHOOK=https://...        # receives a JSON POST: {"text", "source", "host", "changes"}
-COIL_ALERT_EMAIL=ops@example.com      # sent with the host's mail or sendmail
+COIL_ALERT_EMAIL=ops@example.com      # sent through the SMTP account below, else mail or sendmail
+COIL_ALERT_SMTP_HOST=smtp.gmail.com   # this VPS has no mail program, so alerts go out by SMTP
+COIL_ALERT_SMTP_PORT=587
+COIL_ALERT_SMTP_USER=...
+COIL_ALERT_SMTP_PASS=...              # an app password; root-only file
+COIL_ALERT_SMTP_FROM=...
+COIL_ALERT_SUBJECT_PREFIX="Coil monitor"
 ```
+
+On idcprojects the alerts go to ian@iandolan.com through the same Gmail account the coil.legal
+site sends from, with subjects starting "Coil Alerts Test" while the monitor is being proven.
 
 Either or both. Point the webhook at whatever already receives this host's alerts. With
 neither set the monitor still checks and logs, prints `NO ALERT CHANNEL CONFIGURED` on every

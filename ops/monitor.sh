@@ -27,8 +27,11 @@
 #
 # Alert channels, either or both, usually set in /etc/coil-monitor.env:
 #   COIL_ALERT_WEBHOOK=https://...   POSTed JSON: {"text", "host", "changes": [...]}
-#   COIL_ALERT_EMAIL=ops@example.com sent with the host's `mail`, or `sendmail` if that is
-#                                    what is installed
+#   COIL_ALERT_EMAIL=ops@example.com sent through COIL_ALERT_SMTP_HOST when that is set
+#                                    (STARTTLS, COIL_ALERT_SMTP_PORT default 587, with
+#                                    COIL_ALERT_SMTP_USER / _PASS / _FROM), otherwise with the
+#                                    host's `mail`, or `sendmail` if that is what is installed
+#   COIL_ALERT_SUBJECT_PREFIX         start of every alert subject (default "Coil monitor")
 # With neither set it still checks and logs, says loudly that nothing can be alerted,
 # and exits 3.
 #
@@ -54,6 +57,8 @@ DISK_MIN_PERCENT="${COIL_MONITOR_DISK_MIN_PERCENT:-10}"
 DISK_MIN_MB="${COIL_MONITOR_DISK_MIN_MB:-2048}"
 WEBHOOK="${COIL_ALERT_WEBHOOK:-}"
 EMAIL="${COIL_ALERT_EMAIL:-}"
+SMTP_HOST="${COIL_ALERT_SMTP_HOST:-}"
+SUBJECT_PREFIX="${COIL_ALERT_SUBJECT_PREFIX:-Coil monitor}"
 HOST_LABEL="${COIL_MONITOR_HOST:-$(hostname 2>/dev/null || echo host)}"
 
 DRY_RUN=0
@@ -225,7 +230,7 @@ if [ "$nchanges" = 0 ]; then
   final
 fi
 
-subject="Coil monitor on $HOST_LABEL: $(grep -c '^FAIL' "$CHANGES" || true) new failure(s), $(grep -c '^RECOVERED' "$CHANGES" || true) recovered"
+subject="$SUBJECT_PREFIX on $HOST_LABEL: $(grep -c '^FAIL' "$CHANGES" || true) new failure(s), $(grep -c '^RECOVERED' "$CHANGES" || true) recovered"
 MESSAGE="$WORK/message"
 {
   echo "$subject"
@@ -274,7 +279,29 @@ PYJSON
   fi
 fi
 if [ -n "$EMAIL" ]; then
-  if command -v mail >/dev/null 2>&1; then
+  if [ -n "$SMTP_HOST" ]; then
+    # Straight to an SMTP account, for hosts with no local mail program. The password goes
+    # through the environment, never the command line, so it never shows in `ps`.
+    export COIL_ALERT_SMTP_HOST COIL_ALERT_SMTP_PORT COIL_ALERT_SMTP_USER COIL_ALERT_SMTP_PASS \
+           COIL_ALERT_SMTP_FROM COIL_ALERT_SMTP_STARTTLS
+    if COIL_SUBJECT="$subject" COIL_TO="$EMAIL" python3 - "$MESSAGE" <<'PYSMTP'
+import os, smtplib, ssl, sys
+from email.message import EmailMessage
+msg = EmailMessage()
+msg["Subject"] = os.environ["COIL_SUBJECT"]
+msg["To"] = os.environ["COIL_TO"]
+msg["From"] = os.environ.get("COIL_ALERT_SMTP_FROM") or os.environ.get("COIL_ALERT_SMTP_USER") or os.environ["COIL_TO"]
+msg.set_content(open(sys.argv[1], encoding="utf-8").read())
+with smtplib.SMTP(os.environ["COIL_ALERT_SMTP_HOST"], int(os.environ.get("COIL_ALERT_SMTP_PORT") or 587), timeout=20) as s:
+    if os.environ.get("COIL_ALERT_SMTP_STARTTLS", "1") != "0":  # 0 only for a local test relay
+        s.starttls(context=ssl.create_default_context())
+    if os.environ.get("COIL_ALERT_SMTP_USER"):
+        s.login(os.environ["COIL_ALERT_SMTP_USER"], os.environ.get("COIL_ALERT_SMTP_PASS", ""))
+    s.send_message(msg)
+PYSMTP
+    then delivered=$((delivered + 1)); log "alert mailed to $EMAIL through $SMTP_HOST"
+    else log "ERROR: SMTP through $SMTP_HOST could not send the alert to $EMAIL"; fi
+  elif command -v mail >/dev/null 2>&1; then
     if mail -s "$subject" "$EMAIL" < "$MESSAGE"; then delivered=$((delivered + 1)); log "alert mailed to $EMAIL"
     else log "ERROR: mail could not send the alert to $EMAIL"; fi
   elif SENDMAIL="$(command -v sendmail 2>/dev/null || ls /usr/sbin/sendmail 2>/dev/null)" && [ -n "$SENDMAIL" ]; then
