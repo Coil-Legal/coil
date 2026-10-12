@@ -904,6 +904,16 @@ def _sha_member(zf, name):
 
 
 def _csv_rows(zf, name):
+    # SQLite text can exceed csv's default 128 KiB field limit. All export
+    # readers use the same ceiling without restoring a smaller global limit
+    # underneath another thread. Accommodate platforms with a narrower C long.
+    limit = sys.maxsize
+    while True:
+        try:
+            csv.field_size_limit(limit)
+            break
+        except OverflowError:
+            limit //= 10
     with zf.open(name) as raw:
         text = io.TextIOWrapper(raw, encoding="utf-8-sig", newline="")
         reader = csv.reader(text)

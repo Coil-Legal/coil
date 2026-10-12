@@ -544,3 +544,37 @@ def test_every_other_role_is_refused(env, role):
 def test_anonymous_is_sent_to_sign_in(env):
     r = env["app"].test_client().get("/settings/export")
     assert r.status_code == 302 and "/login" in r.headers["Location"]
+
+
+def test_owner_exports_large_retained_text_field(env, owner, tmp_path):
+    """Long retained records must not prevent the owner taking a complete export."""
+    from app.extensions import db
+    from app.models import Contact
+    payload = "QA long retained note " * 15000
+    with env["app"].app_context():
+        record = Contact(first_name="QA Export Large Field", notes=payload)
+        db.session.add(record)
+        db.session.commit()
+        record_id = record.id
+    previous_limit = csv.field_size_limit()
+    try:
+        csv.field_size_limit(131072)
+        response = owner.post("/settings/export", data={"_csrf": owner._csrf})
+        assert response.status_code == 200, response.data[:1000]
+        saved = tmp_path / "large-field.zip"
+        saved.write_bytes(response.data)
+        from app.firm_export import verify_export
+        assert verify_export(saved)[0]
+        # The standalone host verifier starts with Python's default CSV limit too.
+        verified = subprocess.run(
+            [sys.executable, str(ROOT / "app/firm_export.py"), "verify", str(saved)],
+            capture_output=True, text=True,
+        )
+        assert verified.returncode == 0, verified.stdout
+        with zipfile.ZipFile(saved) as archive:
+            assert payload.encode() in archive.read("csv/contacts.csv")
+    finally:
+        csv.field_size_limit(previous_limit)
+        with env["app"].app_context():
+            db.session.delete(db.session.get(Contact, record_id))
+            db.session.commit()
