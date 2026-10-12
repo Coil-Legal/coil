@@ -27,6 +27,7 @@
     {% endif %}
   </nav>
   <main class="main">
+    {% include "account/_banner.html" %}
     {% with msgs = get_flashed_messages(with_categories=true) %}
       {% for cat, m in msgs %}<div class="flash {{ cat }}" role="{{ 'alert' if cat == 'error' else 'status' }}">{{ m }}</div>{% endfor %}
     {% endwith %}

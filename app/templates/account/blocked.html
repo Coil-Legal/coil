@@ -1,0 +1,15 @@
+{% extends "public.html" %}
+{% block title %}{{ 'Account paused' if state == 'suspended' else 'Account closed' }}{% endblock %}
+{% block content %}
+<div class="card" data-account-state="{{ state }}">
+  <h1>{{ 'This account is paused' if state == 'suspended' else 'This account is closed' }}</h1>
+  <p>{{ message }}</p>
+  {% if state == 'suspended' %}<p>Nothing was saved. You can still open every page and read your records.</p>{% endif %}
+  <p class="actions">
+    {% if export_url %}<a class="btn" href="{{ export_url }}">Export your data</a>{% endif %}
+    {% if state == 'suspended' %}<a class="btn secondary" href="/">Back to the dashboard</a>{% endif %}
+    {% if not signed_in %}<a class="btn secondary" href="/login">Sign in</a>{% endif %}
+  </p>
+  {% if signed_in %}<form method="post" action="/logout" class="inline">{{ csrf() }}<button class="btn small secondary">Log out</button></form>{% endif %}
+</div>
+{% endblock %}

@@ -31,6 +31,7 @@ def create_app(config=None):
     app.before_request(check_csrf)
     from .permissions import enforce; app.before_request(enforce)
     from .tools import guard as tools_guard; app.before_request(tools_guard)
+    from . import account_state; account_state.init_app(app)  # C08 lifecycle: active, suspended, closed
 
     # Add security headers in production
     @app.after_request
@@ -108,6 +109,9 @@ def create_app(config=None):
             "commit": app.config.get("COIL_COMMIT", "unknown"),
             "channel": app.config.get("COIL_CHANNEL", "unknown"),
         }, 200
+
+    # /health/ready checks the database, data dir, disk and cron heartbeats; see app/readiness.py.
+    from .readiness import bp as readiness_bp; app.register_blueprint(readiness_bp)
 
     return app
 

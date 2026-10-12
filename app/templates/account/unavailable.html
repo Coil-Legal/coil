@@ -1,0 +1,15 @@
+{% extends "public.html" %}
+{% block title %}{{ 'Temporarily unavailable' if state == 'suspended' else 'No longer available' }}{% endblock %}
+{% block content %}
+<div class="card" data-account-state="{{ state }}">
+  {% if state == 'suspended' %}
+  <h1>Temporarily unavailable</h1>
+  <p>This page is not available right now. Nothing was charged, signed or sent.</p>
+  <p>Please try again later, or contact {{ firm().name or 'the firm' }} directly{% if firm().phone %} at {{ firm().phone }}{% endif %}.</p>
+  {% else %}
+  <h1>No longer available</h1>
+  <p>This page is no longer available. Nothing was charged, signed or sent.</p>
+  <p>Please contact {{ firm().name or 'the firm' }} directly{% if firm().phone %} at {{ firm().phone }}{% endif %}.</p>
+  {% endif %}
+</div>
+{% endblock %}
