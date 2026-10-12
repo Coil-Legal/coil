@@ -20,7 +20,10 @@ EXPORT_ROOT="${COIL_EXPORT_ROOT:-/home/deploy/exports}"
 SERVICE="${COIL_SERVICE:-web}"
 PYTHON="${COIL_PYTHON:-python3}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-VERIFIER="$SCRIPT_DIR/../app/firm_export.py"
+# In the repo the verifier is ../app/firm_export.py. Installed on the host it sits next to this
+# script (/home/deploy/scripts/firm_export.py), so look there first.
+VERIFIER="${COIL_EXPORT_VERIFIER:-$SCRIPT_DIR/firm_export.py}"
+[ -f "$VERIFIER" ] || VERIFIER="$SCRIPT_DIR/../app/firm_export.py"
 
 usage() { echo "usage: export-firm.sh <slug> [--dry-run]" >&2; exit 2; }
 [ "$#" -ge 1 ] && [ "$#" -le 2 ] || usage
